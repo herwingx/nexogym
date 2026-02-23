@@ -3,9 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 // -------------------------------------------------------------
@@ -15,7 +13,7 @@ datasource db {
 enum SubscriptionTier {
   BASIC
   PRO_QR
-  PREMIUM
+  PREMIUM_BIO
 }
 
 enum Role {
@@ -29,11 +27,29 @@ enum SubscriptionStatus {
   ACTIVE
   EXPIRED
   CANCELED
+  FROZEN
 }
 
 enum ShiftStatus {
   OPEN
   CLOSED
+}
+
+enum AccessMethod {
+  MANUAL
+  QR
+  BIOMETRIC
+}
+
+enum AccessType {
+  REGULAR
+  COURTESY
+}
+
+enum TransactionType {
+  RESTOCK
+  LOSS
+  SALE
 }
 
 // -------------------------------------------------------------
@@ -43,18 +59,22 @@ enum ShiftStatus {
 model Gym {
   id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name              String
-  theme_colors      Json?            // Configuración de Theme/White-Labeling (ej. {"primary": "#ff0000"})
+  theme_colors      Json? // Configuración de Theme/White-Labeling (ej. {"primary": "#ff0000"})
   subscription_tier SubscriptionTier @default(BASIC)
-  rewards_config    Json?            // Portal de Gamificación: Reglas y recompensas
+  rewards_config    Json? // Portal de Gamificación: Reglas y recompensas
+  api_key_hardware  String?          @unique // Sprint B9 hardware auth
 
   // Relaciones inversas
-  users             User[]
-  subscriptions     Subscription[]
-  visits            Visit[]
-  products          Product[]
-  sales             Sale[]
-  sale_items        SaleItem[]
-  cash_shifts       CashShift[]
+  users                  User[]
+  subscriptions          Subscription[]
+  visits                 Visit[]
+  products               Product[]
+  inventory_transactions InventoryTransaction[]
+  sales                  Sale[]
+  sale_items             SaleItem[]
+  cash_shifts            CashShift[]
+  expenses               Expense[]
+  audit_logs             AuditLog[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -63,35 +83,39 @@ model Gym {
 model User {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   gym_id         String    @db.Uuid
+  name           String?
   phone          String?
-  pin_hash       String?   // Control de Acceso Manual / Biométrico
+  pin_hash       String? // Control de Acceso Manual / Biométrico
   role           Role      @default(MEMBER)
   current_streak Int       @default(0) // Gamificación
   last_visit_at  DateTime?
+  deleted_at     DateTime? // Soft delete — NUNCA usar prisma.user.delete()
 
   // Relaciones
-  gym            Gym       @relation(fields: [gym_id], references: [id], onDelete: Cascade)
-  subscriptions  Subscription[]
-  visits         Visit[]
-  cash_shifts    CashShift[]
+  gym           Gym            @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+  visits        Visit[]
+  cash_shifts   CashShift[]
+  audit_logs    AuditLog[]
 
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@unique([gym_id, phone]) // El teléfono es único por gimnasio
-  @@index([gym_id])         // Índice obligatorio por Multitenancy
+  @@index([gym_id]) // Índice obligatorio por Multitenancy
 }
 
 model Subscription {
-  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id     String             @db.Uuid
-  user_id    String             @db.Uuid
-  status     SubscriptionStatus @default(ACTIVE)
-  expires_at DateTime
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id           String             @db.Uuid
+  user_id          String             @db.Uuid
+  status           SubscriptionStatus @default(ACTIVE)
+  expires_at       DateTime
+  frozen_days_left Int? // Días restantes guardados al congelar la membresía
 
   // Relaciones
-  gym        Gym  @relation(fields: [gym_id], references: [id], onDelete: Cascade)
-  user       User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  gym  Gym  @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -101,65 +125,90 @@ model Subscription {
 }
 
 model Visit {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id        String   @db.Uuid
-  user_id       String   @db.Uuid
-  check_in_time DateTime @default(now())
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id        String       @db.Uuid
+  user_id       String       @db.Uuid
+  check_in_time DateTime     @default(now())
+  access_method AccessMethod @default(MANUAL)
+  access_type   AccessType   @default(REGULAR)
 
   // Relaciones
-  gym           Gym  @relation(fields: [gym_id], references: [id], onDelete: Cascade)
-  user          User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  gym  Gym  @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([gym_id]) // Índice obligatorio por Multitenancy
   @@index([user_id])
 }
 
 model Product {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id     String   @db.Uuid
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id     String    @db.Uuid
   barcode    String?
   name       String
-  price      Decimal  @db.Decimal(10, 2)
-  stock      Int      @default(0)
+  price      Decimal   @db.Decimal(10, 2)
+  stock      Int       @default(0)
+  deleted_at DateTime? // Soft delete — NUNCA usar prisma.product.delete()
 
   // Relaciones
-  gym        Gym        @relation(fields: [gym_id], references: [id], onDelete: Cascade)
-  sale_items SaleItem[]
+  gym                    Gym                    @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  sale_items             SaleItem[]
+  inventory_transactions InventoryTransaction[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@unique([gym_id, barcode]) // El código de barras es único por gimnasio
-  @@index([gym_id])           // Índice obligatorio por Multitenancy
-}
-
-model Sale {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id     String   @db.Uuid
-  total      Decimal  @db.Decimal(10, 2)
-  created_at DateTime @default(now())
-
-  // Relaciones
-  gym        Gym        @relation(fields: [gym_id], references: [id], onDelete: Cascade)
-  items      SaleItem[]
-
   @@index([gym_id]) // Índice obligatorio por Multitenancy
 }
 
-model SaleItem {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id     String   @db.Uuid     // Estricto multitenancy: incluido incluso en tabla pivote
-  sale_id    String   @db.Uuid
-  product_id String   @db.Uuid
+model InventoryTransaction {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id     String          @db.Uuid
+  product_id String          @db.Uuid
+  type       TransactionType
   quantity   Int
-  price      Decimal  @db.Decimal(10, 2) // Precio al que se vendió en ese momento
+  reason     String? // Obligatorio para LOSS; opcional para RESTOCK/SALE
 
   // Relaciones
-  gym        Gym      @relation(fields: [gym_id], references: [id], onDelete: Cascade)
-  sale       Sale     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
-  product    Product  @relation(fields: [product_id], references: [id])
+  gym     Gym     @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id])
 
-  @@index([gym_id])  // Índice obligatorio por Multitenancy
+  created_at DateTime @default(now())
+
+  @@index([gym_id]) // Índice obligatorio por Multitenancy
+  @@index([product_id])
+}
+
+model Sale {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id        String   @db.Uuid
+  cash_shift_id String?  @db.Uuid // Vinculado al turno activo
+  total         Decimal  @db.Decimal(10, 2)
+  created_at    DateTime @default(now())
+
+  // Relaciones
+  gym        Gym        @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  cash_shift CashShift? @relation(fields: [cash_shift_id], references: [id])
+  items      SaleItem[]
+
+  @@index([gym_id]) // Índice obligatorio por Multitenancy
+  @@index([cash_shift_id])
+}
+
+model SaleItem {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id     String  @db.Uuid // Estricto multitenancy: incluido incluso en tabla pivote
+  sale_id    String  @db.Uuid
+  product_id String  @db.Uuid
+  quantity   Int
+  price      Decimal @db.Decimal(10, 2) // Precio histórico al momento de la venta
+
+  // Relaciones
+  gym     Gym     @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  sale    Sale    @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id])
+
+  @@index([gym_id]) // Índice obligatorio por Multitenancy
   @@index([sale_id])
 }
 
@@ -175,8 +224,44 @@ model CashShift {
   status           ShiftStatus @default(OPEN)
 
   // Relaciones
-  gym              Gym   @relation(fields: [gym_id], references: [id], onDelete: Cascade)
-  user             User  @relation(fields: [user_id], references: [id])
+  gym      Gym       @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [user_id], references: [id])
+  sales    Sale[]
+  expenses Expense[]
+
+  @@index([gym_id]) // Índice obligatorio por Multitenancy
+  @@index([user_id])
+}
+
+model Expense {
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id        String  @db.Uuid
+  cash_shift_id String  @db.Uuid
+  amount        Decimal @db.Decimal(10, 2)
+  description   String // Ej: "Pago de garrafones", "Compra de insumos"
+
+  // Relaciones
+  gym        Gym       @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  cash_shift CashShift @relation(fields: [cash_shift_id], references: [id])
+
+  created_at DateTime @default(now())
+
+  @@index([gym_id]) // Índice obligatorio por Multitenancy
+  @@index([cash_shift_id])
+}
+
+model AuditLog {
+  id      String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id  String  @db.Uuid
+  user_id String  @db.Uuid
+  action  String // E.g: "COURTESY_ACCESS", "INVENTORY_LOSS", "SHIFT_CLOSE"
+  details Json? // Payload flexible para almacenar contexto del evento
+
+  // Relaciones
+  gym  Gym  @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id])
+
+  created_at DateTime @default(now())
 
   @@index([gym_id]) // Índice obligatorio por Multitenancy
   @@index([user_id])
