@@ -5,6 +5,7 @@ import { sendRewardMessage } from '../services/n8n.service';
 import { logAuditEvent } from '../utils/audit.logger';
 import { checkinSchema } from '../schemas/checkin.schema';
 import { handleControllerError } from '../utils/http';
+import { resolveModulesConfig } from '../utils/modules-config';
 
 export const processCheckin = async (req: Request, res: Response) => {
   try {
@@ -21,7 +22,7 @@ export const processCheckin = async (req: Request, res: Response) => {
       return;
     }
 
-    const { userId } = validation.data;
+    const { userId, accessMethod = AccessMethod.MANUAL } = validation.data;
 
     // 1. Validate Active Subscription
     const subscription = await prisma.subscription.findFirst({
@@ -81,33 +82,47 @@ export const processCheckin = async (req: Request, res: Response) => {
       return;
     }
 
+    const modulesConfig = resolveModulesConfig(
+      gym.modules_config,
+      gym.subscription_tier,
+    );
+
+    if (accessMethod === AccessMethod.QR && !modulesConfig.qr_access) {
+      res.status(403).json({ error: 'Feature disabled for current subscription: qr_access' });
+      return;
+    }
+
+    const gamificationEnabled = modulesConfig.gamification;
+
     // 3. Gamification Logic (Streak calculation)
     const todayStr = now.toISOString().split('T')[0];
     const todayStart = new Date(todayStr);
 
     let newStreak = user.current_streak;
 
-    if (user.last_visit_at) {
-      const lastVisitStr = user.last_visit_at.toISOString().split('T')[0];
-      const lastVisitStart = new Date(lastVisitStr);
+    if (gamificationEnabled) {
+      if (user.last_visit_at) {
+        const lastVisitStr = user.last_visit_at.toISOString().split('T')[0];
+        const lastVisitStart = new Date(lastVisitStr);
 
-      const diffTime = Math.abs(todayStart.getTime() - lastVisitStart.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diffTime = Math.abs(todayStart.getTime() - lastVisitStart.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      if (diffDays === 1) {
-        newStreak += 1;
-      } else if (diffDays > 1) {
+        if (diffDays === 1) {
+          newStreak += 1;
+        } else if (diffDays > 1) {
+          newStreak = 1;
+        }
+      } else {
         newStreak = 1;
       }
-    } else {
-      newStreak = 1;
     }
 
     // 4. Evaluate Reward
     let rewardUnlocked = false;
     let rewardMessage = null;
 
-    if (gym.rewards_config && typeof gym.rewards_config === 'object') {
+    if (gamificationEnabled && gym.rewards_config && typeof gym.rewards_config === 'object') {
       const config = gym.rewards_config as Record<string, any>;
       if (config[newStreak.toString()]) {
         rewardUnlocked = true;
@@ -120,7 +135,7 @@ export const processCheckin = async (req: Request, res: Response) => {
       prisma.user.update({
         where: { id: userId },
         data: {
-          current_streak: newStreak,
+          ...(gamificationEnabled && { current_streak: newStreak }),
           last_visit_at: now,
         },
       }),
@@ -129,14 +144,14 @@ export const processCheckin = async (req: Request, res: Response) => {
           gym_id: gymId,
           user_id: userId,
           check_in_time: now,
-          access_method: AccessMethod.MANUAL,
+          access_method: accessMethod,
           access_type: AccessType.REGULAR,
         },
       }),
     ]);
 
     if (rewardUnlocked && user.phone) {
-      sendRewardMessage(user.phone, String(rewardMessage), newStreak).catch((err) => {
+      sendRewardMessage(gymId, user.phone, String(rewardMessage), newStreak, accessMethod).catch((err) => {
         req.log?.error({ err }, '[processCheckin RewardWebhook Error]');
       });
     }
@@ -149,7 +164,7 @@ export const processCheckin = async (req: Request, res: Response) => {
         name: user.name,
         profile_picture_url: user.profile_picture_url,
       },
-      message: rewardUnlocked ? `¡Premio desbloqueado: ${rewardMessage}!` : '¡De vuelta al ruedo!',
+      message: rewardUnlocked ? `¡Premio desbloqueado: ${rewardMessage}!` : '¡Acceso registrado correctamente!',
     });
   } catch (error) {
     handleControllerError(req, res, error, '[processCheckin Error]', 'Failed to process check-in.');

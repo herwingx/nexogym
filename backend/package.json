@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "audit:high": "npm audit --audit-level=high"
+    "audit:high": "npm audit --audit-level=high",
+    "db:enforce-modules": "prisma db execute --file prisma/sql/enforce_modules_config_by_tier.sql"
   },
   "keywords": [],
   "author": "",

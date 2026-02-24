@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processCheckin } from './checkin.controller';
 import { prisma } from '../db';
-import { SubscriptionStatus } from '@prisma/client';
+import { sendRewardMessage } from '../services/n8n.service';
+import { AccessMethod, SubscriptionStatus } from '@prisma/client';
 
 // Mock the prisma client
 vi.mock('../db', () => ({
@@ -61,7 +62,12 @@ describe('Checkin Controller - Gamification Engine', () => {
     });
 
     // 3. Mock gym
-    (prisma.gym.findUnique as any).mockResolvedValue({ id: gymId, rewards_config: {} });
+    (prisma.gym.findUnique as any).mockResolvedValue({
+      id: gymId,
+      subscription_tier: 'PRO_QR',
+      modules_config: { gamification: true, qr_access: true },
+      rewards_config: {},
+    });
 
     await processCheckin(mockReq, mockRes);
 
@@ -94,7 +100,12 @@ describe('Checkin Controller - Gamification Engine', () => {
       current_streak: 10,
       last_visit_at: threeDaysAgo,
     });
-    (prisma.gym.findUnique as any).mockResolvedValue({ id: gymId, rewards_config: {} });
+    (prisma.gym.findUnique as any).mockResolvedValue({
+      id: gymId,
+      subscription_tier: 'PRO_QR',
+      modules_config: { gamification: true, qr_access: true },
+      rewards_config: {},
+    });
 
     await processCheckin(mockReq, mockRes);
 
@@ -123,5 +134,88 @@ describe('Checkin Controller - Gamification Engine', () => {
     expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
       error: expect.stringContaining('No active subscription found'),
     }));
+  });
+
+  it('Debe registrar check-in QR y disparar webhook de recompensa con contexto de método de acceso', async () => {
+    const gymId = '550e8400-e29b-41d4-a716-446655440000';
+    const userId = '6f9619ff-8b86-4d01-b42d-00cf4fc964ff';
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const mockReq = {
+      gymId,
+      body: { userId, accessMethod: AccessMethod.QR },
+    } as any;
+
+    (prisma.subscription.findFirst as any).mockResolvedValue({ id: 'sub-1', status: SubscriptionStatus.ACTIVE });
+    (prisma.user.findUnique as any).mockResolvedValue({
+      id: userId,
+      name: 'Usuario QR',
+      profile_picture_url: 'https://cdn.test/qr.png',
+      current_streak: 2,
+      last_visit_at: yesterday,
+      phone: '+573001112233',
+    });
+    (prisma.gym.findUnique as any).mockResolvedValue({
+      id: gymId,
+      subscription_tier: 'PRO_QR',
+      modules_config: { gamification: true, qr_access: true },
+      rewards_config: { '3': 'Batido gratis' },
+    });
+
+    await processCheckin(mockReq, mockRes);
+
+    expect(prisma.visit.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          gym_id: gymId,
+          user_id: userId,
+          access_method: AccessMethod.QR,
+        }),
+      }),
+    );
+
+    expect(sendRewardMessage).toHaveBeenCalledWith(
+      gymId,
+      '+573001112233',
+      'Batido gratis',
+      3,
+      AccessMethod.QR,
+    );
+
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({ rewardUnlocked: true, newStreak: 3 }));
+  });
+
+  it('Debe bloquear check-in QR cuando qr_access está deshabilitado por suscripción', async () => {
+    const gymId = '550e8400-e29b-41d4-a716-446655440000';
+    const userId = '6f9619ff-8b86-4d01-b42d-00cf4fc964ff';
+
+    const mockReq = {
+      gymId,
+      body: { userId, accessMethod: AccessMethod.QR },
+    } as any;
+
+    (prisma.subscription.findFirst as any).mockResolvedValue({ id: 'sub-1', status: SubscriptionStatus.ACTIVE });
+    (prisma.user.findUnique as any).mockResolvedValue({
+      id: userId,
+      current_streak: 1,
+      last_visit_at: null,
+      phone: '+573001112233',
+    });
+    (prisma.gym.findUnique as any).mockResolvedValue({
+      id: gymId,
+      subscription_tier: 'BASIC',
+      modules_config: { qr_access: false, gamification: false },
+      rewards_config: {},
+    });
+
+    await processCheckin(mockReq, mockRes);
+
+    expect(mockRes.status).toHaveBeenCalledWith(403);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.stringContaining('qr_access') }),
+    );
+    expect(prisma.visit.create).not.toHaveBeenCalled();
   });
 });

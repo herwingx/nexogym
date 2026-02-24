@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const checkinSchema = z.object({
   userId: z.string().uuid({ message: "userId debe ser un UUID válido" }),
+  accessMethod: z.enum(['MANUAL', 'QR']).optional(),
 });
 
 export const courtesyCheckinSchema = z.object({

@@ -30,6 +30,9 @@ router.use(requireAuth);
  *             properties:
  *               userId:
  *                 type: string
+ *               accessMethod:
+ *                 type: string
+ *                 enum: [MANUAL, QR]
  *     responses:
  *       200:
  *         description: Check-in successful

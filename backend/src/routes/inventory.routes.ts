@@ -7,6 +7,7 @@ import {
   adjustLoss,
 } from '../controllers/inventory.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
+import { requireModuleEnabled } from '../middlewares/module-access.middleware';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ const router = Router();
 
 // Todas las rutas de inventario requieren autenticación JWT (Multitenancy)
 router.use(requireAuth);
+router.use(requireModuleEnabled('pos'));
 
 /**
  * @swagger

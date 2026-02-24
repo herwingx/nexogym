@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getClasses, createClass, createBooking } from '../controllers/booking.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
+import { requireModuleEnabled } from '../middlewares/module-access.middleware';
 
 const router = Router();
 
@@ -12,6 +13,7 @@ const router = Router();
  */
 
 router.use(requireAuth);
+router.use(requireModuleEnabled('classes'));
 
 /**
  * @swagger

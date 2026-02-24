@@ -61,6 +61,11 @@ Reporte de ventas por staff para pago de comisiones.
 { "error": "Anti-Passback: Este código ya fue utilizado hace menos de 4 horas." }
 ```
 
+**Entrada opcional (QR):**
+```json
+{ "userId": "uuid", "accessMethod": "QR" }
+```
+
 **Respuesta exitosa (Actualizada):** incluye datos visuales para pantalla de recepción/escáner.
 ```json
 {
@@ -80,9 +85,21 @@ Reporte de ventas por staff para pago de comisiones.
 ## Sprint B13 — SaaS Feature Flags y Métricas
 
 ### `POST /api/v1/saas/gyms` (Actualizado)
-Crea gimnasio con `modules_config` por defecto si no se envía explícitamente:
+Crea gimnasio y asigna `modules_config` automáticamente según `subscription_tier` (sin override manual):
 ```json
-{ "modules_config": { "pos": true, "qr_access": false, "gamification": false, "classes": false } }
+{ "subscription_tier": "BASIC" }
+```
+
+Config de mensajería por gym para n8n (opcional):
+```json
+{
+  "n8n_config": {
+    "sender_phone_id": "whatsapp-number-1",
+    "template_welcome": "bienvenida_v1",
+    "template_reward": "recompensa_v2",
+    "enabled_events": ["welcome", "reward", "shift_summary"]
+  }
+}
 ```
 
 ### `GET /api/v1/saas/metrics` (Nuevo)
@@ -90,6 +107,25 @@ Devuelve el total de gimnasios activos registrados en la base de datos.
 ```json
 { "total_active_gyms": 42 }
 ```
+
+### `GET /api/v1/saas/gyms/:id/modules` (Nuevo)
+Devuelve los módulos resueltos para el gimnasio, listos para renderizar menús/features en frontend.
+```json
+{
+  "gym_id": "uuid",
+  "gym_name": "Gym Pro",
+  "subscription_tier": "PRO_QR",
+  "modules_config": {
+    "pos": true,
+    "qr_access": true,
+    "gamification": true,
+    "classes": true,
+    "biometrics": false
+  }
+}
+```
+
+> Nota operativa: además del control en API, la DB aplica trigger para forzar `modules_config` por `subscription_tier` y evitar cambios manuales fuera del flujo oficial.
 
 ---
 
@@ -125,4 +161,72 @@ Expone métricas Prometheus (`text/plain`) para observabilidad operacional.
 ```json
 // Response 401
 { "error": "Unauthorized: invalid metrics token" }
+```
+
+---
+
+## Frontend Handoff — Ciclo de Vida de Socio
+
+### `GET /api/v1/users/me/context`
+Devuelve el contexto de sesión para bootstrap frontend (usuario + gym + módulos resueltos).
+```json
+{
+  "user": { "id": "uuid", "role": "ADMIN", "name": "Admin Gym" },
+  "gym": {
+    "id": "uuid",
+    "name": "Gym Pro",
+    "subscription_tier": "PRO_QR",
+    "modules_config": {
+      "pos": true,
+      "qr_access": true,
+      "gamification": true,
+      "classes": true,
+      "biometrics": false
+    }
+  }
+}
+```
+
+### `GET /api/v1/users/search?q=<texto>`
+Búsqueda rápida para recepción por nombre o teléfono.
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Juan Pérez",
+      "phone": "+573001112233",
+      "profile_picture_url": "https://cdn.example.com/u1.jpg",
+      "role": "MEMBER"
+    }
+  ]
+}
+```
+
+### `PATCH /api/v1/users/:id/cancel-subscription`
+Cancela inmediatamente una suscripción `ACTIVE` o `FROZEN`.
+```json
+{ "reason": "Solicitud del cliente" }
+```
+
+```json
+{ "message": "Subscription cancelled successfully.", "subscription": { "id": "uuid", "status": "CANCELED" } }
+```
+
+### `GET /api/v1/users/:id/data-export`
+Exporta los datos del socio para cumplimiento y portabilidad (JSON).
+```json
+{
+  "generated_at": "2026-02-23T22:00:00.000Z",
+  "user": { "id": "uuid", "name": "Juan", "phone": "+573001112233" },
+  "subscriptions": [],
+  "visits": [],
+  "bookings": []
+}
+```
+
+### `POST /api/v1/users/:id/anonymize`
+Anonimiza PII del socio y cancela suscripciones activas (irreversible).
+```json
+{ "message": "User data anonymized and active subscriptions cancelled.", "user_id": "uuid" }
 ```

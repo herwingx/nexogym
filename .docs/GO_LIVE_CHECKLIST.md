@@ -28,6 +28,17 @@ Estos puntos son de configuración/operación, no de desarrollo:
 5. Definir backups y pruebas de restore para PostgreSQL/Supabase.
 6. Acordar ventana y plan de rollback de primer despliegue productivo.
 
+## 2.1) Paso obligatorio de release (staging/prod)
+
+Para evitar drift de `modules_config` y asegurar que el plan gobierna features:
+
+1. Desplegar backend.
+2. Ejecutar guard DB de módulos por tier:
+   - `cd backend && npm run db:enforce-modules`
+3. Verificar endpoint de lectura de módulos por gym:
+   - `GET /api/v1/saas/gyms/:id/modules`
+4. Si el paso 2 falla, **el release no se considera completo**.
+
 ## 3) Variables mínimas obligatorias para producción
 
 - `NODE_ENV=production`
@@ -48,6 +59,7 @@ Tras cada deploy, validar:
 4. `POST /api/v1/checkin` (caso válido y caso anti-passback)
 5. `GET /api/v1/saas/metrics` con credenciales superadmin
 6. `GET /metrics` con token (si está protegido)
+7. `GET /api/v1/saas/gyms/:id/modules` responde 200 y consistente con el tier
 
 ## 5) Criterio de “backend freeze”
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireSuperAdmin } from '../middlewares/superadmin.middleware';
-import { createGym, getGlobalMetrics, updateGymTier } from '../controllers/saas.controller';
+import { createGym, getGlobalMetrics, getGymModules, updateGymTier } from '../controllers/saas.controller';
 
 const router = Router();
 
@@ -37,7 +37,7 @@ router.use(requireAuth, requireSuperAdmin);
  *               subscription_tier:
  *                 type: string
  *                 enum: [BASIC, PRO_QR, PREMIUM_BIO]
- *               modules_config:
+ *               n8n_config:
  *                 type: object
  *     responses:
  *       201:
@@ -83,6 +83,29 @@ router.post('/gyms', createGym);
  *         description: Gym not found
  */
 router.patch('/gyms/:id/tier', updateGymTier);
+
+/**
+ * @swagger
+ * /api/v1/saas/gyms/{id}/modules:
+ *   get:
+ *     summary: Get resolved module flags for a gym (SuperAdmin only)
+ *     tags: [SaaS]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Gym ID
+ *     responses:
+ *       200:
+ *         description: Resolved modules config for the gym
+ *       404:
+ *         description: Gym not found
+ */
+router.get('/gyms/:id/modules', getGymModules);
 router.get('/metrics', getGlobalMetrics);
 
 export default router;

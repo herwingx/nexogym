@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createGym, getGlobalMetrics, updateGymTier } from './saas.controller';
+import { createGym, getGlobalMetrics, getGymModules, updateGymTier } from './saas.controller';
 import { prisma } from '../db';
 
 vi.mock('../db', () => ({
@@ -8,6 +8,7 @@ vi.mock('../db', () => ({
       create: vi.fn(),
       update: vi.fn(),
       count: vi.fn(),
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -22,11 +23,18 @@ describe('saas.controller', () => {
     vi.clearAllMocks();
   });
 
-  it('createGym aplica modules_config por tier cuando no se envía custom config', async () => {
+  it('createGym ignora modules_config manual y aplica defaults por tier', async () => {
     const req = {
       body: {
         name: 'Gym Pro',
         subscription_tier: 'PRO_QR',
+        modules_config: {
+          pos: false,
+          qr_access: false,
+          gamification: false,
+          classes: false,
+          biometrics: true,
+        },
       },
     } as any;
 
@@ -43,6 +51,7 @@ describe('saas.controller', () => {
             qr_access: true,
             gamification: true,
             classes: true,
+            biometrics: false,
           },
         }),
       }),
@@ -85,5 +94,35 @@ describe('saas.controller', () => {
 
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.json).toHaveBeenCalledWith({ total_active_gyms: 12 });
+  });
+
+  it('getGymModules devuelve módulos resueltos para un gym', async () => {
+    const req = {
+      params: { id: 'gym-id' },
+    } as any;
+
+    (prisma.gym.findUnique as any).mockResolvedValue({
+      id: 'gym-id',
+      name: 'Gym Pro',
+      subscription_tier: 'PRO_QR',
+      modules_config: { classes: false },
+    });
+
+    await getGymModules(req, mockRes);
+
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gym_id: 'gym-id',
+        subscription_tier: 'PRO_QR',
+        modules_config: expect.objectContaining({
+          pos: true,
+          qr_access: true,
+          gamification: true,
+          classes: false,
+          biometrics: false,
+        }),
+      }),
+    );
   });
 });

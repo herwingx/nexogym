@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getProducts, createSale, registerExpense } from '../controllers/pos.controller';
 import { openShift, closeShift } from '../controllers/shift.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
+import { requireModuleEnabled } from '../middlewares/module-access.middleware';
 
 const router = Router();
 
@@ -15,6 +16,7 @@ const router = Router();
  */
 
 router.use(requireAuth);
+router.use(requireModuleEnabled('pos'));
 
 /**
  * @swagger

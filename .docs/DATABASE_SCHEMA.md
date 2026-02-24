@@ -37,7 +37,13 @@ Motor de Feature Flags por gimnasio.
 
 | Campo | Tipo | Notas |
 |---|---|---|
-| `modules_config` | Json? | Configuración de módulos habilitados (ej: `{"pos": true, "qr_access": false}`) |
+| `modules_config` | Json? | Configuración de módulos habilitados derivada de `subscription_tier` (enforced por trigger DB) |
+| `n8n_config` | Json? | Configuración de mensajería por gym (`sender_phone_id`, templates, eventos habilitados, overrides) |
+
+**Enforcement DB:**
+- Trigger SQL activo: `backend/prisma/sql/enforce_modules_config_by_tier.sql`.
+- En cada `INSERT/UPDATE` de `Gym`, recalcula `modules_config` según `subscription_tier`.
+- Evita drift por ediciones manuales directas en la base.
 
 ---
 

@@ -146,7 +146,7 @@ export const closeShift = async (req: Request, res: Response) => {
     });
 
     if (gymOwner?.phone) {
-      sendShiftSummary(gymOwner.phone, {
+      sendShiftSummary(gymId, gymOwner.phone, {
         openedAt: currentShift.opened_at,
         closedAt: now,
         openingBalance: Number(currentShift.opening_balance),

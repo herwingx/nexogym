@@ -32,6 +32,9 @@ Actualizado tras la implementación del ERP Full (Sprints B1–B9).
   - `/webhook/nuevo-cliente` → WhatsApp de bienvenida con PIN y QR
   - `/webhook/recompensa` → WhatsApp cuando se desbloquea un premio
   - `/webhook/corte-caja` → WhatsApp/PDF del corte al dueño
+- **Modelo recomendado:** flujo por tipo de evento (compartido) + personalización por gym vía `Gym.n8n_config`
+- **Contexto de evento enviado por backend:** `gym_id`, `gym_name`, `event`, `access_method` (MANUAL/QR/BIOMETRIC)
+- **Personalización por tenant:** `sender_phone_id`, templates y `webhook_overrides` por evento
 
 ### 5. IoT / Hardware
 - Torniquetes ZKTeco se autentican con `x-api-key` (`Gym.api_key_hardware`)

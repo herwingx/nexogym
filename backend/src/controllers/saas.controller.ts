@@ -4,28 +4,7 @@ import crypto from 'crypto';
 import { Prisma, SubscriptionTier } from '@prisma/client';
 import { createGymSchema, updateGymTierSchema } from '../schemas/saas.schema';
 import { handleControllerError } from '../utils/http';
-
-const MODULES_CONFIG_BY_TIER: Record<SubscriptionTier, Record<string, boolean>> = {
-  [SubscriptionTier.BASIC]: {
-    pos: true,
-    qr_access: false,
-    gamification: false,
-    classes: false,
-  },
-  [SubscriptionTier.PRO_QR]: {
-    pos: true,
-    qr_access: true,
-    gamification: true,
-    classes: true,
-  },
-  [SubscriptionTier.PREMIUM_BIO]: {
-    pos: true,
-    qr_access: true,
-    gamification: true,
-    classes: true,
-    biometrics: true,
-  },
-};
+import { DEFAULT_MODULES_CONFIG_BY_TIER, resolveModulesConfig } from '../utils/modules-config';
 
 // POST /saas/gym
 export const createGym = async (req: Request, res: Response) => {
@@ -36,7 +15,7 @@ export const createGym = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, theme_colors, subscription_tier, modules_config } = validation.data;
+    const { name, theme_colors, subscription_tier, n8n_config } = validation.data;
 
     // Generate a secure, unique hardware API key
     const apiKeyHardware = crypto.randomBytes(32).toString('hex');
@@ -50,7 +29,8 @@ export const createGym = async (req: Request, res: Response) => {
         name,
         theme_colors: (theme_colors ?? {}) as Prisma.InputJsonValue,
         subscription_tier: selectedTier,
-        modules_config: modules_config ?? MODULES_CONFIG_BY_TIER[selectedTier],
+        modules_config: DEFAULT_MODULES_CONFIG_BY_TIER[selectedTier],
+        n8n_config: n8n_config ? (n8n_config as Prisma.InputJsonValue) : undefined,
         api_key_hardware: apiKeyHardware,
       },
     });
@@ -80,7 +60,7 @@ export const updateGymTier = async (req: Request, res: Response) => {
       where: { id },
       data: {
         subscription_tier,
-        modules_config: MODULES_CONFIG_BY_TIER[subscription_tier],
+        modules_config: DEFAULT_MODULES_CONFIG_BY_TIER[subscription_tier],
       },
     });
 
@@ -103,5 +83,36 @@ export const getGlobalMetrics = async (_req: Request, res: Response) => {
     });
   } catch (error) {
     handleControllerError(_req, res, error, '[getGlobalMetrics Error]', 'Failed to retrieve global metrics.');
+  }
+};
+
+// GET /saas/gyms/:id/modules
+export const getGymModules = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+
+    const gym = await prisma.gym.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        subscription_tier: true,
+        modules_config: true,
+      },
+    });
+
+    if (!gym) {
+      res.status(404).json({ error: 'Gym not found.' });
+      return;
+    }
+
+    res.status(200).json({
+      gym_id: gym.id,
+      gym_name: gym.name,
+      subscription_tier: gym.subscription_tier,
+      modules_config: resolveModulesConfig(gym.modules_config, gym.subscription_tier),
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getGymModules Error]', 'Failed to retrieve gym modules.');
   }
 };

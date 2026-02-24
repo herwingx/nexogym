@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireHardwareKey } from '../middlewares/hardware.middleware';
 import { biometricCheckIn } from '../controllers/biometric.controller';
+import { requireModuleEnabled } from '../middlewares/module-access.middleware';
 
 const router = Router();
 
@@ -44,6 +45,6 @@ const router = Router();
  *       403:
  *         description: Subscription expired
  */
-router.post('/checkin', requireHardwareKey, biometricCheckIn);
+router.post('/checkin', requireHardwareKey, requireModuleEnabled('biometrics', { hardwareResponse: true }), biometricCheckIn);
 
 export default router;

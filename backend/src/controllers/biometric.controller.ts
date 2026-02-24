@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { SubscriptionStatus, AccessMethod, AccessType } from '@prisma/client';
+import { sendRewardMessage } from '../services/n8n.service';
 
 export const biometricCheckIn = async (req: Request, res: Response) => {
   try {
@@ -49,6 +50,24 @@ export const biometricCheckIn = async (req: Request, res: Response) => {
       return;
     }
 
+    if (user.last_visit_at) {
+      const hoursSinceLastVisit = Math.abs(new Date().getTime() - user.last_visit_at.getTime()) / 3600000;
+      if (hoursSinceLastVisit < 4) {
+        res.status(200).json({ openDoor: false, reason: 'Anti-Passback: ingreso bloqueado temporalmente.' });
+        return;
+      }
+    }
+
+    const gym = await prisma.gym.findUnique({
+      where: { id: gymId },
+      select: { rewards_config: true },
+    });
+
+    if (!gym) {
+      res.status(404).json({ openDoor: false, error: 'Gym not found.' });
+      return;
+    }
+
     const now = new Date();
 
     // Gamification: streak calculation (mirrors processCheckin logic)
@@ -71,6 +90,18 @@ export const biometricCheckIn = async (req: Request, res: Response) => {
       newStreak = 1;
     }
 
+    let rewardUnlocked = false;
+    let rewardMessage: string | null = null;
+
+    if (gym.rewards_config && typeof gym.rewards_config === 'object') {
+      const config = gym.rewards_config as Record<string, string>;
+      const unlocked = config[newStreak.toString()];
+      if (unlocked) {
+        rewardUnlocked = true;
+        rewardMessage = unlocked;
+      }
+    }
+
     // Transaction: register visit + update streak
     await prisma.$transaction([
       prisma.visit.create({
@@ -88,10 +119,18 @@ export const biometricCheckIn = async (req: Request, res: Response) => {
       }),
     ]);
 
+    if (rewardUnlocked && user.phone) {
+      sendRewardMessage(gymId, user.phone, String(rewardMessage), newStreak, AccessMethod.BIOMETRIC).catch((err) => {
+        req.log?.error({ err }, '[biometricCheckIn RewardWebhook Error]');
+      });
+    }
+
     res.status(200).json({
       openDoor: true,
       message: 'Welcome!',
       newStreak,
+      rewardUnlocked,
+      rewardMessage,
     });
   } catch (error) {
     req.log?.error({ err: error }, '[biometricCheckIn Error]');
