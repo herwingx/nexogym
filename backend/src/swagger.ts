@@ -1,15 +1,8 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import { Express } from 'express';
+import { Express, Request, Response, NextFunction } from 'express';
 import { logger } from './lib/logger';
 import path from 'path';
-
-const swaggerSourceGlobs = [
-  path.resolve(__dirname, 'routes', '**', '*.{ts,js}'),
-  path.resolve(__dirname, 'controllers', '**', '*.{ts,js}'),
-  path.resolve(__dirname, '..', 'src', 'routes', '**', '*.{ts,js}'),
-  path.resolve(__dirname, '..', 'src', 'controllers', '**', '*.{ts,js}'),
-];
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -34,43 +27,42 @@ const options: swaggerJsdoc.Options = {
         },
       },
     },
-    security: [
-      {
-        bearerAuth: [],
-      },
-    ],
+    security: [{ bearerAuth: [] }],
   },
-  apis: swaggerSourceGlobs,
+  apis: [
+    path.resolve(__dirname, 'routes/**/*.ts'),
+    path.resolve(__dirname, 'routes/**/*.js'),
+    path.resolve(__dirname, 'controllers/**/*.ts'),
+    path.resolve(__dirname, 'controllers/**/*.js'),
+  ],
 };
 
-const buildSwaggerSpec = async () => {
-  const spec = (await (swaggerJsdoc(options) as unknown as Promise<Record<string, unknown>>)) || {};
-  return {
-    ...spec,
-    openapi: spec.openapi || '3.0.0',
-    paths: spec.paths || {},
-  };
-};
+// swagger-jsdoc v7-rc returns a Promise — se construye una sola vez al cargar el módulo.
+const specPromise: Promise<object> = (
+  swaggerJsdoc(options) as unknown as Promise<object>
+).catch((err) => {
+  logger.error({ err }, 'Failed to build swagger spec');
+  return { openapi: '3.0.0', info: { title: 'GymSaaS API', version: '1.0.0' }, paths: {} };
+});
 
-export const setupSwagger = (app: Express) => {
-  app.get('/api-docs.json', async (_req, res) => {
-    try {
-      const normalizedSwaggerSpec = await buildSwaggerSpec();
-      res.status(200).json(normalizedSwaggerSpec);
-    } catch (error) {
-      logger.error({ err: error }, 'Failed to generate OpenAPI spec');
-      res.status(500).json({ error: 'Failed to generate OpenAPI spec' });
-    }
+export const setupSwagger = (app: Express): void => {
+  // Endpoint JSON — usado también por el UI
+  app.get('/api-docs.json', async (_req: Request, res: Response) => {
+    res.json(await specPromise);
   });
 
+  // Swagger UI — usa el spec resuelto directamente (no la URL dinámica)
   app.use(
     '/api-docs',
     swaggerUi.serve,
-    swaggerUi.setup(undefined, {
-      swaggerOptions: {
-        url: '/api-docs.json',
-      },
-    }),
+    async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        const spec = await specPromise;
+        swaggerUi.setup(spec)(_req, res, next);
+      } catch (err) {
+        next(err);
+      }
+    },
   );
 
   logger.info({ path: '/api-docs' }, 'Swagger UI available');
