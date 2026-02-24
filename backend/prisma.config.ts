@@ -75,4 +75,8 @@ async function setupTrigger() {
   }
 }
 
-setupTrigger().catch(console.error);
+// Solo ejecutar durante `prisma db push` — evitar que corra en `prisma generate`, `prisma format`, etc.
+const isPush = process.argv.some(arg => arg.includes('push'));
+if (isPush) {
+  setupTrigger().catch(console.error);
+}

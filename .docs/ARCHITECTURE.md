@@ -1,6 +1,6 @@
 # Arquitectura del Sistema (ARCHITECTURE)
 
-Actualizado tras la implementación del ERP Full (Sprints B1–B9).
+Actualizado tras la implementación del ERP Full (Sprints B1–B11).
 
 ---
 
@@ -16,9 +16,10 @@ Actualizado tras la implementación del ERP Full (Sprints B1–B9).
 
 ### 2. Backend (API REST)
 - **Entorno:** Node.js + Express + TypeScript
-- **ORM:** Prisma (con `@prisma/adapter-pg` para pool de conexiones)
-- **Seguridad:** Helmet + CORS + Morgan
-- **Logger:** Morgan (HTTP) + AuditLog en DB (acciones de negocio)
+- **ORM:** Prisma v7 (con `prisma.config.ts` para datasource URL — sin `url` en `schema.prisma`)
+- **Seguridad:** Helmet + CORS + rate limiting
+- **Logger:** pino-http (HTTP) + AuditLog en DB (acciones de negocio)
+- **Validación:** Zod en todos los endpoints de escritura
 
 ### 3. Base de Datos y Autenticación
 - **Plataforma:** Supabase (PostgreSQL) **auto-alojado** en red local
@@ -47,41 +48,61 @@ Actualizado tras la implementación del ERP Full (Sprints B1–B9).
 ```
 backend/
 ├── prisma/
-│   ├── schema.prisma          # Schema ERP completo (10 modelos)
+│   ├── schema.prisma          # Schema ERP completo (13 modelos, 8 enums)
 │   └── .env                   # DATABASE_URL + DIRECT_URL (para CLI Prisma)
+├── prisma.config.ts           # Prisma 7: datasource URL + trigger SQL post-push
 ├── src/
-│   ├── db.ts                  # PrismaClient con adapter PgBouncer
-│   ├── server.ts              # Express app + rutas
+│   ├── db.ts                  # PrismaClient singleton
+│   ├── server.ts              # Express app + rutas + shutdown limpio
+│   ├── config/
+│   │   └── env.ts             # Variables de entorno tipadas con Zod
 │   ├── controllers/
-│   │   ├── saas.controller.ts       # SuperAdmin: crear/gestionar gyms
-│   │   ├── user.controller.ts       # CRM: ciclo de vida del socio
-│   │   ├── checkin.controller.ts    # Accesos + cortesías + gamificación
-│   │   ├── inventory.controller.ts  # Stock + restock + mermas
-│   │   ├── pos.controller.ts        # Ventas POS + egresos
-│   │   ├── shift.controller.ts      # Turnos de caja
-│   │   ├── analytics.controller.ts  # Dashboards + reportes + auditoría
+│   │   ├── saas.controller.ts       # SuperAdmin: CRUD gyms + export + métricas globales
+│   │   ├── user.controller.ts       # CRM: ciclo de vida del socio + GDPR
+│   │   ├── checkin.controller.ts    # Accesos + cortesías + gamificación + anti-passback
+│   │   ├── inventory.controller.ts  # Stock + restock + mermas + historial movimientos
+│   │   ├── pos.controller.ts        # Ventas POS + egresos + listado turnos
+│   │   ├── shift.controller.ts      # Apertura/cierre de turno + reconciliación
+│   │   ├── analytics.controller.ts  # Ocupación + revenue + reporte financiero + comisiones
+│   │   ├── booking.controller.ts    # Clases + reservas + asistencia (Módulo 10)
+│   │   ├── routine.controller.ts    # Rutinas de entrenamiento + ejercicios (Módulo 10)
 │   │   └── biometric.controller.ts  # IoT ZKTeco
 │   ├── middlewares/
-│   │   ├── auth.middleware.ts        # JWT Supabase → req.gymId, req.userRole
-│   │   ├── hardware.middleware.ts    # x-api-key → req.gymId
-│   │   └── superadmin.middleware.ts  # Guard de rol SUPERADMIN
+│   │   ├── auth.middleware.ts            # JWT Supabase → req.gymId, req.userRole
+│   │   ├── admin.middleware.ts           # requireAdminOrSuperAdmin
+│   │   ├── superadmin.middleware.ts      # requireSuperAdmin
+│   │   ├── hardware.middleware.ts        # x-api-key → req.gymId
+│   │   ├── module-access.middleware.ts   # requireModuleEnabled('pos'|'classes'|'biometrics'|...)
+│   │   └── rate-limit.middleware.ts      # Límites por ruta (general, checkin, biométrico)
 │   ├── routes/
-│   │   ├── saas.routes.ts
-│   │   ├── user.routes.ts
-│   │   ├── checkin.routes.ts
-│   │   ├── inventory.routes.ts
-│   │   ├── pos.routes.ts
-│   │   ├── analytics.routes.ts
-│   │   └── biometric.routes.ts
+│   │   ├── saas.routes.ts         # /api/v1/saas — 9 rutas (SUPERADMIN)
+│   │   ├── user.routes.ts         # /api/v1/users — 13 rutas
+│   │   ├── checkin.routes.ts      # /api/v1/checkin — 2 rutas
+│   │   ├── inventory.routes.ts    # /api/v1/inventory — 7 rutas (flag: pos)
+│   │   ├── pos.routes.ts          # /api/v1/pos — 8 rutas (flag: pos)
+│   │   ├── analytics.routes.ts    # /api/v1/analytics — 5 rutas
+│   │   ├── booking.routes.ts      # /api/v1/bookings — 8 rutas (flag: classes)
+│   │   ├── routine.routes.ts      # /api/v1/routines — 8 rutas (flag: classes)
+│   │   └── biometric.routes.ts    # /biometric — 1 ruta (flag: biometrics)
+│   ├── schemas/
+│   │   ├── booking.schema.ts      # Zod: createBooking
+│   │   ├── checkin.schema.ts      # Zod: processCheckin
+│   │   ├── pos.schema.ts          # Zod: createSale, registerExpense
+│   │   ├── routine.schema.ts      # Zod: createRoutine, updateRoutine, addExercise
+│   │   └── saas.schema.ts         # Zod: updateGym
 │   ├── services/
-│   │   └── n8n.service.ts     # Fire-and-forget webhooks
+│   │   └── n8n.service.ts         # Fire-and-forget webhooks (bienvenida, recompensa, corte)
+│   ├── observability/
+│   │   └── metrics.ts             # prom-client: volumen + latencia HTTP
 │   ├── utils/
-│   │   └── audit.logger.ts    # logAuditEvent(gymId, userId, action, details)
+│   │   ├── audit.logger.ts        # logAuditEvent(gymId, userId, action, details)
+│   │   ├── modules-config.ts      # resolveModulesConfig(modules_config, tier)
+│   │   └── http.ts                # handleControllerError — respuestas homogéneas
 │   ├── lib/
-│   │   └── supabase.ts        # Supabase client para verificar JWT
+│   │   └── supabase.ts            # Supabase client para verificar JWT
 │   └── types/
-│       └── express.d.ts       # Augmentación: req.gymId, req.userRole
-└── .env                       # Variables runtime del servidor Express
+│       └── express.d.ts           # Augmentación: req.gymId, req.userRole, req.user
+└── .env                           # Variables runtime del servidor Express
 ```
 
 ---
@@ -115,9 +136,16 @@ backend/
 - `checkin.controller.ts` devuelve `user.name` y `user.profile_picture_url` para validación en recepción
 - `user.controller.ts` permite actualizar `profile_picture_url` desde `updateUser`
 
-### 4.2 Feature Flags por tenant (B13)
-- `Gym.modules_config` guarda módulos activos por gimnasio
-- `saas.controller.ts` asigna `modules_config` al crear/actualizar planes
+### 4.2 Feature Flags por tenant
+- `Gym.modules_config` guarda módulos activos por gimnasio (JSON: `pos`, `qr_access`, `gamification`, `classes`, `biometrics`)
+- El trigger SQL `enforce_gym_modules_config_by_tier` en PostgreSQL sincroniza `modules_config` automáticamente al cambiar `subscription_tier`
+- `module-access.middleware.ts` → `requireModuleEnabled(flag)` bloquea rutas con 403 si el módulo está desactivado
+- Módulos gateados:
+  - `pos` → rutas de inventario y POS
+  - `classes` → rutas de bookings y rutinas
+  - `biometrics` → endpoint IoT biométrico
+  - `qr_access` → método QR en check-in (validado en controller)
+- `saas.controller.ts → updateGymTier()` recalcula `modules_config` al cambiar tier
 - `GET /api/v1/saas/metrics` expone `total_active_gyms` para panel global
 
 ### 4.3 Seguridad y resiliencia operativa (Fase 2)
