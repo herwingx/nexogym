@@ -60,17 +60,19 @@ export default defineConfig({
   datasource: {
     url: process.env.DIRECT_URL!,
   },
-  hooks: {
-    afterPush: async () => {
-      console.log('→ Applying trigger: enforce_gym_modules_config_by_tier...');
-      const client = new pg.Client({ connectionString: process.env.DIRECT_URL });
-      await client.connect();
-      try {
-        await client.query(MODULES_TRIGGER_SQL);
-        console.log('✓ Trigger applied.');
-      } finally {
-        await client.end();
-      }
-    },
-  },
 });
+
+// Execute trigger setup
+async function setupTrigger() {
+  console.log('→ Applying trigger: enforce_gym_modules_config_by_tier...');
+  const client = new pg.Client({ connectionString: process.env.DIRECT_URL });
+  await client.connect();
+  try {
+    await client.query(MODULES_TRIGGER_SQL);
+    console.log('✓ Trigger applied.');
+  } finally {
+    await client.end();
+  }
+}
+
+setupTrigger().catch(console.error);
