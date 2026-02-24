@@ -10,7 +10,11 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.split(' ')[1]?.trim();
+    if (!token) {
+      res.status(401).json({ error: 'Unauthorized: Invalid authorization header' });
+      return;
+    }
 
     // Verify token with Supabase
     const { data, error } = await supabase.auth.getUser(token);
@@ -22,10 +26,13 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     const supabaseUserId = data.user.id;
 
-    // Fetch the user from Prisma to get gym_id and role
-    const user = await prisma.user.findUnique({
-      where: { id: supabaseUserId },
-      select: { gym_id: true, role: true }
+    // Fetch internal user by either legacy id mapping or auth_user_id mapping
+    const user = await prisma.user.findFirst({
+      where: {
+        deleted_at: null,
+        OR: [{ id: supabaseUserId }, { auth_user_id: supabaseUserId }],
+      },
+      select: { id: true, gym_id: true, role: true },
     });
 
     if (!user) {
@@ -34,7 +41,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     }
 
     // Attach to Request
-    req.user = data.user;
+    req.user = { ...data.user, id: user.id };
+    req.authUserId = supabaseUserId;
     req.gymId = user.gym_id;
     req.userRole = user.role;
 

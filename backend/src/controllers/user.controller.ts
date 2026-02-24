@@ -51,7 +51,7 @@ export const createUser = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, phone, pin: pinFromBody, role } = req.body;
+    const { name, phone, pin: pinFromBody, role, auth_user_id } = req.body;
 
     if (!phone) {
       res.status(400).json({ error: 'Phone number is required' });
@@ -72,6 +72,7 @@ export const createUser = async (req: Request, res: Response) => {
       // 1. Create User
       const user = await tx.user.create({
         data: {
+          auth_user_id: auth_user_id ?? null,
           gym_id: gymId,
           name: name ?? null,
           phone,

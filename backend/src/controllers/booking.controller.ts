@@ -76,11 +76,13 @@ export const createBooking = async (req: Request, res: Response) => {
     if (!subscription) return res.status(403).json({ error: 'Membresía activa requerida para reservar.' });
 
     // 2. Validate Class Capacity
-    const targetClass = await prisma.gymClass.findUnique({ where: { id: classId } });
+    const targetClass = await prisma.gymClass.findFirst({
+      where: { id: classId, gym_id: gymId },
+    });
     if (!targetClass) return res.status(404).json({ error: 'Clase no encontrada.' });
 
     const currentBookings = await prisma.classBooking.count({
-      where: { class_id: classId, booking_date: bookingDate },
+      where: { class_id: classId, gym_id: gymId, booking_date: bookingDate },
     });
 
     if (currentBookings >= targetClass.capacity) {
@@ -89,7 +91,7 @@ export const createBooking = async (req: Request, res: Response) => {
 
     // 3. Prevent duplicate booking
     const existingBooking = await prisma.classBooking.findFirst({
-      where: { user_id: userId, class_id: classId, booking_date: bookingDate },
+      where: { user_id: userId, class_id: classId, gym_id: gymId, booking_date: bookingDate },
     });
 
     if (existingBooking) return res.status(400).json({ error: 'Ya tienes una reserva para esta clase en esta fecha.' });

@@ -93,6 +93,7 @@ model Gym {
 
 model User {
   id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  auth_user_id        String?   @unique
   gym_id              String    @db.Uuid
   name                String?
   phone               String?

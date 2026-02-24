@@ -39,8 +39,8 @@ describe('Checkin Controller - Gamification Engine', () => {
   });
 
   it('Debe sumar +1 al streak si la última visita fue exactamente ayer', async () => {
-    const gymId = 'gym-123';
-    const userId = 'user-456';
+    const gymId = '550e8400-e29b-41d4-a716-446655440000';
+    const userId = '6f9619ff-8b86-4d01-b42d-00cf4fc964ff';
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
 
@@ -78,8 +78,8 @@ describe('Checkin Controller - Gamification Engine', () => {
   });
 
   it('Debe reiniciar el streak a 1 si la última visita fue hace más de 48 horas', async () => {
-    const gymId = 'gym-123';
-    const userId = 'user-456';
+    const gymId = '550e8400-e29b-41d4-a716-446655440000';
+    const userId = '6f9619ff-8b86-4d01-b42d-00cf4fc964ff';
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
@@ -110,8 +110,8 @@ describe('Checkin Controller - Gamification Engine', () => {
 
   it('Debe devolver error 403 si la suscripción está expirada', async () => {
     const mockReq = {
-      gymId: 'gym-123',
-      body: { userId: 'user-456' },
+      gymId: '550e8400-e29b-41d4-a716-446655440000',
+      body: { userId: '6f9619ff-8b86-4d01-b42d-00cf4fc964ff' },
     } as any;
 
     // Mock subscription NOT found (meaning expired or inactive based on controller logic)

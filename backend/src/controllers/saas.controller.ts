@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../db';
 import crypto from 'crypto';
 import { SubscriptionTier } from '@prisma/client';
+import { createGymSchema, updateGymTierSchema } from '../schemas/saas.schema';
 
 const MODULES_CONFIG_BY_TIER: Record<SubscriptionTier, Record<string, boolean>> = {
   [SubscriptionTier.BASIC]: {
@@ -28,12 +29,13 @@ const MODULES_CONFIG_BY_TIER: Record<SubscriptionTier, Record<string, boolean>> 
 // POST /saas/gym
 export const createGym = async (req: Request, res: Response) => {
   try {
-    const { name, theme_colors, subscription_tier, modules_config } = req.body;
-
-    if (!name) {
-      res.status(400).json({ error: 'Gym name is required.' });
+    const validation = createGymSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
       return;
     }
+
+    const { name, theme_colors, subscription_tier, modules_config } = validation.data;
 
     // Generate a secure, unique hardware API key
     const apiKeyHardware = crypto.randomBytes(32).toString('hex');
@@ -42,19 +44,12 @@ export const createGym = async (req: Request, res: Response) => {
         ? subscription_tier
         : SubscriptionTier.BASIC;
 
-    const defaultModulesConfig = {
-      pos: true,
-      qr_access: false,
-      gamification: false,
-      classes: false,
-    };
-
     const gym = await prisma.gym.create({
       data: {
         name,
         theme_colors: theme_colors || {},
         subscription_tier: selectedTier,
-        modules_config: modules_config ?? defaultModulesConfig,
+        modules_config: modules_config ?? MODULES_CONFIG_BY_TIER[selectedTier],
         api_key_hardware: apiKeyHardware,
       },
     });
@@ -73,12 +68,13 @@ export const createGym = async (req: Request, res: Response) => {
 export const updateGymTier = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { subscription_tier } = req.body;
-
-    if (!subscription_tier || !Object.values(SubscriptionTier).includes(subscription_tier)) {
-      res.status(400).json({ error: 'Valid subscription_tier is required.' });
+    const validation = updateGymTierSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
       return;
     }
+
+    const { subscription_tier } = validation.data;
 
     const gym = await prisma.gym.update({
       where: { id },

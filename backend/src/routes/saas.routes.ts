@@ -31,15 +31,14 @@ router.use(requireAuth, requireSuperAdmin);
  *             type: object
  *             required:
  *               - name
- *               - slug
  *             properties:
  *               name:
  *                 type: string
- *               slug:
+ *               subscription_tier:
  *                 type: string
- *               tier:
- *                 type: string
- *                 enum: [FREE, BASIC, PREMIUM]
+ *                 enum: [BASIC, PRO_QR, PREMIUM_BIO]
+ *               modules_config:
+ *                 type: object
  *     responses:
  *       201:
  *         description: Gym created successfully
@@ -72,11 +71,11 @@ router.post('/gyms', createGym);
  *           schema:
  *             type: object
  *             required:
- *               - tier
+ *               - subscription_tier
  *             properties:
- *               tier:
+ *               subscription_tier:
  *                 type: string
- *                 enum: [FREE, BASIC, PREMIUM]
+ *                 enum: [BASIC, PRO_QR, PREMIUM_BIO]
  *     responses:
  *       200:
  *         description: Gym tier updated successfully

@@ -9,6 +9,7 @@ import {
   unfreezeSubscription,
 } from '../controllers/user.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
+import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -33,8 +34,10 @@ router.use(requireAuth);
  *         description: List of members
  *       401:
  *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.get('/', getUsers);
+router.get('/', requireAdminOrSuperAdmin, getUsers);
 
 /**
  * @swagger
@@ -62,8 +65,10 @@ router.get('/', getUsers);
  *     responses:
  *       201:
  *         description: Member created successfully
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.post('/', createUser);
+router.post('/', requireAdminOrSuperAdmin, createUser);
 
 /**
  * @swagger
@@ -90,8 +95,10 @@ router.post('/', createUser);
  *     responses:
  *       200:
  *         description: Member updated successfully
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.patch('/:id', updateUser);
+router.patch('/:id', requireAdminOrSuperAdmin, updateUser);
 
 /**
  * @swagger
@@ -108,8 +115,10 @@ router.patch('/:id', updateUser);
  *     responses:
  *       200:
  *         description: Member deleted successfully
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.delete('/:id', deleteUser);           // Soft delete
+router.delete('/:id', requireAdminOrSuperAdmin, deleteUser);           // Soft delete
 
 /**
  * @swagger
@@ -137,8 +146,10 @@ router.delete('/:id', deleteUser);           // Soft delete
  *     responses:
  *       200:
  *         description: Subscription renewed successfully
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.patch('/:id/renew', renewSubscription);
+router.patch('/:id/renew', requireAdminOrSuperAdmin, renewSubscription);
 
 /**
  * @swagger
@@ -155,8 +166,10 @@ router.patch('/:id/renew', renewSubscription);
  *     responses:
  *       200:
  *         description: Subscription frozen successfully
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.patch('/:id/freeze', freezeSubscription);
+router.patch('/:id/freeze', requireAdminOrSuperAdmin, freezeSubscription);
 
 /**
  * @swagger
@@ -173,7 +186,9 @@ router.patch('/:id/freeze', freezeSubscription);
  *     responses:
  *       200:
  *         description: Subscription unfrozen successfully
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.patch('/:id/unfreeze', unfreezeSubscription);
+router.patch('/:id/unfreeze', requireAdminOrSuperAdmin, unfreezeSubscription);
 
 export default router;
