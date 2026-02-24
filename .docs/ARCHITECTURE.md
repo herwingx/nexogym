@@ -127,6 +127,17 @@ backend/
 - `auth.middleware.ts` resuelve identidad por `id` legado o `auth_user_id` y adjunta `req.authUserId`
 - Soporte RBAC reforzado en rutas sensibles de CRM (`ADMIN` / `SUPERADMIN`)
 
+### 4.5 Operación Production-Ready (Fase 3)
+- Configuración centralizada y tipada en `config/env.ts` (puertos, CORS, body-limit, rate limits)
+- Endpoint de readiness `GET /health/ready` con verificación real de DB (`SELECT 1`)
+- Apagado limpio: cierre de servidor HTTP + desconexión Prisma + cierre de pool PostgreSQL
+- Rate limiting configurable por entorno (API general, check-in, biométrico)
+
+### 4.6 Observabilidad avanzada (Fase 4)
+- Instrumentación HTTP con `prom-client` en `observability/metrics.ts`
+- Endpoint `GET /metrics` con protección opcional por `METRICS_TOKEN`
+- Métricas base incluidas: volumen de requests y latencia por ruta/método/estado
+
 ### 5. Variables de Entorno (Dos archivos .env)
 | Archivo | Usado por | Propósito |
 |---|---|---|

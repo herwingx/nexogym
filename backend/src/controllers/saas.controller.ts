@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
 import crypto from 'crypto';
-import { SubscriptionTier } from '@prisma/client';
+import { Prisma, SubscriptionTier } from '@prisma/client';
 import { createGymSchema, updateGymTierSchema } from '../schemas/saas.schema';
 import { handleControllerError } from '../utils/http';
 
@@ -48,7 +48,7 @@ export const createGym = async (req: Request, res: Response) => {
     const gym = await prisma.gym.create({
       data: {
         name,
-        theme_colors: theme_colors || {},
+        theme_colors: (theme_colors ?? {}) as Prisma.InputJsonValue,
         subscription_tier: selectedTier,
         modules_config: modules_config ?? MODULES_CONFIG_BY_TIER[selectedTier],
         api_key_hardware: apiKeyHardware,

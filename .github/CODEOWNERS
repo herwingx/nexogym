@@ -1,0 +1,10 @@
+# Default owner for all files
+* @herwingx
+
+# Backend critical areas
+/backend/src/controllers/ @herwingx
+/backend/src/middlewares/ @herwingx
+/backend/src/observability/ @herwingx
+/backend/prisma/ @herwingx
+/.github/workflows/ @herwingx
+/.docs/ @herwingx

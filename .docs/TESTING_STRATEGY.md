@@ -37,3 +37,21 @@
 ## 5. Convenciones de Tipado en Tests
 - Evitar depender de enums importados de Prisma en tests unitarios cuando el entorno de tipos pueda ir desfasado.
 - Preferir literales del dominio (`'ACTIVE'`, `'PRO_QR'`, `'PREMIUM_BIO'`) y validar comportamiento del controlador.
+
+## 6. Tests de Infraestructura (Fase 3)
+- `rate-limit.middleware.test.ts`: valida política de límite por IP y respuesta `429`.
+- `utils/http.test.ts`: valida formato de error estandarizado y logging estructurado.
+- Recomendación: mantener estas pruebas como "guardrails" para cambios de seguridad/operación.
+
+## 7. Observabilidad (Fase 4)
+- `observability/metrics.test.ts`: valida instrumentación HTTP y exposición de métricas registradas.
+
+## 8. Pipeline CI (Calidad continua)
+- Definido en `.github/workflows/ci.yml`.
+- Se ejecuta en cambios de backend para `push` y `pull_request` a `main`.
+- Orden de validación:
+   1. Instalación limpia de dependencias (`npm ci`).
+   2. Generación Prisma Client (`npx prisma generate`).
+   3. Type checking estricto (`npm run typecheck`).
+   4. Test suite completa (`npm test`).
+   5. Security audit high (`npm run audit:high`, modo informativo/no bloqueante).

@@ -103,3 +103,26 @@ Devuelve el total de gimnasios activos registrados en la base de datos.
 // Response 429
 { "error": "Too many requests. Please try again later." }
 ```
+
+### `GET /health/ready` (Nuevo)
+Readiness probe para orquestación/monitoring. Verifica conectividad con DB.
+```json
+{ "status": "READY", "service": "GymSaaS Backend API" }
+```
+
+```json
+// Response 503
+{ "status": "NOT_READY", "service": "GymSaaS Backend API" }
+```
+
+### `GET /metrics` (Fase 4)
+Expone métricas Prometheus (`text/plain`) para observabilidad operacional.
+
+- Si `METRICS_TOKEN` está configurado, requiere:
+  - `Authorization: Bearer <token>` **o**
+  - header `x-metrics-token: <token>`.
+
+```json
+// Response 401
+{ "error": "Unauthorized: invalid metrics token" }
+```

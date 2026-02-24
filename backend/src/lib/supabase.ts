@@ -1,9 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
+import { env } from '../config/env';
 
-dotenv.config({ quiet: true });
-
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY || '';
+const supabaseUrl = env.SUPABASE_URL;
+const supabaseAnonKey = env.SUPABASE_ANON_KEY || env.ANON_KEY || '';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
