@@ -157,7 +157,7 @@ export const createUser = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, phone, pin: pinFromBody, role, auth_user_id } = req.body;
+    const { name, phone, pin: pinFromBody, role, auth_user_id, profile_picture_url } = req.body;
 
     if (!phone) {
       res.status(400).json({ error: 'Phone number is required' });
@@ -184,6 +184,7 @@ export const createUser = async (req: Request, res: Response) => {
           phone,
           pin_hash: pinHash,
           role: (role && Object.values(Role).includes(role)) ? role : Role.MEMBER,
+          ...(profile_picture_url != null && profile_picture_url !== '' && { profile_picture_url: String(profile_picture_url) }),
         },
       });
 
@@ -241,20 +242,25 @@ export const renewSubscription = async (req: Request, res: Response) => {
       return;
     }
 
-    // Add 30 days to the current expiration date (if active) or from today (if expired)
     const now = new Date();
-    const baseDate = currentSub.expires_at > now ? currentSub.expires_at : now;
+    // Cuando se va y regresa (vencido o congelado): nuevo periodo desde el día que paga (hoy).
+    // Solo si sigue ACTIVO y con fecha vigente: se extiende desde su expires_at actual.
+    const isStillActiveWithTimeLeft =
+      currentSub.status === SubscriptionStatus.ACTIVE && currentSub.expires_at > now;
+    const baseDate = isStillActiveWithTimeLeft ? currentSub.expires_at : now;
 
     const newExpiresAt = new Date(baseDate);
     newExpiresAt.setDate(newExpiresAt.getDate() + 30);
 
     const updatedSub = await prisma.subscription.update({
-      where: {
-        id: currentSub.id,
-      },
+      where: { id: currentSub.id },
       data: {
         status: SubscriptionStatus.ACTIVE,
         expires_at: newExpiresAt,
+        // Vuelve de FROZEN/EXPIRED: limpiamos días congelados (nuevo periodo desde hoy)
+        ...((currentSub.status === SubscriptionStatus.FROZEN || !isStillActiveWithTimeLeft) && {
+          frozen_days_left: null,
+        }),
       },
     });
 
@@ -444,6 +450,41 @@ export const unfreezeSubscription = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleControllerError(req, res, error, '[unfreezeSubscription Error]', 'Failed to unfreeze subscription.');
+  }
+};
+
+/** Sincroniza estado: ACTIVE con expires_at ya pasada → EXPIRED (por gym). Para cron diario o ejecución manual. */
+export const syncExpiredSubscriptions = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const now = new Date();
+    const result = await prisma.subscription.updateMany({
+      where: {
+        gym_id: gymId,
+        status: SubscriptionStatus.ACTIVE,
+        expires_at: { lt: now },
+      },
+      data: { status: SubscriptionStatus.EXPIRED },
+    });
+
+    if (result.count > 0) {
+      await logAuditEvent(gymId, req.user?.id ?? 'system', 'SUBSCRIPTIONS_SYNC_EXPIRED', {
+        count: result.count,
+        reason: 'expires_at < now',
+      });
+    }
+
+    res.status(200).json({
+      message: result.count > 0 ? `${result.count} subscription(s) marked as EXPIRED.` : 'No subscriptions to sync.',
+      count: result.count,
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[syncExpiredSubscriptions Error]', 'Failed to sync expired subscriptions.');
   }
 };
 

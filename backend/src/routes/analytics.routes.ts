@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
+import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
 import {
   getLiveOccupancy,
   getDailyRevenue,
@@ -69,8 +70,10 @@ router.get('/revenue/daily', getDailyRevenue);        // Ingresos del día (?dat
  *     responses:
  *       200:
  *         description: Financial report (sales - expenses)
+ *       403:
+ *         description: Forbidden (Admin only)
  */
-router.get('/financial-report', getFinancialReport);  // Reporte mensual: ventas - egresos
+router.get('/financial-report', requireAdminOrSuperAdmin, getFinancialReport);  // Solo admin
 
 /**
  * @swagger
@@ -81,8 +84,10 @@ router.get('/financial-report', getFinancialReport);  // Reporte mensual: ventas
  *     responses:
  *       200:
  *         description: List of audit log entries
+ *       403:
+ *         description: Forbidden (Admin only)
  */
-router.get('/audit-logs', getAuditLogs);              // Historial anti-fraudes
+router.get('/audit-logs', requireAdminOrSuperAdmin, getAuditLogs);              // Solo admin
 
 /**
  * @swagger
@@ -100,7 +105,9 @@ router.get('/audit-logs', getAuditLogs);              // Historial anti-fraudes
  *     responses:
  *       200:
  *         description: Commission report sorted by total sales descending
+ *       403:
+ *         description: Forbidden (Admin only)
  */
-router.get('/commissions', getCommissions);
+router.get('/commissions', requireAdminOrSuperAdmin, getCommissions);
 
 export default router;

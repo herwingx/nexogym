@@ -10,6 +10,7 @@ import {
 } from '../controllers/inventory.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
+import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -81,8 +82,10 @@ router.post('/products', createProduct);
  *     responses:
  *       200:
  *         description: Product deleted successfully
+ *       403:
+ *         description: Forbidden (Admin only — reception cannot delete products)
  */
-router.delete('/products/:id', deleteProduct);      // Soft delete
+router.delete('/products/:id', requireAdminOrSuperAdmin, deleteProduct);      // Soft delete — solo admin
 
 /**
  * @swagger
@@ -138,8 +141,10 @@ router.post('/restock', restockProduct);
  *     responses:
  *       200:
  *         description: Loss recorded and stock adjusted
+ *       403:
+ *         description: Forbidden (Admin only — reception cannot report loss)
  */
-router.post('/loss', adjustLoss);                   // Merma — requiere justificación
+router.post('/loss', requireAdminOrSuperAdmin, adjustLoss);                   // Merma — solo admin (anti-fraude)
 
 /**
  * @swagger

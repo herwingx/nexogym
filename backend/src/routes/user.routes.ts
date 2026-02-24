@@ -9,12 +9,13 @@ import {
   renewSubscription,
   freezeSubscription,
   unfreezeSubscription,
+  syncExpiredSubscriptions,
   cancelSubscription,
   exportUserData,
   anonymizeUserData,
 } from '../controllers/user.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
+import { requireAdminOrSuperAdmin, requireStaff } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -46,6 +47,20 @@ router.get('/me/context', getMyContext);
 
 /**
  * @swagger
+ * /api/v1/users/sync-expired-subscriptions:
+ *   post:
+ *     summary: Mark ACTIVE subscriptions with expires_at in the past as EXPIRED (per gym). For daily cron or manual run.
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Sync result with count
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
+ */
+router.post('/sync-expired-subscriptions', requireAdminOrSuperAdmin, syncExpiredSubscriptions);
+
+/**
+ * @swagger
  * /api/v1/users:
  *   get:
  *     summary: Get all members of the gym
@@ -56,9 +71,9 @@ router.get('/me/context', getMyContext);
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Forbidden (Admin or SuperAdmin required)
+ *         description: Forbidden (Staff required)
  */
-router.get('/', requireAdminOrSuperAdmin, getUsers);
+router.get('/', requireStaff, getUsers);
 
 /**
  * @swagger
@@ -79,9 +94,9 @@ router.get('/', requireAdminOrSuperAdmin, getUsers);
  *       400:
  *         description: Invalid query
  *       403:
- *         description: Forbidden (Admin or SuperAdmin required)
+ *         description: Forbidden (Staff required)
  */
-router.get('/search', requireAdminOrSuperAdmin, searchUsers);
+router.get('/search', requireStaff, searchUsers);
 
 /**
  * @swagger
@@ -110,9 +125,9 @@ router.get('/search', requireAdminOrSuperAdmin, searchUsers);
  *       201:
  *         description: Member created successfully
  *       403:
- *         description: Forbidden (Admin or SuperAdmin required)
+ *         description: Forbidden (Staff required)
  */
-router.post('/', requireAdminOrSuperAdmin, createUser);
+router.post('/', requireStaff, createUser);
 
 /**
  * @swagger
@@ -140,9 +155,9 @@ router.post('/', requireAdminOrSuperAdmin, createUser);
  *       200:
  *         description: Member updated successfully
  *       403:
- *         description: Forbidden (Admin or SuperAdmin required)
+ *         description: Forbidden (Staff required)
  */
-router.patch('/:id', requireAdminOrSuperAdmin, updateUser);
+router.patch('/:id', requireStaff, updateUser);
 
 /**
  * @swagger
