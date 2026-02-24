@@ -1,11 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
 import dotenv from 'dotenv';
-
-// Import type definition extensions
-import './types/express';
+import pinoHttp from 'pino-http';
+import { randomUUID } from 'crypto';
 
 // Import routers
 import saasRouter from './routes/saas.routes';
@@ -17,11 +15,14 @@ import analyticsRouter from './routes/analytics.routes';
 import biometricRouter from './routes/biometric.routes';
 import bookingRouter from './routes/booking.routes';
 import { setupSwagger } from './swagger';
+import { logger } from './lib/logger';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+app.disable('x-powered-by');
 
 // Swagger Setup
 setupSwagger(app);
@@ -30,8 +31,23 @@ setupSwagger(app);
 app.use(helmet());
 app.use(cors());
 
-// Logging
-app.use(morgan('dev'));
+// Structured request logging
+app.use(
+  pinoHttp({
+    logger,
+    genReqId: (req, res) => {
+      const requestId = (req.headers['x-request-id'] as string) || randomUUID();
+      res.setHeader('x-request-id', requestId);
+      req.requestId = requestId;
+      return requestId;
+    },
+    customLogLevel: (_req, res, err) => {
+      if (err || res.statusCode >= 500) return 'error';
+      if (res.statusCode >= 400) return 'warn';
+      return 'info';
+    },
+  }),
+);
 
 // Body Parser
 app.use(express.json());
@@ -53,14 +69,48 @@ app.use('/biometric', biometricRouter);          // Sprint B9: IoT / Hardware en
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('[Global Error]:', err.stack || err);
+  req.log?.error(
+    {
+      requestId: req.requestId,
+      path: req.path,
+      method: req.method,
+      statusCode: err.status || 500,
+      err,
+    },
+    'Unhandled request error',
+  );
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error',
   });
 });
 
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+const server = app.listen(port, () => {
+  logger.info({ port, docs: '/api-docs' }, 'Server started');
+});
+
+const gracefulShutdown = (signal: string) => {
+  logger.warn({ signal }, 'Shutdown signal received');
+  server.close((err) => {
+    if (err) {
+      logger.error({ err }, 'Error while closing HTTP server');
+      process.exit(1);
+    }
+
+    logger.info('HTTP server closed cleanly');
+    process.exit(0);
+  });
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled Promise rejection');
+});
+
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught exception');
+  process.exit(1);
 });
 
 export default app;
