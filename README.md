@@ -18,6 +18,7 @@ ERP Multitenant de alto rendimiento para la gestión de gimnasios.
 - **Estrategia de Pruebas:** [TESTING_STRATEGY.md](./.docs/TESTING_STRATEGY.md)
 - **Schema DB:** [DATABASE_SCHEMA.md](./.docs/DATABASE_SCHEMA.md)
 - **Branch Protection:** [BRANCH_PROTECTION.md](./.docs/BRANCH_PROTECTION.md)
+- **Go-Live Backend:** [GO_LIVE_CHECKLIST.md](./.docs/GO_LIVE_CHECKLIST.md)
 
 ## Requisitos
 - Node.js 18+
