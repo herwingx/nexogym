@@ -1,7 +1,7 @@
 {
-  "name": "backend",
+  "name": "nexogym-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "ERP multitenant de alto rendimiento para la gestión de gimnasios.",
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -17,9 +17,9 @@
     "db:fresh": "npm run db:reset",
     "db:studio": "prisma studio"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["saas", "erp", "gym", "multitenant", "nodejs", "typescript", "prisma", "supabase"],
+  "author": "herwingx",
+  "license": "MIT",
   "type": "commonjs",
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -1,80 +1,128 @@
-# GymSaaS ERP - Profesional Backend
+```
+███╗   ██╗███████╗██╗  ██╗ ██████╗  ██████╗ ██╗   ██╗███╗   ███╗
+████╗  ██║██╔════╝╚██╗██╔╝██╔═══██╗██╔════╝ ╚██╗ ██╔╝████╗ ████║
+██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║██║  ███╗ ╚████╔╝ ██╔████╔██║
+██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║██║   ██║  ╚██╔╝  ██║╚██╔╝██║
+██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝╚██████╔╝   ██║   ██║ ╚═╝ ██║
+╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚═╝     ╚═╝
+```
 
-ERP Multitenant de alto rendimiento para la gestión de gimnasios.
+> **Conecta al dueño, al staff y a los clientes.**
+> ERP multitenant de alto rendimiento para la gestión de gimnasios.
 
-## Comandos Rápidos
+---
 
-| Comando | Descripción |
+![Node](https://img.shields.io/badge/Node.js-18%2B-6ee7b7?style=flat-square&logo=node.js&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-818cf8?style=flat-square&logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-7.x-c4b5fd?style=flat-square&logo=prisma&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20DB-34d399?style=flat-square&logo=supabase&logoColor=black)
+![Vitest](https://img.shields.io/badge/Vitest-tested-f59e0b?style=flat-square&logo=vitest&logoColor=black)
+![CI](https://img.shields.io/github/actions/workflow/status/herwingx/gym-saas/ci.yml?style=flat-square&label=CI&logo=github&logoColor=white)
+
+---
+
+## Stack
+
+| Capa | Tecnología |
 |---|---|
-| `npm install` | Instala dependencias |
-| `npm run dev` | Levanta el servidor de desarrollo (tsx watch) |
-| `npm test` | Corre la suite de pruebas (Vitest) |
-| `npm run test:coverage` | Reporte de cobertura |
-| `npm run typecheck` | Valida tipos TypeScript sin compilar |
-| `npm run db:push` | Sincroniza el schema con la DB (dev) |
-| `npm run db:seed` | Puebla la DB local con datos de prueba |
-| `npm run db:reset` | Resetea y re-seedea la DB local |
-| `npm run db:studio` | GUI visual de la DB (Prisma Studio) |
+| Runtime | Node.js 18+ · TypeScript 5 · Express 5 |
+| Base de datos | PostgreSQL vía Supabase (autohosteado) |
+| ORM | Prisma 7 |
+| Auth | Supabase Auth — JWT + `auth_user_id` |
+| Observabilidad | Pino logs · Prometheus metrics · Swagger UI |
+| Tests | Vitest · Supertest · vitest-mock-extended |
+| Mensajería | n8n webhooks (WhatsApp — opcional) |
+| CI | GitHub Actions |
+
+---
+
+## Módulos
+
+| Módulo | Plan |
+|---|---|
+| 🛒 POS — Punto de Venta, turnos de caja, gastos | BASIC · PRO · PREMIUM |
+| 📦 Inventario — productos, restock, mermas | BASIC · PRO · PREMIUM |
+| 🚪 Check-in — manual, QR, biométrico | BASIC · PRO · PREMIUM |
+| 📅 Clases y Reservas | PRO · PREMIUM |
+| 🏋️ Rutinas de entrenamiento | PRO · PREMIUM |
+| 🎮 Gamificación — streaks y recompensas | PRO · PREMIUM |
+| 🖐 Biometría | PREMIUM |
+| 📊 Analytics — ocupación, ingresos, auditoría | BASIC · PRO · PREMIUM |
+| 🏢 SaaS Admin — gestión multitenant | SUPERADMIN |
+
+---
+
+## Inicio rápido
+
+```bash
+git clone https://github.com/herwingx/gym-saas
+cd gym-saas/backend
+npm install
+cp .env.example .env               # rellenar con credenciales de Supabase DEV
+cp prisma/.env.example prisma/.env # rellenar DIRECT_URL
+npm run db:push                    # sincronizar schema
+npm run db:seed                    # poblar con datos de prueba
+npm run dev                        # → http://localhost:3000
+```
+
+---
+
+## Comandos
+
+```bash
+npm run dev              # servidor en modo watch
+npm test                 # suite de pruebas (Vitest)
+npm run test:coverage    # reporte de cobertura
+npm run typecheck        # validación de tipos sin compilar
+
+npm run db:push          # sincronizar schema con la DB (dev)
+npm run db:migrate       # generar migration file versionado
+npm run db:seed          # poblar DB con datos de prueba realistas
+npm run db:reset         # destruir + re-crear + re-seedear
+npm run db:studio        # GUI visual de la DB (Prisma Studio)
+```
+
+---
 
 ## Documentación
-- **Flujo de Desarrollo / DB Seeding:** [DEV_WORKFLOW.md](./.docs/DEV_WORKFLOW.md)
-- **API (Swagger):** `http://localhost:3000/api-docs`
-- **Health:** `http://localhost:3000/health`
-- **Readiness:** `http://localhost:3000/health/ready`
-- **Metrics (Prometheus):** `http://localhost:3000/metrics`
-- **Estrategia de Pruebas:** [TESTING_STRATEGY.md](./.docs/TESTING_STRATEGY.md)
-- **Playbook Frontend:** [FRONTEND_INTEGRATION.md](./.docs/FRONTEND_INTEGRATION.md)
-- **Schema DB:** [DATABASE_SCHEMA.md](./.docs/DATABASE_SCHEMA.md)
-- **Branch Protection:** [BRANCH_PROTECTION.md](./.docs/BRANCH_PROTECTION.md)
-- **Go-Live Backend:** [GO_LIVE_CHECKLIST.md](./.docs/GO_LIVE_CHECKLIST.md)
 
-## Requisitos
-- Node.js 18+
-- PostgreSQL (Supabase)
-- n8n (opcional para webhooks de WhatsApp)
+| Doc | Descripción |
+|---|---|
+| [DEV_WORKFLOW.md](./.docs/DEV_WORKFLOW.md) | Entornos, flujo de trabajo, auth, testing manual, seed |
+| [TESTING_STRATEGY.md](./.docs/TESTING_STRATEGY.md) | Estrategia de pruebas automatizadas |
+| [DATABASE_SCHEMA.md](./.docs/DATABASE_SCHEMA.md) | Modelos, relaciones y enums |
+| [FRONTEND_INTEGRATION.md](./.docs/FRONTEND_INTEGRATION.md) | Contratos de API para el frontend |
+| [BRANCH_PROTECTION.md](./.docs/BRANCH_PROTECTION.md) | Reglas de ramas y PR |
+| [GO_LIVE_CHECKLIST.md](./.docs/GO_LIVE_CHECKLIST.md) | Checklist de despliegue a producción |
+| Swagger UI | `http://localhost:3000/api-docs` |
+| Health | `http://localhost:3000/health` |
+| Metrics | `http://localhost:3000/metrics` |
 
-## Operación recomendada
-- Configura límites y seguridad HTTP desde `backend/.env` (`CORS_ORIGIN`, `BODY_LIMIT`, `RATE_LIMIT_*`).
-- Usa `GET /health/ready` para verificar disponibilidad real de DB en despliegues.
-- Si expones `/metrics` fuera de red privada, configura `METRICS_TOKEN`.
+---
 
-## CI (Integración Continua)
-- Workflow: `.github/workflows/ci.yml`
-- Se ejecuta en `push` y `pull_request` hacia `main` cuando hay cambios en `backend/**`.
-- Gates de calidad:
-	- `npm ci`
-	- `npx prisma generate`
-	- `npm run typecheck`
-	- `npm test`
-	- `npm run audit:high` (no bloqueante; alerta de seguridad)
-- Reglas de revisión y ownership: `.github/CODEOWNERS` + `.github/pull_request_template.md`
+## Arquitectura de auth
 
-## Frontend Handoff (Listo para Integrar)
-- **Base URL local:** `http://localhost:3000/api/v1`
-- **Auth:** enviar JWT de Supabase en `Authorization: Bearer <token>` para rutas `/api/v1/**`.
-- **Tenant context:** `gymId` se resuelve desde el token (`auth_user_id`), no se envía manualmente desde frontend.
-- **Docs en vivo:** `http://localhost:3000/api-docs`
+```
+FRONTEND            SUPABASE AUTH              NEXOGYM BACKEND
+────────            ─────────────              ───────────────
+signIn()  ───────►  valida credenciales
+          ◄───────  JWT (access_token)
+API req   ──────────────────────────────────►  requireAuth
+                    ◄── getUser(token) ──────   verifica JWT
+                        user.id        ──────►  resuelve gymId + role
+                                               ── next() ──► controlador
+```
 
-### Endpoints clave para pantallas iniciales
-- **Recepción (búsqueda):** `GET /api/v1/users/search?q=<texto>`
-- **Check-in manual/QR:** `POST /api/v1/checkin` con `{ userId, accessMethod?: "MANUAL"|"QR" }`
-- **Features por gym (menús dinámicos):** `GET /api/v1/saas/gyms/:id/modules`
-- **Baja de plan:** `PATCH /api/v1/users/:id/cancel-subscription`
-- **Solicitud de datos (export):** `GET /api/v1/users/:id/data-export`
-- **Eliminación de datos (anonimización):** `POST /api/v1/users/:id/anonymize`
+Supabase maneja: login, registro, refresh, contraseña olvidada.
+NexoGym maneja: autorización por rol, contexto multitenant, lógica de negocio.
 
-### Política de módulos por suscripción
-- `modules_config` se calcula automáticamente por `subscription_tier`.
-- No se permite override manual por API de negocio.
-- La base de datos también está blindada con trigger SQL (`backend/prisma/sql/enforce_modules_config_by_tier.sql`) para evitar drift por cambios directos.
+---
 
-### Flujo de release (staging/prod)
-1. Deploy backend.
-2. Ejecutar `cd backend && npm run db:enforce-modules`.
-3. Validar `GET /api/v1/saas/gyms/:id/modules`.
-4. Si falla el paso 2, no cerrar release.
+## CI
 
-### Recomendación UX/legal de baja de socio
-1. Ejecutar `GET /users/:id/data-export` y permitir descarga JSON.
-2. Confirmar acción de baja (`cancel-subscription`) con motivo opcional.
-3. Si solicita borrado de datos personales, ejecutar `anonymize` (irreversible).
+Pipeline en `.github/workflows/ci.yml` — se ejecuta en cada push y PR a `main`:
+
+```
+npm ci  →  prisma generate  →  typecheck  →  vitest  →  audit:high
+```
+

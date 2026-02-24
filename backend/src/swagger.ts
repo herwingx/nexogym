@@ -9,9 +9,9 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'GymSaaS API',
+      title: 'NexoGym API',
       version: '1.0.0',
-      description: 'API para la gestión de gimnasios con enfoque en gamificación y finanzas.',
+      description: 'ERP multitenant de alto rendimiento para la gestión de gimnasios. Conecta al dueño, al staff y a los clientes.',
     },
     servers: [
       {
@@ -45,7 +45,7 @@ try {
   swaggerSpec = swaggerJsdoc(options);
 } catch (err) {
   logger.error({ err }, 'Failed to build swagger spec');
-  swaggerSpec = { openapi: '3.0.0', info: { title: 'GymSaaS API', version: '1.0.0' }, paths: {} };
+  swaggerSpec = { openapi: '3.0.0', info: { title: 'NexoGym API', version: '1.0.0' }, paths: {} };
 }
 
 export const setupSwagger = (app: Express): void => {
