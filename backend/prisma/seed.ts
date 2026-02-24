@@ -175,6 +175,7 @@ async function main() {
       { gym_id: gymBasic.id, user_id: basicMembers[4].id, status: SubscriptionStatus.FROZEN,   expires_at: daysFromNow(25), frozen_days_left: 7 },
     ],
   });
+  await linkSupabaseAuth(basicMembers[0].id, 'member@fitzone.dev', 'Member1234!');
 
   // Productos Básico
   const [prodBasic1, prodBasic2, prodBasic3] = await Promise.all([
@@ -283,6 +284,7 @@ async function main() {
       pin_hash: pin('5678'),
     },
   });
+  await linkSupabaseAuth(instructorPro.id, 'instructor@powerfit.dev', 'Instructor1234!');
 
   // Miembros Pro (con streaks y variedad de suscripciones)
   const proMembers = await Promise.all([
@@ -466,6 +468,7 @@ async function main() {
     prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Elena Vargas (PT)',        phone: '+529633000003', role: Role.INSTRUCTOR, pin_hash: pin('5678') } }),
     prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Sebastián Mora (Crossfit)', phone: '+529633000004', role: Role.INSTRUCTOR, pin_hash: pin('8765') } }),
   ]);
+  await linkSupabaseAuth(instructorPremium1.id, 'instructor@elitebody.dev', 'Instructor1234!');
 
   // Miembros Premium (streaks altos, suscripciones activas predominantes)
   const premiumMembers = await Promise.all([
@@ -495,6 +498,7 @@ async function main() {
       { gym_id: gymPremium.id, user_id: premiumMembers[9].id, status: SubscriptionStatus.ACTIVE,   expires_at: daysFromNow(30) },
     ],
   });
+  await linkSupabaseAuth(premiumMembers[0].id, 'member@elitebody.dev', 'Member1234!');
 
   // Productos Premium (tienda más completa)
   const premProducts = await Promise.all([
@@ -653,43 +657,186 @@ async function main() {
   }
 
   // =========================================================================
-  // RESUMEN
+  // 4. GYMS EXTRA POR PLAN — Para probar aislamiento y que cada plan bloquea bien
+  // =========================================================================
+
+  // --- 4.1 IronHouse (BASIC) — Solo POS, sin QR/Clases/Gamificación/Biometría
+  const gymBasic2 = await prisma.gym.create({
+    data: {
+      name: 'IronHouse BASIC',
+      subscription_tier: SubscriptionTier.BASIC,
+      modules_config: { pos: true, qr_access: false, gamification: false, classes: false, biometrics: false },
+      theme_colors: { primary: '#dc2626' },
+      api_key_hardware: randomHex(),
+    },
+  });
+  const adminBasic2 = await prisma.user.create({
+    data: { gym_id: gymBasic2.id, name: 'Admin IronHouse', phone: '+529644000001', role: Role.ADMIN, pin_hash: pin('1234') },
+  });
+  await linkSupabaseAuth(adminBasic2.id, 'admin@ironhouse.dev', 'Admin1234!');
+  const recepBasic2 = await prisma.user.create({
+    data: { gym_id: gymBasic2.id, name: 'Recep IronHouse', phone: '+529644000002', role: Role.RECEPTIONIST, pin_hash: pin('4321') },
+  });
+  await linkSupabaseAuth(recepBasic2.id, 'recep@ironhouse.dev', 'Recep1234!');
+  const [memberBasic2a, memberBasic2b] = await Promise.all([
+    prisma.user.create({ data: { gym_id: gymBasic2.id, name: 'Socio A IronHouse', phone: '+529644100001', role: Role.MEMBER } }),
+    prisma.user.create({ data: { gym_id: gymBasic2.id, name: 'Socio B IronHouse', phone: '+529644100002', role: Role.MEMBER } }),
+  ]);
+  await prisma.subscription.createMany({
+    data: [
+      { gym_id: gymBasic2.id, user_id: memberBasic2a.id, status: SubscriptionStatus.ACTIVE, expires_at: daysFromNow(15) },
+      { gym_id: gymBasic2.id, user_id: memberBasic2b.id, status: SubscriptionStatus.EXPIRED, expires_at: daysFromNow(-5) },
+    ],
+  });
+  await linkSupabaseAuth(memberBasic2a.id, 'member@ironhouse.dev', 'Member1234!');
+  const prodIron = await prisma.product.create({ data: { gym_id: gymBasic2.id, name: 'Agua 500ml', price: 25, stock: 50 } });
+  await prisma.visit.create({ data: { gym_id: gymBasic2.id, user_id: memberBasic2a.id, access_method: AccessMethod.MANUAL } });
+
+  // --- 4.2 CrossBox (PRO_QR) — POS + QR + Clases + Gamificación, sin Biometría
+  const gymPro2 = await prisma.gym.create({
+    data: {
+      name: 'CrossBox PRO',
+      subscription_tier: SubscriptionTier.PRO_QR,
+      modules_config: { pos: true, qr_access: true, gamification: true, classes: true, biometrics: false },
+      theme_colors: { primary: '#059669' },
+      api_key_hardware: randomHex(),
+      rewards_config: { points_per_visit: 10, streak_bonus: { streak_7: 50 }, rewards: [] },
+    },
+  });
+  const adminPro2 = await prisma.user.create({
+    data: { gym_id: gymPro2.id, name: 'Admin CrossBox', phone: '+529655000001', role: Role.ADMIN, pin_hash: pin('1234') },
+  });
+  await linkSupabaseAuth(adminPro2.id, 'admin@crossbox.dev', 'Admin1234!');
+  const recepPro2 = await prisma.user.create({
+    data: { gym_id: gymPro2.id, name: 'Recep CrossBox', phone: '+529655000002', role: Role.RECEPTIONIST, pin_hash: pin('4321') },
+  });
+  await linkSupabaseAuth(recepPro2.id, 'recep@crossbox.dev', 'Recep1234!');
+  const instructorPro2 = await prisma.user.create({
+    data: { gym_id: gymPro2.id, name: 'Instructor CrossBox', phone: '+529655000003', role: Role.INSTRUCTOR, pin_hash: pin('5678') },
+  });
+  await linkSupabaseAuth(instructorPro2.id, 'instructor@crossbox.dev', 'Instructor1234!');
+  const [memberPro2a, memberPro2b] = await Promise.all([
+    prisma.user.create({ data: { gym_id: gymPro2.id, name: 'Socio A CrossBox', phone: '+529655100001', role: Role.MEMBER, current_streak: 3 } }),
+    prisma.user.create({ data: { gym_id: gymPro2.id, name: 'Socio B CrossBox', phone: '+529655100002', role: Role.MEMBER, current_streak: 0 } }),
+  ]);
+  await prisma.subscription.createMany({
+    data: [
+      { gym_id: gymPro2.id, user_id: memberPro2a.id, status: SubscriptionStatus.ACTIVE, expires_at: daysFromNow(20) },
+      { gym_id: gymPro2.id, user_id: memberPro2b.id, status: SubscriptionStatus.FROZEN, expires_at: daysFromNow(30), frozen_days_left: 5 },
+    ],
+  });
+  await linkSupabaseAuth(memberPro2a.id, 'member@crossbox.dev', 'Member1234!');
+  const classPro2 = await prisma.gymClass.create({
+    data: { gym_id: gymPro2.id, instructor_id: instructorPro2.id, name: 'HIIT', description: 'Alta intensidad', capacity: 10, day_of_week: 2, start_time: '18:00', end_time: '19:00' },
+  });
+  await prisma.visit.createMany({
+    data: [
+      { gym_id: gymPro2.id, user_id: memberPro2a.id, access_method: AccessMethod.QR },
+      { gym_id: gymPro2.id, user_id: memberPro2b.id, access_method: AccessMethod.MANUAL },
+    ],
+  });
+
+  // --- 4.3 MegaFit (PREMIUM_BIO) — Todo habilitado incl. Biometría
+  const gymPremium2 = await prisma.gym.create({
+    data: {
+      name: 'MegaFit PREMIUM',
+      subscription_tier: SubscriptionTier.PREMIUM_BIO,
+      modules_config: { pos: true, qr_access: true, gamification: true, classes: true, biometrics: true },
+      theme_colors: { primary: '#7c3aed' },
+      api_key_hardware: randomHex(),
+      rewards_config: { points_per_visit: 15, streak_bonus: { streak_7: 75 }, rewards: [] },
+    },
+  });
+  const adminPremium2 = await prisma.user.create({
+    data: { gym_id: gymPremium2.id, name: 'Admin MegaFit', phone: '+529666000001', role: Role.ADMIN, pin_hash: pin('1234') },
+  });
+  await linkSupabaseAuth(adminPremium2.id, 'admin@megafit.dev', 'Admin1234!');
+  const recepPremium2 = await prisma.user.create({
+    data: { gym_id: gymPremium2.id, name: 'Recep MegaFit', phone: '+529666000002', role: Role.RECEPTIONIST, pin_hash: pin('4321') },
+  });
+  await linkSupabaseAuth(recepPremium2.id, 'recep@megafit.dev', 'Recep1234!');
+  const instructorPremium2_2 = await prisma.user.create({
+    data: { gym_id: gymPremium2.id, name: 'Instructor MegaFit', phone: '+529666000003', role: Role.INSTRUCTOR, pin_hash: pin('5678') },
+  });
+  await linkSupabaseAuth(instructorPremium2_2.id, 'instructor@megafit.dev', 'Instructor1234!');
+  const [memberPrem2a, memberPrem2b] = await Promise.all([
+    prisma.user.create({ data: { gym_id: gymPremium2.id, name: 'Socio A MegaFit', phone: '+529666100001', role: Role.MEMBER, current_streak: 7 } }),
+    prisma.user.create({ data: { gym_id: gymPremium2.id, name: 'Socio B MegaFit', phone: '+529666100002', role: Role.MEMBER, current_streak: 0 } }),
+  ]);
+  await prisma.subscription.createMany({
+    data: [
+      { gym_id: gymPremium2.id, user_id: memberPrem2a.id, status: SubscriptionStatus.ACTIVE, expires_at: daysFromNow(30) },
+      { gym_id: gymPremium2.id, user_id: memberPrem2b.id, status: SubscriptionStatus.EXPIRED, expires_at: daysFromNow(-1) },
+    ],
+  });
+  await linkSupabaseAuth(memberPrem2a.id, 'member@megafit.dev', 'Member1234!');
+  await prisma.visit.createMany({
+    data: [
+      { gym_id: gymPremium2.id, user_id: memberPrem2a.id, access_method: AccessMethod.BIOMETRIC },
+      { gym_id: gymPremium2.id, user_id: memberPrem2b.id, access_method: AccessMethod.QR },
+    ],
+  });
+
+  // =========================================================================
+  // RESUMEN Y GUÍA DE PRUEBAS
   // =========================================================================
   console.log('\n✅ Seed completado exitosamente!\n');
 
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🔐 SUPERADMIN');
-  console.log(`   Email : superadmin@nexogym.dev  /  SuperAdmin2025!`);
-  console.log(`   ID    : ${superAdmin.id}`);
-  console.log(`   Gym   : ${platformGym.id}  (Platform Internal)`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📋 MÓDULOS POR PLAN (qué debe estar habilitado/bloqueado en cada gym)');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('   Plan         | POS | QR acceso | Clases | Gamificación | Biometría');
+  console.log('   -------------|-----|-----------|--------|--------------|-----------');
+  console.log('   BASIC        |  ✅ |     ❌    |   ❌   |      ❌      |    ❌');
+  console.log('   PRO_QR       |  ✅ |     ✅    |   ✅   |      ✅      |    ❌');
+  console.log('   PREMIUM_BIO  |  ✅ |     ✅    |   ✅   |      ✅      |    ✅');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-  console.log('\n🏋️  GYM BÁSICO  — FitZone Básico  (BASIC)');
-  console.log(`   Gym ID     : ${gymBasic.id}`);
-  console.log(`   Admin      : admin@fitzone.dev       /  Admin1234!   (ID: ${adminBasic.id})`);
-  console.log(`   Recep.     : recep@fitzone.dev       /  Recep1234!   (ID: ${receptionistBasic.id})`);
-  console.log(`   HW API Key : ${gymBasic.api_key_hardware}`);
+  console.log('🔐 SUPERADMIN (solo plataforma /saas)');
+  console.log('   superadmin@nexogym.dev  /  SuperAdmin2025!');
+  console.log('   Gym: Platform Internal\n');
 
-  console.log('\n🚀  GYM PRO     — PowerFit Pro    (PRO_QR)');
-  console.log(`   Gym ID     : ${gymPro.id}`);
-  console.log(`   Admin      : admin@powerfit.dev      /  Admin1234!   (ID: ${adminPro.id})`);
-  console.log(`   Recep.     : recep@powerfit.dev      /  Recep1234!   (ID: ${receptionistPro.id})`);
-  console.log(`   Instructor : (solo PIN)                               (ID: ${instructorPro.id})`);
-  console.log(`   Socio      : socio@powerfit.dev      /  Socio1234!   (portal /member, ID: ${proMembers[0].id})`);
-  console.log(`   HW API Key : ${gymPro.api_key_hardware}`);
+  console.log('🏋️  BASIC — FitZone Básico');
+  console.log('   Admin : admin@fitzone.dev     /  Admin1234!');
+  console.log('   Recep : recep@fitzone.dev     /  Recep1234!');
+  console.log('   Socio : member@fitzone.dev    /  Member1234!');
+  console.log('   (Sin instructor; Clases/QR/Premios deben estar bloqueados)\n');
 
-  console.log('\n💎  GYM PREMIUM — EliteBody Premium (PREMIUM_BIO)');
-  console.log(`   Gym ID     : ${gymPremium.id}`);
-  console.log(`   Admin      : admin@elitebody.dev     /  Admin1234!   (ID: ${adminPremium.id})`);
-  console.log(`   Recep.     : recep@elitebody.dev     /  Recep1234!   (ID: ${receptionistPremium.id})`);
-  console.log(`   Instructor1: (solo PIN)                               (ID: ${instructorPremium1.id})`);
-  console.log(`   Instructor2: (solo PIN)                               (ID: ${instructorPremium2.id})`);
-  console.log(`   HW API Key : ${gymPremium.api_key_hardware}`);
+  console.log('🏋️  BASIC — IronHouse BASIC (2º gym mismo plan)');
+  console.log('   Admin : admin@ironhouse.dev   /  Admin1234!');
+  console.log('   Recep : recep@ironhouse.dev   /  Recep1234!');
+  console.log('   Socio : member@ironhouse.dev   /  Member1234!\n');
 
-  console.log('\n👥  Miembros activos por gym:');
-  console.log(`   Básico  : ${basicMembers.map(m => m.id).join('\n             ')}`);
-  console.log(`   Pro     : ${proMembers.map(m => m.id).join('\n             ')}`);
-  console.log(`   Premium : ${premiumMembers.map(m => m.id).join('\n             ')}`);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  console.log('🚀  PRO_QR — PowerFit Pro');
+  console.log('   Admin      : admin@powerfit.dev      /  Admin1234!');
+  console.log('   Recep      : recep@powerfit.dev      /  Recep1234!');
+  console.log('   Instructor : instructor@powerfit.dev /  Instructor1234!');
+  console.log('   Socio      : socio@powerfit.dev      /  Socio1234!');
+  console.log('   (Biometría bloqueada)\n');
+
+  console.log('🚀  PRO_QR — CrossBox PRO (2º gym mismo plan)');
+  console.log('   Admin      : admin@crossbox.dev      /  Admin1234!');
+  console.log('   Recep      : recep@crossbox.dev       /  Recep1234!');
+  console.log('   Instructor : instructor@crossbox.dev  /  Instructor1234!');
+  console.log('   Socio      : member@crossbox.dev      /  Member1234!\n');
+
+  console.log('💎  PREMIUM_BIO — EliteBody Premium');
+  console.log('   Admin      : admin@elitebody.dev     /  Admin1234!');
+  console.log('   Recep      : recep@elitebody.dev      /  Recep1234!');
+  console.log('   Instructor : instructor@elitebody.dev /  Instructor1234!');
+  console.log('   Socio      : member@elitebody.dev    /  Member1234!\n');
+
+  console.log('💎  PREMIUM_BIO — MegaFit PREMIUM (2º gym mismo plan)');
+  console.log('   Admin      : admin@megafit.dev       /  Admin1234!');
+  console.log('   Recep      : recep@megafit.dev        /  Recep1234!');
+  console.log('   Instructor : instructor@megafit.dev   /  Instructor1234!');
+  console.log('   Socio      : member@megafit.dev       /  Member1234!\n');
+
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🧪 CÓMO PROBAR: Inicia sesión en cada gym y verifica que Inventario/Cortes');
+  console.log('   solo en POS; Clases/Rutinas solo en PRO y PREMIUM; Biometría solo PREMIUM.');
+  console.log('   Compara FitZone vs IronHouse (ambos BASIC) y PowerFit vs CrossBox (PRO).');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 
 main()
