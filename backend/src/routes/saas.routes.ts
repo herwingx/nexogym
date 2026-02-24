@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireSuperAdmin } from '../middlewares/superadmin.middleware';
-import { createGym, updateGymTier } from '../controllers/saas.controller';
+import { createGym, getGlobalMetrics, updateGymTier } from '../controllers/saas.controller';
 
 const router = Router();
 
@@ -84,5 +84,6 @@ router.post('/gyms', createGym);
  *         description: Gym not found
  */
 router.patch('/gyms/:id/tier', updateGymTier);
+router.get('/metrics', getGlobalMetrics);
 
 export default router;

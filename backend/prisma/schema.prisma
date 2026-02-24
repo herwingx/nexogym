@@ -68,6 +68,7 @@ model Gym {
   name              String
   theme_colors      Json? // Configuración de Theme/White-Labeling (ej. {"primary": "#ff0000"})
   subscription_tier SubscriptionTier @default(BASIC)
+  modules_config    Json? // Feature Flags por nivel de suscripción
   rewards_config    Json? // Portal de Gamificación: Reglas y recompensas
   api_key_hardware  String?          @unique // Sprint B9 hardware auth
 
@@ -91,15 +92,16 @@ model Gym {
 }
 
 model User {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id         String    @db.Uuid
-  name           String?
-  phone          String?
-  pin_hash       String? // Control de Acceso Manual / Biométrico
-  role           Role      @default(MEMBER)
-  current_streak Int       @default(0) // Gamificación
-  last_visit_at  DateTime?
-  deleted_at     DateTime? // Soft delete
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id              String    @db.Uuid
+  name                String?
+  phone               String?
+  profile_picture_url String?
+  pin_hash            String? // Control de Acceso Manual / Biométrico
+  role                Role      @default(MEMBER)
+  current_streak      Int       @default(0) // Gamificación
+  last_visit_at       DateTime?
+  deleted_at          DateTime? // Soft delete
 
   // Relaciones
   gym                Gym            @relation(fields: [gym_id], references: [id], onDelete: Cascade)
