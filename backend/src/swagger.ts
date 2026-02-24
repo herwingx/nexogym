@@ -38,32 +38,27 @@ const options: swaggerJsdoc.Options = {
   ],
 };
 
-// swagger-jsdoc v7-rc returns a Promise — se construye una sola vez al cargar el módulo.
-const specPromise: Promise<object> = (
-  swaggerJsdoc(options) as unknown as Promise<object>
-).catch((err) => {
+// swagger-jsdoc can be synchronous or asynchronous depending on the version and configuration.
+// In this environment, it returns the specification object directly.
+let swaggerSpec: any;
+try {
+  swaggerSpec = swaggerJsdoc(options);
+} catch (err) {
   logger.error({ err }, 'Failed to build swagger spec');
-  return { openapi: '3.0.0', info: { title: 'GymSaaS API', version: '1.0.0' }, paths: {} };
-});
+  swaggerSpec = { openapi: '3.0.0', info: { title: 'GymSaaS API', version: '1.0.0' }, paths: {} };
+}
 
 export const setupSwagger = (app: Express): void => {
   // Endpoint JSON — usado también por el UI
-  app.get('/api-docs.json', async (_req: Request, res: Response) => {
-    res.json(await specPromise);
+  app.get('/api-docs.json', (_req: Request, res: Response) => {
+    res.json(swaggerSpec);
   });
 
   // Swagger UI — usa el spec resuelto directamente (no la URL dinámica)
   app.use(
     '/api-docs',
     swaggerUi.serve,
-    async (_req: Request, res: Response, next: NextFunction) => {
-      try {
-        const spec = await specPromise;
-        swaggerUi.setup(spec)(_req, res, next);
-      } catch (err) {
-        next(err);
-      }
-    },
+    swaggerUi.setup(swaggerSpec)
   );
 
   logger.info({ path: '/api-docs' }, 'Swagger UI available');

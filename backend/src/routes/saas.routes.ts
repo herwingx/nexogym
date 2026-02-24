@@ -1,7 +1,17 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireSuperAdmin } from '../middlewares/superadmin.middleware';
-import { createGym, getGlobalMetrics, getGymModules, updateGymTier } from '../controllers/saas.controller';
+import {
+  createGym,
+  deleteGym,
+  exportGymData,
+  getGlobalMetrics,
+  getGymDetail,
+  getGymModules,
+  listGyms,
+  updateGym,
+  updateGymTier,
+} from '../controllers/saas.controller';
 
 const router = Router();
 
@@ -51,6 +61,95 @@ router.post('/gyms', createGym);
 
 /**
  * @swagger
+ * /api/v1/saas/gyms:
+ *   get:
+ *     summary: List all gyms with stats and pagination (SuperAdmin only)
+ *     tags: [SaaS]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Filter by gym name
+ *     responses:
+ *       200:
+ *         description: Paginated list of gyms with user/subscription counts
+ */
+router.get('/gyms', listGyms);
+
+/**
+ * @swagger
+ * /api/v1/saas/gyms/{id}:
+ *   get:
+ *     summary: Get full detail of a gym including operational stats (SuperAdmin only)
+ *     tags: [SaaS]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Gym detail with user count, subscription count, active subscriptions
+ *       404:
+ *         description: Gym not found
+ */
+router.get('/gyms/:id', getGymDetail);
+
+/**
+ * @swagger
+ * /api/v1/saas/gyms/{id}:
+ *   patch:
+ *     summary: Update gym settings (name, theme_colors, n8n_config) (SuperAdmin only)
+ *     tags: [SaaS]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               theme_colors:
+ *                 type: object
+ *               n8n_config:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Gym updated successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Gym not found
+ */
+router.patch('/gyms/:id', updateGym);
+
+/**
+ * @swagger
  * /api/v1/saas/gyms/{id}/tier:
  *   patch:
  *     summary: Update gym subscription tier (SuperAdmin only)
@@ -83,6 +182,63 @@ router.post('/gyms', createGym);
  *         description: Gym not found
  */
 router.patch('/gyms/:id/tier', updateGymTier);
+
+/**
+ * @swagger
+ * /api/v1/saas/gyms/{id}:
+ *   delete:
+ *     summary: Permanently delete a gym and ALL its data (SuperAdmin only)
+ *     description: |
+ *       **IRREVERSIBLE.** Deletes the gym and every associated record via DB cascade
+ *       (users, subscriptions, visits, sales, etc.).
+ *       Requires the header `x-confirm-delete: CONFIRM_DELETE`.
+ *     tags: [SaaS]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: header
+ *         name: x-confirm-delete
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [CONFIRM_DELETE]
+ *         description: Safety confirmation header
+ *     responses:
+ *       200:
+ *         description: Gym and all associated data deleted
+ *       400:
+ *         description: Missing confirmation header
+ *       404:
+ *         description: Gym not found
+ */
+router.delete('/gyms/:id', deleteGym);
+
+/**
+ * @swagger
+ * /api/v1/saas/gyms/{id}/export:
+ *   get:
+ *     summary: Export all data for a gym as JSON (SuperAdmin only / GDPR offboarding)
+ *     tags: [SaaS]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Full gym data snapshot including users, subscriptions, sales, audit logs
+ *       404:
+ *         description: Gym not found
+ */
+router.get('/gyms/:id/export', exportGymData);
 
 /**
  * @swagger
