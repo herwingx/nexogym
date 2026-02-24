@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBooking } from './booking.controller';
 import { prisma } from '../db';
-import { SubscriptionStatus } from '@prisma/client';
 
 vi.mock('../db', () => ({
   prisma: {
@@ -42,7 +41,7 @@ describe('booking.controller', () => {
 
     (prisma.subscription.findFirst as any).mockResolvedValue({
       id: 'sub-1',
-      status: SubscriptionStatus.ACTIVE,
+      status: 'ACTIVE',
     });
     (prisma.gymClass.findFirst as any).mockResolvedValue({ id: classId, capacity: 10 });
     (prisma.classBooking.count as any).mockResolvedValue(0);

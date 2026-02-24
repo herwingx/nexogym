@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGym, getGlobalMetrics, updateGymTier } from './saas.controller';
 import { prisma } from '../db';
-import { SubscriptionTier } from '@prisma/client';
 
 vi.mock('../db', () => ({
   prisma: {
@@ -27,7 +26,7 @@ describe('saas.controller', () => {
     const req = {
       body: {
         name: 'Gym Pro',
-        subscription_tier: SubscriptionTier.PRO_QR,
+        subscription_tier: 'PRO_QR',
       },
     } as any;
 
@@ -38,7 +37,7 @@ describe('saas.controller', () => {
     expect(prisma.gym.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          subscription_tier: SubscriptionTier.PRO_QR,
+          subscription_tier: 'PRO_QR',
           modules_config: {
             pos: true,
             qr_access: true,
@@ -54,7 +53,7 @@ describe('saas.controller', () => {
   it('updateGymTier sobrescribe modules_config según tier', async () => {
     const req = {
       params: { id: 'gym-id' },
-      body: { subscription_tier: SubscriptionTier.PREMIUM_BIO },
+      body: { subscription_tier: 'PREMIUM_BIO' },
     } as any;
 
     (prisma.gym.update as any).mockResolvedValue({ id: 'gym-id' });
@@ -65,7 +64,7 @@ describe('saas.controller', () => {
       expect.objectContaining({
         where: { id: 'gym-id' },
         data: expect.objectContaining({
-          subscription_tier: SubscriptionTier.PREMIUM_BIO,
+          subscription_tier: 'PREMIUM_BIO',
           modules_config: {
             pos: true,
             qr_access: true,
