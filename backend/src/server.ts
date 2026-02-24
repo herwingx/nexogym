@@ -72,6 +72,7 @@ const biometricRateLimiter = createRateLimiter({
       },
       customLogLevel: (_req, res, err) => {
         if (err || res.statusCode >= 500) return 'error';
+        if (res.statusCode === 404) return 'info';
         if (res.statusCode >= 400) return 'warn';
         return 'info';
       },
@@ -82,6 +83,16 @@ const biometricRateLimiter = createRateLimiter({
 
   // Body Parser
   app.use(express.json({ limit: env.BODY_LIMIT }));
+
+  // Root route for local sanity and to avoid noisy 404 from browser prefetches
+  app.get('/', (_req, res) => {
+    res.status(200).json({
+      service: 'GymSaaS Backend API',
+      docs: '/api-docs',
+      health: '/health',
+      readiness: '/health/ready',
+    });
+  });
 
   // Basic health-check route
   app.get('/health', (req, res) => {
