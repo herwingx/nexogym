@@ -177,7 +177,7 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     const id = req.params.id as string;
-    const { name, phone } = req.body;
+    const { name, phone, profile_picture_url } = req.body;
 
     // Verify the user belongs to this gym (Multitenancy guard)
     const existing = await prisma.user.findFirst({
@@ -194,13 +194,14 @@ export const updateUser = async (req: Request, res: Response) => {
       data: {
         ...(name !== undefined && { name }),
         ...(phone !== undefined && { phone }),
+        ...(profile_picture_url !== undefined && { profile_picture_url }),
       },
-      select: { id: true, name: true, phone: true, role: true, updated_at: true },
+      select: { id: true, name: true, phone: true, profile_picture_url: true, role: true, updated_at: true },
     });
 
     await logAuditEvent(gymId, req.user?.id ?? id, 'USER_UPDATED', {
       target_user_id: id,
-      changes: { name, phone },
+      changes: { name, phone, profile_picture_url },
     });
 
     res.status(200).json({ message: 'User updated.', user: updatedUser });

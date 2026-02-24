@@ -66,6 +66,18 @@ export const processCheckin = async (req: Request, res: Response) => {
       return;
     }
 
+    // Anti-Passback: bloquear acceso si ya registró entrada en las últimas 4 horas
+    if (user.last_visit_at) {
+      const now = new Date();
+      const elapsedMs = now.getTime() - user.last_visit_at.getTime();
+      const fourHoursMs = 4 * 60 * 60 * 1000;
+
+      if (elapsedMs < fourHoursMs) {
+        res.status(403).json({ error: 'Anti-Passback: Este pase ya fue utilizado recientemente.' });
+        return;
+      }
+    }
+
     // 3. Gamification Logic (Streak calculation)
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
@@ -129,6 +141,10 @@ export const processCheckin = async (req: Request, res: Response) => {
       success: true,
       newStreak,
       rewardUnlocked,
+      user: {
+        name: user.name,
+        profile_picture_url: user.profile_picture_url,
+      },
       message: rewardUnlocked ? `¡Premio desbloqueado: ${rewardMessage}!` : '¡De vuelta al ruedo!',
     });
   } catch (error) {
