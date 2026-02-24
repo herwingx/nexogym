@@ -69,26 +69,35 @@ export const getUsers = async (req: Request, res: Response) => {
       return;
     }
 
-    const users = await prisma.user.findMany({
-      where: { gym_id: gymId },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        role: true,
-        current_streak: true,
-        last_visit_at: true,
-        created_at: true,
-        subscriptions: {
-          orderBy: { created_at: 'desc' },
-          take: 1,
-          select: { status: true, expires_at: true },
-        },
-      },
-      orderBy: { created_at: 'desc' },
-    });
+    const { page = '1', limit = '50' } = req.query;
+    const take = Math.min(Number(limit) || 50, 200);
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
 
-    res.status(200).json({ data: users });
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where: { gym_id: gymId },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          role: true,
+          current_streak: true,
+          last_visit_at: true,
+          created_at: true,
+          subscriptions: {
+            orderBy: { created_at: 'desc' },
+            take: 1,
+            select: { status: true, expires_at: true },
+          },
+        },
+        orderBy: { created_at: 'desc' },
+        take,
+        skip,
+      }),
+      prisma.user.count({ where: { gym_id: gymId } }),
+    ]);
+
+    res.status(200).json({ data: users, meta: { total, page: Number(page), limit: take } });
   } catch (error) {
     handleControllerError(req, res, error, '[getUsers Error]', 'Failed to retrieve users.');
   }

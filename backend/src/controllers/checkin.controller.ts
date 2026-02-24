@@ -44,8 +44,13 @@ export const processCheckin = async (req: Request, res: Response) => {
     // --- NEW: Time Restriction Logic ---
     if (subscription.allowed_start_time && subscription.allowed_end_time) {
       const now = new Date();
-      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      
+      const currentTime = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'America/Mexico_City',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(now); // "HH:mm" en hora local del gimnasio
+
       if (currentTime < subscription.allowed_start_time || currentTime > subscription.allowed_end_time) {
         res.status(403).json({ 
           error: `Access Denied: Your plan only allows entry between ${subscription.allowed_start_time} and ${subscription.allowed_end_time}.` 
