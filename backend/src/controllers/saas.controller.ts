@@ -28,7 +28,7 @@ const MODULES_CONFIG_BY_TIER: Record<SubscriptionTier, Record<string, boolean>> 
 // POST /saas/gym
 export const createGym = async (req: Request, res: Response) => {
   try {
-    const { name, theme_colors, subscription_tier } = req.body;
+    const { name, theme_colors, subscription_tier, modules_config } = req.body;
 
     if (!name) {
       res.status(400).json({ error: 'Gym name is required.' });
@@ -42,12 +42,19 @@ export const createGym = async (req: Request, res: Response) => {
         ? subscription_tier
         : SubscriptionTier.BASIC;
 
+    const defaultModulesConfig = {
+      pos: true,
+      qr_access: false,
+      gamification: false,
+      classes: false,
+    };
+
     const gym = await prisma.gym.create({
       data: {
         name,
         theme_colors: theme_colors || {},
         subscription_tier: selectedTier,
-        modules_config: MODULES_CONFIG_BY_TIER[selectedTier],
+        modules_config: modules_config ?? defaultModulesConfig,
         api_key_hardware: apiKeyHardware,
       },
     });

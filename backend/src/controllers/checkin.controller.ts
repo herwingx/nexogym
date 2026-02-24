@@ -62,14 +62,11 @@ export const processCheckin = async (req: Request, res: Response) => {
       return;
     }
 
-    // Anti-Passback: bloquear acceso si ya registró entrada en las últimas 4 horas
+    const now = new Date();
     if (user.last_visit_at) {
-      const now = new Date();
-      const elapsedMs = now.getTime() - user.last_visit_at.getTime();
-      const fourHoursMs = 4 * 60 * 60 * 1000;
-
-      if (elapsedMs < fourHoursMs) {
-        res.status(403).json({ error: 'Anti-Passback: Este pase ya fue utilizado recientemente.' });
+      const hoursSinceLastVisit = Math.abs(now.getTime() - user.last_visit_at.getTime()) / 3600000;
+      if (hoursSinceLastVisit < 4) {
+        res.status(403).json({ error: 'Anti-Passback: Este código ya fue utilizado hace menos de 4 horas.' });
         return;
       }
     }
@@ -84,7 +81,6 @@ export const processCheckin = async (req: Request, res: Response) => {
     }
 
     // 3. Gamification Logic (Streak calculation)
-    const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const todayStart = new Date(todayStr);
 

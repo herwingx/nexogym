@@ -107,6 +107,16 @@ backend/
 - Nunca lanza excepción (no bloquea el flujo principal)
 - Acciones críticas auditadas: cortesías, mermas, actualizaciones de usuario, cierres de caja
 
+### 4.1 Controles de acceso y validación visual (B13)
+- `checkin.controller.ts` aplica Anti-Passback: bloquea reingreso antes de 4 horas
+- `checkin.controller.ts` devuelve `user.name` y `user.profile_picture_url` para validación en recepción
+- `user.controller.ts` permite actualizar `profile_picture_url` desde `updateUser`
+
+### 4.2 Feature Flags por tenant (B13)
+- `Gym.modules_config` guarda módulos activos por gimnasio
+- `saas.controller.ts` asigna `modules_config` al crear/actualizar planes
+- `GET /api/v1/saas/metrics` expone `total_active_gyms` para panel global
+
 ### 5. Variables de Entorno (Dos archivos .env)
 | Archivo | Usado por | Propósito |
 |---|---|---|

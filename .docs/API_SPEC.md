@@ -54,3 +54,39 @@ Reporte de ventas por staff para pago de comisiones.
 // Response 403 (Fuera de horario)
 { "success": false, "reason": "Fuera de horario permitido para su plan (06:00 - 12:00)" }
 ```
+
+**Anti-Passback (Nuevo):** Si el usuario ya registró entrada hace menos de 4 horas, se bloquea el acceso.
+```json
+// Response 403 (Anti-Passback)
+{ "error": "Anti-Passback: Este código ya fue utilizado hace menos de 4 horas." }
+```
+
+**Respuesta exitosa (Actualizada):** incluye datos visuales para pantalla de recepción/escáner.
+```json
+{
+  "success": true,
+  "newStreak": 3,
+  "rewardUnlocked": false,
+  "user": {
+    "name": "Juan Pérez",
+    "profile_picture_url": "https://cdn.example.com/users/u1.jpg"
+  },
+  "message": "¡De vuelta al ruedo!"
+}
+```
+
+---
+
+## Sprint B13 — SaaS Feature Flags y Métricas
+
+### `POST /api/v1/saas/gyms` (Actualizado)
+Crea gimnasio con `modules_config` por defecto si no se envía explícitamente:
+```json
+{ "modules_config": { "pos": true, "qr_access": false, "gamification": false, "classes": false } }
+```
+
+### `GET /api/v1/saas/metrics` (Nuevo)
+Devuelve el total de gimnasios activos registrados en la base de datos.
+```json
+{ "total_active_gyms": 42 }
+```

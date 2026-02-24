@@ -18,3 +18,12 @@
 ### Módulo 12: Planes con Restricción Horaria
 - Capacidad de vender planes económicos (ej: "Solo Mañanas").
 - Validación automática en el torniquete/recepción según la hora de entrada.
+
+### Módulo 13: Control de Reingreso y Validación Visual
+- Anti-Passback en check-in para bloquear reutilización del pase antes de 4 horas.
+- Validación visual en recepción mostrando nombre y foto del socio en la respuesta del escáner.
+
+### Módulo 14: Feature Flags SaaS por Plan
+- Cada gimnasio almacena `modules_config` para activar/desactivar módulos.
+- Configuración por defecto al crear gimnasio y actualización automática al cambiar tier.
+- Métrica global de gimnasios activos para panel SuperAdmin.

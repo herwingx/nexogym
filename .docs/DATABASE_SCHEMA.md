@@ -32,6 +32,22 @@ enum BookingStatus  { PENDING  ATTENDED  CANCELLED }
 
 ## Diccionario de Tablas (Nuevas y Actualizadas)
 
+### `Gym` (Actualizada)
+Motor de Feature Flags por gimnasio.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `modules_config` | Json? | Configuración de módulos habilitados (ej: `{"pos": true, "qr_access": false}`) |
+
+---
+
+### `User` (Actualizada)
+Soporte para validación visual en recepción/escáner.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `profile_picture_url` | String? | URL de foto de perfil del socio |
+
 ### `Subscription` (Actualizada)
 Añade restricciones horarias para planes específicos (ej. "Solo Mañanas").
 
