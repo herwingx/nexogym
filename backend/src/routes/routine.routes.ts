@@ -3,6 +3,7 @@ import { requireAuth } from '../middlewares/auth.middleware';
 import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
 import {
+  listRoutines,
   createRoutine,
   getMyRoutines,
   getMemberRoutines,
@@ -23,6 +24,20 @@ const router = Router();
 
 router.use(requireAuth);
 router.use(requireModuleEnabled('classes'));
+
+/**
+ * @swagger
+ * /api/v1/routines:
+ *   get:
+ *     summary: List all routines in the gym (Admin)
+ *     tags: [Routines]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of routines with exercises
+ */
+router.get('/', requireAdminOrSuperAdmin, listRoutines);
 
 /**
  * @swagger

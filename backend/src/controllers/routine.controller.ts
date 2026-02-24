@@ -45,6 +45,35 @@ export const createRoutine = async (req: Request, res: Response) => {
   }
 };
 
+// GET /routines — Admin lista todas las rutinas del gym
+export const listRoutines = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const routines = await prisma.routine.findMany({
+      where: { gym_id: gymId },
+      include: {
+        exercises: true,
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const data = routines.map(({ user, ...r }) => ({
+      ...r,
+      user_name: user?.name,
+    }));
+
+    res.status(200).json({ data });
+  } catch (error) {
+    handleControllerError(req, res, error, '[listRoutines Error]', 'Failed to fetch routines.');
+  }
+};
+
 // GET /routines/me — El socio consulta sus rutinas
 export const getMyRoutines = async (req: Request, res: Response) => {
   try {

@@ -165,6 +165,51 @@ Expone métricas Prometheus (`text/plain`) para observabilidad operacional.
 
 ---
 
+## Portal del socio (Members)
+
+Solo rol `MEMBER`. Requiere `Authorization: Bearer <token>` y contexto de gym en JWT.
+
+### `GET /api/v1/members/me`
+Perfil del socio para el portal: membresía, racha, visitas, próximo premio.
+```json
+{
+  "id": "uuid",
+  "name": "Juan Pérez",
+  "email": "juan@example.com",
+  "profile_picture_url": null,
+  "membership_status": "ACTIVE",
+  "membership_type": null,
+  "expiry_date": "2026-12-31",
+  "current_streak": 3,
+  "best_streak": 5,
+  "total_visits": 42,
+  "next_reward": { "label": "Racha 5 visitas", "visits_required": 5, "visits_progress": 3 }
+}
+```
+- `membership_status`: `ACTIVE` | `EXPIRED` | `SUSPENDED`
+- `next_reward`: `null` si no hay siguiente hito en `rewards_config.streak_bonus`
+
+### `GET /api/v1/members/me/history?page=1&pageSize=10`
+Historial de visitas (check-ins) del socio, paginado.
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "checked_in_at": "2026-02-20T10:00:00.000Z",
+      "access_method": "QR",
+      "streak_at_checkin": null
+    }
+  ],
+  "total": 42,
+  "page": 1,
+  "pageSize": 10
+}
+```
+- `page` por defecto 1; `pageSize` entre 1 y 100.
+
+---
+
 ## Frontend Handoff — Ciclo de Vida de Socio
 
 ### `GET /api/v1/users/me/context`

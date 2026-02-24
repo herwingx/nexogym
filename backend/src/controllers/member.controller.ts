@@ -1,0 +1,135 @@
+import { Request, Response } from 'express';
+import { prisma } from '../db';
+import { SubscriptionStatus } from '@prisma/client';
+import { handleControllerError } from '../utils/http';
+
+/**
+ * GET /members/me
+ * Perfil del socio para el portal: membresía, racha, visitas, próximo premio.
+ */
+export const getMemberProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const gymId = req.gymId;
+    if (!userId || !gymId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { id: userId, gym_id: gymId, deleted_at: null },
+      select: {
+        id: true,
+        name: true,
+        profile_picture_url: true,
+        current_streak: true,
+      },
+    });
+    if (!user) {
+      res.status(404).json({ error: 'Member not found' });
+      return;
+    }
+
+    const [subscription, totalVisits, gym] = await Promise.all([
+      prisma.subscription.findFirst({
+        where: { user_id: userId, gym_id: gymId },
+        orderBy: { expires_at: 'desc' },
+      }),
+      prisma.visit.count({ where: { user_id: userId, gym_id: gymId } }),
+      prisma.gym.findUnique({
+        where: { id: gymId },
+        select: { rewards_config: true },
+      }),
+    ]);
+
+    const status = subscription?.status ?? null;
+    let membership_status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED' = 'EXPIRED';
+    if (status === SubscriptionStatus.ACTIVE) membership_status = 'ACTIVE';
+    else if (status === SubscriptionStatus.FROZEN) membership_status = 'SUSPENDED';
+    else if (status === SubscriptionStatus.EXPIRED || status === SubscriptionStatus.CANCELED)
+      membership_status = 'EXPIRED';
+
+    const rewardsConfig = gym?.rewards_config as Record<string, unknown> | null;
+    let next_reward: { label: string; visits_required: number; visits_progress: number } | null = null;
+    if (rewardsConfig && user.current_streak >= 0) {
+      const streakBonus = rewardsConfig.streak_bonus as Record<string, number> | undefined;
+      const milestones = streakBonus
+        ? Object.keys(streakBonus)
+            .map((k) => parseInt(k.replace('streak_', ''), 10))
+            .filter((n) => !Number.isNaN(n))
+            .sort((a, b) => a - b)
+        : [];
+      const next = milestones.find((m) => m > user.current_streak);
+      if (next != null) {
+        next_reward = {
+          label: `Racha ${next} visitas`,
+          visits_required: next,
+          visits_progress: user.current_streak,
+        };
+      }
+    }
+
+    const email = (req.user as { email?: string })?.email ?? null;
+
+    res.status(200).json({
+      id: user.id,
+      name: user.name ?? '',
+      email: email ?? '',
+      profile_picture_url: user.profile_picture_url,
+      membership_status,
+      membership_type: null,
+      expiry_date: subscription?.expires_at?.toISOString().split('T')[0] ?? null,
+      current_streak: user.current_streak,
+      best_streak: user.current_streak,
+      total_visits: totalVisits,
+      next_reward,
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getMemberProfile Error]', 'Failed to load member profile.');
+  }
+};
+
+/**
+ * GET /members/me/history?page=1&pageSize=10
+ * Historial de visitas del socio (check-ins).
+ */
+export const getMemberHistory = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const gymId = req.gymId;
+    if (!userId || !gymId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 10));
+    const skip = (page - 1) * pageSize;
+
+    const [visits, total] = await Promise.all([
+      prisma.visit.findMany({
+        where: { user_id: userId, gym_id: gymId },
+        orderBy: { check_in_time: 'desc' },
+        skip,
+        take: pageSize,
+      }),
+      prisma.visit.count({ where: { user_id: userId, gym_id: gymId } }),
+    ]);
+
+    const data = visits.map((v) => ({
+      id: v.id,
+      checked_in_at: v.check_in_time.toISOString(),
+      access_method: v.access_method,
+      streak_at_checkin: null as number | null,
+    }));
+
+    res.status(200).json({
+      data,
+      total,
+      page,
+      pageSize,
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getMemberHistory Error]', 'Failed to load visit history.');
+  }
+};

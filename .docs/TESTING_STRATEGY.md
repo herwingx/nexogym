@@ -20,6 +20,7 @@
    - Test: "Debe calcular correctamente el `expected_balance` sumando ventas y restando gastos del turno actual".
 3. **Multitenancy Estricto:**
    - Test: "Debe fallar o devolver vacío si un Admin intenta consultar datos enviando un `gym_id` diferente al suyo en el JWT".
+   - `member.controller.test.ts`: getMemberProfile devuelve 404 si el usuario no existe o no pertenece al gym; getMemberHistory filtra por `user_id` y `gym_id`.
 
 ## 4. Cobertura Fase 2 (Hardening)
 1. **SaaS Feature Flags y métricas (`saas.controller.test.ts`)**
@@ -33,6 +34,7 @@
 4. **CRM y operaciones financieras**
    - `user.controller.test.ts`: actualización de `profile_picture_url` + auditoría.
    - `pos.controller.test.ts`: flujo de fallo cuando no hay turno abierto.
+   - `member.controller.test.ts`: portal del socio — 401 sin auth, 404 tenant isolation, 200 perfil con membership_status y next_reward, historial paginado.
 
 ## 5. Convenciones de Tipado en Tests
 - Evitar depender de enums importados de Prisma en tests unitarios cuando el entorno de tipos pueda ir desfasado.

@@ -9,9 +9,78 @@ import {
   TransactionType,
   BookingStatus,
 } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
 import crypto from 'crypto';
 
-const prisma = new PrismaClient();
+// Carga primero prisma/.env (tiene DIRECT_URL) y luego .env (tiene SUPABASE_*)
+dotenv.config({ path: 'prisma/.env' });
+dotenv.config({ path: '.env' });
+
+// El seed usa DIRECT_URL (IP directa, sin pgbouncer) para evitar problemas DNS
+const connStr = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const pool = new Pool({ connectionString: connStr });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
+// ─── Supabase Admin Client ───────────────────────────────────────────────────
+// Requiere SUPABASE_SERVICE_ROLE_KEY en el .env del backend
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } },
+);
+
+/**
+ * Crea un usuario en Supabase Auth y actualiza el campo auth_user_id
+ * en el User de Prisma para linkearlos.
+ */
+async function linkSupabaseAuth(
+  prismaUserId: string,
+  email: string,
+  password: string,
+): Promise<void> {
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (error) {
+    // Si el usuario ya existe en Auth (re-seed o seed parcial previo)
+    if (error.message.includes('already been registered') || error.code === 'email_exists') {
+      console.warn(`  ⚠  ${email} ya existe en Supabase Auth — reutilizando.`);
+      const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+      const existing = list?.users.find((u) => u.email === email);
+      if (existing) {
+        // Forzar password correcto (puede haber quedado mal en seed parcial)
+        await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+          password,
+          email_confirm: true,
+        });
+
+        // Liberar el auth_user_id de cualquier otro User de Prisma que lo tenga
+        await prisma.user.updateMany({
+          where: { auth_user_id: existing.id, NOT: { id: prismaUserId } },
+          data: { auth_user_id: null },
+        });
+        await prisma.user.update({
+          where: { id: prismaUserId },
+          data: { auth_user_id: existing.id },
+        });
+      }
+      return;
+    }
+    throw new Error(`Supabase Auth error for ${email}: ${error.message}`);
+  }
+
+  await prisma.user.update({
+    where: { id: prismaUserId },
+    data: { auth_user_id: data.user.id },
+  });
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -23,6 +92,12 @@ const randomHex = () => crypto.randomBytes(32).toString('hex');
 
 async function main() {
   console.log('🌱 Iniciando seed de producción simulada...\n');
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('❌ SUPABASE_SERVICE_ROLE_KEY no está definida en .env');
+    console.error('   Agrégala y vuelve a correr el seed.');
+    process.exit(1);
+  }
 
   // =========================================================================
   // 0. PLATAFORMA — Gym interno para el Super Admin
@@ -45,6 +120,7 @@ async function main() {
       pin_hash: pin('0000'),
     },
   });
+  await linkSupabaseAuth(superAdmin.id, 'superadmin@nexogym.dev', 'SuperAdmin2025!');
 
   // =========================================================================
   // 1. GYM BÁSICO — Plan BASIC  (solo POS)
@@ -68,6 +144,7 @@ async function main() {
       pin_hash: pin('1234'),
     },
   });
+  await linkSupabaseAuth(adminBasic.id, 'admin@fitzone.dev', 'Admin1234!');
 
   const receptionistBasic = await prisma.user.create({
     data: {
@@ -78,6 +155,7 @@ async function main() {
       pin_hash: pin('4321'),
     },
   });
+  await linkSupabaseAuth(receptionistBasic.id, 'recep@fitzone.dev', 'Recep1234!');
 
   // Miembros Básico
   const basicMembers = await Promise.all([
@@ -183,6 +261,7 @@ async function main() {
       pin_hash: pin('1234'),
     },
   });
+  await linkSupabaseAuth(adminPro.id, 'admin@powerfit.dev', 'Admin1234!');
 
   const receptionistPro = await prisma.user.create({
     data: {
@@ -193,6 +272,7 @@ async function main() {
       pin_hash: pin('4321'),
     },
   });
+  await linkSupabaseAuth(receptionistPro.id, 'recep@powerfit.dev', 'Recep1234!');
 
   const instructorPro = await prisma.user.create({
     data: {
@@ -215,6 +295,8 @@ async function main() {
     prisma.user.create({ data: { gym_id: gymPro.id, name: 'Lucía Cervantes',  phone: '+529622100007', role: Role.MEMBER, current_streak: 21 } }),
     prisma.user.create({ data: { gym_id: gymPro.id, name: 'Omar Contreras',   phone: '+529622100008', role: Role.MEMBER, current_streak: 4  } }),
   ]);
+  // Socio con login para portal del socio (Claudia Vega)
+  await linkSupabaseAuth(proMembers[0].id, 'socio@powerfit.dev', 'Socio1234!');
 
   await prisma.subscription.createMany({
     data: [
@@ -367,6 +449,7 @@ async function main() {
       pin_hash: pin('1234'),
     },
   });
+  await linkSupabaseAuth(adminPremium.id, 'admin@elitebody.dev', 'Admin1234!');
 
   const receptionistPremium = await prisma.user.create({
     data: {
@@ -377,6 +460,7 @@ async function main() {
       pin_hash: pin('4321'),
     },
   });
+  await linkSupabaseAuth(receptionistPremium.id, 'recep@elitebody.dev', 'Recep1234!');
 
   const [instructorPremium1, instructorPremium2] = await Promise.all([
     prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Elena Vargas (PT)',        phone: '+529633000003', role: Role.INSTRUCTOR, pin_hash: pin('5678') } }),
@@ -575,30 +659,31 @@ async function main() {
 
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🔐 SUPERADMIN');
+  console.log(`   Email : superadmin@nexogym.dev  /  SuperAdmin2025!`);
   console.log(`   ID    : ${superAdmin.id}`);
   console.log(`   Gym   : ${platformGym.id}  (Platform Internal)`);
-  console.log(`   PIN   : 0000`);
 
   console.log('\n🏋️  GYM BÁSICO  — FitZone Básico  (BASIC)');
   console.log(`   Gym ID     : ${gymBasic.id}`);
-  console.log(`   Admin ID   : ${adminBasic.id}       PIN: 1234`);
-  console.log(`   Recep. ID  : ${receptionistBasic.id}  PIN: 4321`);
+  console.log(`   Admin      : admin@fitzone.dev       /  Admin1234!   (ID: ${adminBasic.id})`);
+  console.log(`   Recep.     : recep@fitzone.dev       /  Recep1234!   (ID: ${receptionistBasic.id})`);
   console.log(`   HW API Key : ${gymBasic.api_key_hardware}`);
 
   console.log('\n🚀  GYM PRO     — PowerFit Pro    (PRO_QR)');
-  console.log(`   Gym ID      : ${gymPro.id}`);
-  console.log(`   Admin ID    : ${adminPro.id}       PIN: 1234`);
-  console.log(`   Recep. ID   : ${receptionistPro.id}  PIN: 4321`);
-  console.log(`   Instructor  : ${instructorPro.id}  PIN: 5678`);
-  console.log(`   HW API Key  : ${gymPro.api_key_hardware}`);
+  console.log(`   Gym ID     : ${gymPro.id}`);
+  console.log(`   Admin      : admin@powerfit.dev      /  Admin1234!   (ID: ${adminPro.id})`);
+  console.log(`   Recep.     : recep@powerfit.dev      /  Recep1234!   (ID: ${receptionistPro.id})`);
+  console.log(`   Instructor : (solo PIN)                               (ID: ${instructorPro.id})`);
+  console.log(`   Socio      : socio@powerfit.dev      /  Socio1234!   (portal /member, ID: ${proMembers[0].id})`);
+  console.log(`   HW API Key : ${gymPro.api_key_hardware}`);
 
   console.log('\n💎  GYM PREMIUM — EliteBody Premium (PREMIUM_BIO)');
-  console.log(`   Gym ID      : ${gymPremium.id}`);
-  console.log(`   Admin ID    : ${adminPremium.id}       PIN: 1234`);
-  console.log(`   Recep. ID   : ${receptionistPremium.id}  PIN: 4321`);
-  console.log(`   Instructor1 : ${instructorPremium1.id}  PIN: 5678`);
-  console.log(`   Instructor2 : ${instructorPremium2.id}  PIN: 8765`);
-  console.log(`   HW API Key  : ${gymPremium.api_key_hardware}`);
+  console.log(`   Gym ID     : ${gymPremium.id}`);
+  console.log(`   Admin      : admin@elitebody.dev     /  Admin1234!   (ID: ${adminPremium.id})`);
+  console.log(`   Recep.     : recep@elitebody.dev     /  Recep1234!   (ID: ${receptionistPremium.id})`);
+  console.log(`   Instructor1: (solo PIN)                               (ID: ${instructorPremium1.id})`);
+  console.log(`   Instructor2: (solo PIN)                               (ID: ${instructorPremium2.id})`);
+  console.log(`   HW API Key : ${gymPremium.api_key_hardware}`);
 
   console.log('\n👥  Miembros activos por gym:');
   console.log(`   Básico  : ${basicMembers.map(m => m.id).join('\n             ')}`);
@@ -614,5 +699,6 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });
 

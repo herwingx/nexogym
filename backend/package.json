@@ -11,10 +11,11 @@
     "test:coverage": "vitest run --coverage",
     "audit:high": "npm audit --audit-level=high",
     "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
+    "db:trigger": "tsx prisma/apply-trigger.ts",
+    "db:setup": "prisma db push && tsx prisma/apply-trigger.ts",
     "db:seed": "prisma db seed",
+    "db:fresh": "prisma migrate reset --force && prisma db push && tsx prisma/apply-trigger.ts",
     "db:reset": "prisma migrate reset --force",
-    "db:fresh": "npm run db:reset",
     "db:studio": "prisma studio"
   },
   "keywords": ["saas", "erp", "gym", "multitenant", "nodejs", "typescript", "prisma", "supabase"],
