@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { SubscriptionStatus, AccessMethod, AccessType, Role } from '@prisma/client';
 import { sendRewardMessage } from '../services/n8n.service';
 import { logAuditEvent } from '../utils/audit.logger';
+import { checkinSchema } from '../schemas/checkin.schema';
 
 export const processCheckin = async (req: Request, res: Response) => {
   try {
@@ -12,11 +13,14 @@ export const processCheckin = async (req: Request, res: Response) => {
       return;
     }
 
-    const { userId } = req.body;
-    if (!userId) {
-      res.status(400).json({ error: 'userId is required' });
+    // 0. Zod Validation
+    const validation = checkinSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
       return;
     }
+
+    const { userId } = validation.data;
 
     // 1. Validate Active Subscription
     const subscription = await prisma.subscription.findFirst({
@@ -25,14 +29,27 @@ export const processCheckin = async (req: Request, res: Response) => {
         gym_id: gymId,
         status: SubscriptionStatus.ACTIVE,
         expires_at: {
-          gt: new Date(), // must not be expired
+          gt: new Date(),
         },
       },
     });
 
     if (!subscription) {
-      res.status(403).json({ error: 'Forbidden: No active subscription found for this user.' });
+      res.status(403).json({ error: 'Forbidden: No active subscription found.' });
       return;
+    }
+
+    // --- NEW: Time Restriction Logic ---
+    if (subscription.allowed_start_time && subscription.allowed_end_time) {
+      const now = new Date();
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      
+      if (currentTime < subscription.allowed_start_time || currentTime > subscription.allowed_end_time) {
+        res.status(403).json({ 
+          error: `Access Denied: Your plan only allows entry between ${subscription.allowed_start_time} and ${subscription.allowed_end_time}.` 
+        });
+        return;
+      }
     }
 
     // 2. Fetch User and Gym for Gamification
@@ -51,7 +68,6 @@ export const processCheckin = async (req: Request, res: Response) => {
 
     // 3. Gamification Logic (Streak calculation)
     const now = new Date();
-    // Normalize to start of day for accurate day-diff calculation
     const todayStr = now.toISOString().split('T')[0];
     const todayStart = new Date(todayStr);
 
@@ -65,15 +81,11 @@ export const processCheckin = async (req: Request, res: Response) => {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       if (diffDays === 1) {
-        // Visited exactly yesterday -> +1 streak
         newStreak += 1;
       } else if (diffDays > 1) {
-        // Missed a day -> Reset
         newStreak = 1;
       }
-      // If diffDays === 0, they visited today already, streak stays the same
     } else {
-      // First visit ever
       newStreak = 1;
     }
 
@@ -89,7 +101,7 @@ export const processCheckin = async (req: Request, res: Response) => {
       }
     }
 
-    // 5. Transaction: Update User and Save Visit
+    // 5. Transaction
     await prisma.$transaction([
       prisma.user.update({
         where: { id: userId },
@@ -103,13 +115,12 @@ export const processCheckin = async (req: Request, res: Response) => {
           gym_id: gymId,
           user_id: userId,
           check_in_time: now,
-          access_method: AccessMethod.MANUAL, // Sprint B9 will use BIOMETRIC
+          access_method: AccessMethod.MANUAL,
           access_type: AccessType.REGULAR,
         },
       }),
     ]);
 
-    // Fire-and-forget reward webhook if prize unlocked
     if (rewardUnlocked && user.phone) {
       sendRewardMessage(user.phone, String(rewardMessage), newStreak).catch(console.error);
     }

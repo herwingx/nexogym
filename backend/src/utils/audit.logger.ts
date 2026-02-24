@@ -22,7 +22,7 @@ export const logAuditEvent = async (
         gym_id: gymId,
         user_id: userId,
         action,
-        details: details ?? null,
+        details: (details as any) || null,
       },
     });
   } catch (error) {

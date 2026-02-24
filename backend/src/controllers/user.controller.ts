@@ -176,12 +176,12 @@ export const updateUser = async (req: Request, res: Response) => {
       return;
     }
 
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, phone } = req.body;
 
     // Verify the user belongs to this gym (Multitenancy guard)
     const existing = await prisma.user.findFirst({
-      where: { id, gym_id: gymId, deleted_at: null },
+      where: { id: id as string, gym_id: gymId, deleted_at: null },
     });
 
     if (!existing) {
@@ -190,7 +190,7 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id },
+      where: { id: id as string },
       data: {
         ...(name !== undefined && { name }),
         ...(phone !== undefined && { phone }),
@@ -219,10 +219,10 @@ export const deleteUser = async (req: Request, res: Response) => {
       return;
     }
 
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const existing = await prisma.user.findFirst({
-      where: { id, gym_id: gymId, deleted_at: null },
+      where: { id: id as string, gym_id: gymId, deleted_at: null },
     });
 
     if (!existing) {
@@ -232,7 +232,7 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     // SOFT DELETE — NUNCA usar prisma.user.delete()
     await prisma.user.update({
-      where: { id },
+      where: { id: id as string },
       data: { deleted_at: new Date() },
     });
 
@@ -256,10 +256,10 @@ export const freezeSubscription = async (req: Request, res: Response) => {
       return;
     }
 
-    const { id } = req.params; // User ID
+    const id = req.params.id as string; // User ID
 
     const sub = await prisma.subscription.findFirst({
-      where: { user_id: id, gym_id: gymId, status: SubscriptionStatus.ACTIVE },
+      where: { user_id: id as string, gym_id: gymId, status: SubscriptionStatus.ACTIVE },
     });
 
     if (!sub) {
@@ -303,10 +303,10 @@ export const unfreezeSubscription = async (req: Request, res: Response) => {
       return;
     }
 
-    const { id } = req.params; // User ID
+    const id = req.params.id as string; // User ID
 
     const sub = await prisma.subscription.findFirst({
-      where: { user_id: id, gym_id: gymId, status: SubscriptionStatus.FROZEN },
+      where: { user_id: id as string, gym_id: gymId, status: SubscriptionStatus.FROZEN },
     });
 
     if (!sub) {

@@ -15,11 +15,16 @@ import posRouter from './routes/pos.routes';
 import inventoryRouter from './routes/inventory.routes';
 import analyticsRouter from './routes/analytics.routes';
 import biometricRouter from './routes/biometric.routes';
+import bookingRouter from './routes/booking.routes';
+import { setupSwagger } from './swagger';
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Swagger Setup
+setupSwagger(app);
 
 // Security Middlewares
 app.use(helmet());
@@ -43,6 +48,7 @@ app.use('/api/v1/checkin', checkinRouter);       // Sprint B4: Check-in & Gamifi
 app.use('/api/v1/pos', posRouter);               // Sprint B6/B7: POS, Expenses & Cash Shifts
 app.use('/api/v1/inventory', inventoryRouter);   // Sprint B5: Control de Inventario
 app.use('/api/v1/analytics', analyticsRouter);   // Sprint B8: Dashboard, Reportes y Auditoría
+app.use('/api/v1/bookings', bookingRouter);      // Sprint B10: Clases y Reservas
 app.use('/biometric', biometricRouter);          // Sprint B9: IoT / Hardware endpoint (no JWT, x-api-key)
 
 // Global Error Handler

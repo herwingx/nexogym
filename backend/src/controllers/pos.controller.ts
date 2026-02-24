@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { ShiftStatus, TransactionType } from '@prisma/client';
+import { saleSchema, expenseSchema } from '../schemas/pos.schema';
 
 // GET /pos/products — mirrors inventory but from a POS-optimized view
 export const getProducts = async (req: Request, res: Response) => {
@@ -35,18 +36,20 @@ export const getProducts = async (req: Request, res: Response) => {
 export const createSale = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
-    if (!gymId) {
+    const actorId = req.user?.id;
+    if (!gymId || !actorId) {
       res.status(401).json({ error: 'Unauthorized: Gym context missing' });
       return;
     }
 
-    const { items } = req.body;
-    // items: { productId: string, quantity: number }[]
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      res.status(400).json({ error: 'Sale items are required.' });
+    // 0. Zod Validation
+    const validation = saleSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
       return;
     }
+
+    const { items, sellerId } = validation.data;
 
     // Find the currently open shift for this gym (required to link the sale)
     const openShift = await prisma.cashShift.findFirst({
@@ -108,6 +111,7 @@ export const createSale = async (req: Request, res: Response) => {
         data: {
           gym_id: gymId,
           cash_shift_id: openShift.id,
+          seller_id: sellerId || actorId, // TRACK COMMISSION: specific seller or the actor
           total: totalAmount,
           items: { create: saleItemsData },
         },
@@ -145,17 +149,14 @@ export const registerExpense = async (req: Request, res: Response) => {
       return;
     }
 
-    const { amount, description } = req.body;
-
-    if (!amount || amount <= 0) {
-      res.status(400).json({ error: 'A positive amount is required.' });
+    // 0. Zod Validation
+    const validation = expenseSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
       return;
     }
 
-    if (!description || String(description).trim().length === 0) {
-      res.status(400).json({ error: 'description is required for expense tracking.' });
-      return;
-    }
+    const { amount, description } = validation.data;
 
     // Must have an open shift
     const openShift = await prisma.cashShift.findFirst({

@@ -1,6 +1,6 @@
 # Modelo de Datos (DATABASE_SCHEMA)
 
-Este documento describe el schema completo que Prisma ORM despliega en PostgreSQL (Supabase auto-alojado). Actualizado tras la implementación del ERP Full (Sprints B1–B9).
+Este documento describe el schema completo que Prisma ORM despliega en PostgreSQL (Supabase auto-alojado).
 
 ---
 
@@ -18,217 +18,101 @@ Este documento describe el schema completo que Prisma ORM despliega en PostgreSQ
 ## Enums
 
 ```prisma
-enum Role            { SUPERADMIN  ADMIN  RECEPTIONIST  MEMBER }
+enum Role            { SUPERADMIN  ADMIN  RECEPTIONIST  INSTRUCTOR  MEMBER }
 enum SubscriptionStatus { ACTIVE  EXPIRED  CANCELED  FROZEN }
 enum SubscriptionTier   { BASIC  PRO_QR  PREMIUM_BIO }
 enum ShiftStatus     { OPEN  CLOSED }
 enum AccessMethod    { MANUAL  QR  BIOMETRIC }
 enum AccessType      { REGULAR  COURTESY }
 enum TransactionType { RESTOCK  LOSS  SALE }
+enum BookingStatus  { PENDING  ATTENDED  CANCELLED }
 ```
 
 ---
 
-## Diccionario de Tablas
+## Diccionario de Tablas (Nuevas y Actualizadas)
 
-### `Gym` — Tenants Principales
-Contiene la información de los clientes B2B. Todo gira en torno a esta tabla.
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `id` | UUID | PK |
-| `name` | String | Nombre del gimnasio |
-| `theme_colors` | Json (JSONB) | `{ "primary": "#ff007f", "accent": "#00f0ff" }` |
-| `rewards_config` | Json (JSONB) | `{ "5": "Agua gratis", "20": "Camisa" }` — clave = streak |
-| `subscription_tier` | SubscriptionTier | Plan del SaaS (BASIC / PRO_QR / PREMIUM_BIO) |
-| `api_key_hardware` | String (unique) | API Key para torniquetes ZKTeco (Sprint B9) |
-
----
-
-### `User` — Usuarios del Sistema
-Todos los roles: dueños, recepcionistas y socios del gimnasio.
+### `Subscription` (Actualizada)
+Añade restricciones horarias para planes específicos (ej. "Solo Mañanas").
 
 | Campo | Tipo | Notas |
 |---|---|---|
-| `id` | UUID | PK = mismo ID de Supabase Auth |
-| `gym_id` | UUID FK | Multitenancy |
-| `name` | String? | |
-| `phone` | String? | Único por gimnasio (`@@unique([gym_id, phone])`) |
-| `pin_hash` | String? | SHA-256 del PIN. También sirve como ID biométrico |
-| `role` | Role | SUPERADMIN / ADMIN / RECEPTIONIST / MEMBER |
-| `current_streak` | Int | Racha de asistencia (gamificación) |
-| `last_visit_at` | DateTime? | Para calcular si la racha continúa o se rompe |
-| `deleted_at` | DateTime? | **Soft delete** — nunca borrar físicamente |
-
-`@@index([gym_id])`
+| `allowed_start_time` | String? | HH:mm (ej: "06:00") |
+| `allowed_end_time` | String? | HH:mm (ej: "12:00") |
 
 ---
 
-### `Subscription` — Membresías
+### `Class` (Nueva)
+Gestión de clases grupales con cupo limitado.
 
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | UUID | PK |
 | `gym_id` | UUID FK | Multitenancy |
+| `instructor_id` | UUID FK | Referencia a `User` con rol `INSTRUCTOR` |
+| `name` | String | Nombre de la clase (ej: "Yoga", "Crossfit") |
+| `capacity` | Int | Cupo máximo de personas |
+| `day_of_week` | Int | 0-6 (0=Domingo) |
+| `start_time` | String | HH:mm |
+| `end_time` | String | HH:mm |
+
+---
+
+### `Booking` (Nueva)
+Reservas de socios para clases.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | UUID | PK |
+| `gym_id` | UUID FK | |
+| `class_id` | UUID FK | |
 | `user_id` | UUID FK | |
-| `status` | SubscriptionStatus | ACTIVE / EXPIRED / CANCELED / **FROZEN** |
-| `expires_at` | DateTime | Fecha de vencimiento |
-| `frozen_days_left` | Int? | Días guardados al congelar la membresía |
-
-`@@index([gym_id])` `@@index([user_id])`
+| `booking_date` | Date | Fecha específica de la reserva |
+| `status` | BookingStatus | PENDING / ATTENDED / CANCELLED |
 
 ---
 
-### `Visit` — Registro de Accesos
-Historial inmutable. Nunca se modifica, solo se inserta.
+### `Routine` (Nueva)
+Gestión de entrenamiento personalizado.
 
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | UUID | PK |
-| `gym_id` | UUID FK | Multitenancy |
-| `user_id` | UUID FK | |
-| `check_in_time` | DateTime | `@default(now())` |
-| `access_method` | AccessMethod | MANUAL / QR / BIOMETRIC |
-| `access_type` | AccessType | **REGULAR** / **COURTESY** — cortesías quedan marcadas |
-
-`@@index([gym_id])` `@@index([user_id])`
+| `gym_id` | UUID FK | |
+| `user_id` | UUID FK | Socio dueño de la rutina |
+| `name` | String | Ej: "Volumen - Mes 1" |
+| `description` | String? | |
 
 ---
 
-### `Product` — Inventario POS
+### `WorkoutExercise` (Nueva)
+Ejercicios individuales dentro de una rutina.
 
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | UUID | PK |
-| `gym_id` | UUID FK | Multitenancy |
-| `barcode` | String? | Único por gimnasio (`@@unique([gym_id, barcode])`) |
-| `name` | String | |
-| `price` | Decimal(10,2) | |
-| `stock` | Int | Se modifica vía transacciones, nunca directamente |
-| `deleted_at` | DateTime? | **Soft delete** |
-
-`@@index([gym_id])`
+| `routine_id` | UUID FK | |
+| `name` | String | Ej: "Press de Banca" |
+| `sets` | Int | |
+| `reps` | Int | |
+| `weight` | Decimal? | |
+| `notes` | String? | |
 
 ---
 
-### `InventoryTransaction` — Auditoría de Stock
-Registro inmutable de cada movimiento de inventario. Previene el "robo hormiga".
+### `Sale` (Actualizada)
+Rastreo de comisiones y staff.
 
 | Campo | Tipo | Notas |
 |---|---|---|
-| `id` | UUID | PK |
-| `gym_id` | UUID FK | Multitenancy |
-| `product_id` | UUID FK | |
-| `type` | TransactionType | RESTOCK / LOSS / SALE |
-| `quantity` | Int | |
-| `reason` | String? | **Obligatorio para LOSS** (justificación anti-fraude) |
-| `created_at` | DateTime | `@default(now())` |
-
-`@@index([gym_id])` `@@index([product_id])`
+| `seller_id` | UUID FK? | Referencia al `User` (Staff) que realizó la venta |
 
 ---
 
-### `Sale` — Ventas del POS
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `id` | UUID | PK |
-| `gym_id` | UUID FK | Multitenancy |
-| `cash_shift_id` | UUID FK? | Vinculada al turno abierto al momento de la venta |
-| `total` | Decimal(10,2) | Suma de todos los SaleItems |
-| `created_at` | DateTime | |
-
-`@@index([gym_id])` `@@index([cash_shift_id])`
-
----
-
-### `SaleItem` — Líneas de Venta
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `id` | UUID | PK |
-| `gym_id` | UUID FK | Multitenancy (incluido en tabla pivote) |
-| `sale_id` | UUID FK | |
-| `product_id` | UUID FK | |
-| `quantity` | Int | |
-| `price` | Decimal(10,2) | Precio **histórico** al momento de la venta |
-
-`@@index([gym_id])` `@@index([sale_id])`
-
----
-
-### `CashShift` — Turnos de Caja
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `id` | UUID | PK |
-| `gym_id` | UUID FK | Multitenancy |
-| `user_id` | UUID FK | Recepcionista que abrió el turno |
-| `opened_at` | DateTime | |
-| `closed_at` | DateTime? | |
-| `opening_balance` | Decimal(10,2) | Fondo inicial declarado |
-| `expected_balance` | Decimal(10,2)? | Calculado: `Fondo + Ventas - Egresos` |
-| `actual_balance` | Decimal(10,2)? | Monto físico declarado al cierre |
-| `status` | ShiftStatus | OPEN / CLOSED |
-
-`@@index([gym_id])` `@@index([user_id])`
-
----
-
-### `Expense` — Egresos de Caja
-Registra el dinero que **sale** de la caja durante un turno.
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `id` | UUID | PK |
-| `gym_id` | UUID FK | Multitenancy |
-| `cash_shift_id` | UUID FK | Turno al que pertenece |
-| `amount` | Decimal(10,2) | |
-| `description` | String | Ej: "Pago de garrafones", "Compra de papel" |
-| `created_at` | DateTime | |
-
-`@@index([gym_id])` `@@index([cash_shift_id])`
-
----
-
-### `AuditLog` — Bitácora Anti-Fraude
-Registro inmutable de acciones sensibles. El dueño puede consultar quién hizo qué.
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `id` | UUID | PK |
-| `gym_id` | UUID FK | Multitenancy |
-| `user_id` | UUID FK | Quién ejecutó la acción |
-| `action` | String | Ej: `COURTESY_ACCESS_GRANTED`, `INVENTORY_LOSS_REPORTED`, `SHIFT_CLOSED` |
-| `details` | Json? (JSONB) | Payload flexible con contexto del evento |
-| `created_at` | DateTime | |
-
-`@@index([gym_id])` `@@index([user_id])`
-
----
-
-## Acciones Auditadas (AuditLog.action)
+## Acciones Auditadas Adicionales
 
 | Action | Disparado en |
 |---|---|
-| `SUBSCRIPTION_RENEWED` | `PATCH /users/:id/renew` |
-| `SUBSCRIPTION_FROZEN` | `PATCH /users/:id/freeze` |
-| `SUBSCRIPTION_UNFROZEN` | `PATCH /users/:id/unfreeze` |
-| `USER_UPDATED` | `PATCH /users/:id` |
-| `USER_SOFT_DELETED` | `DELETE /users/:id` |
-| `COURTESY_ACCESS_GRANTED` | `POST /checkin/courtesy` |
-| `INVENTORY_LOSS_REPORTED` | `POST /inventory/loss` |
-| `SHIFT_CLOSED` | `POST /pos/shifts/close` |
-
----
-
-## Fórmula del Corte de Caja
-
-```
-Expected Balance = Opening Balance + Total POS Sales - Total Expenses
-Difference       = Actual Balance (físico) - Expected Balance
-```
-
-- `BALANCED` → diferencia = 0
-- `SURPLUS` → diferencia > 0 (sobra dinero)
-- `SHORTAGE` → diferencia < 0 (falta dinero, posible fraude)
+| `CLASS_CREATED` | Alta de nueva clase grupal |
+| `BOOKING_CANCELLED` | Cancelación de reserva |
+| `ROUTINE_ASSIGNED` | Nueva rutina creada para un socio |
