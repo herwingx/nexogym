@@ -3,8 +3,10 @@ import {
   getProducts,
   createProduct,
   deleteProduct,
+  updateProduct,
   restockProduct,
   adjustLoss,
+  getInventoryTransactions,
 } from '../controllers/inventory.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
@@ -138,5 +140,69 @@ router.post('/restock', restockProduct);
  *         description: Loss recorded and stock adjusted
  */
 router.post('/loss', adjustLoss);                   // Merma — requiere justificación
+
+/**
+ * @swagger
+ * /api/v1/inventory/products/{id}:
+ *   patch:
+ *     summary: Update product name, barcode or price
+ *     tags: [Inventory]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               barcode:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Product updated
+ *       404:
+ *         description: Product not found
+ */
+router.patch('/products/:id', updateProduct);
+
+/**
+ * @swagger
+ * /api/v1/inventory/transactions:
+ *   get:
+ *     summary: Get inventory movement history (restocks, losses, sales)
+ *     tags: [Inventory]
+ *     parameters:
+ *       - in: query
+ *         name: productId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [RESTOCK, LOSS, SALE]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *     responses:
+ *       200:
+ *         description: Paginated inventory transaction history
+ */
+router.get('/transactions', getInventoryTransactions);
 
 export default router;

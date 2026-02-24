@@ -5,6 +5,7 @@ import {
   getDailyRevenue,
   getFinancialReport,
   getAuditLogs,
+  getCommissions,
 } from '../controllers/analytics.controller';
 
 const router = Router();
@@ -35,13 +36,20 @@ router.get('/occupancy', getLiveOccupancy);           // Semáforo en tiempo rea
  * @swagger
  * /api/v1/analytics/revenue/daily:
  *   get:
- *     summary: Get today's total revenue
+ *     summary: Get revenue for a specific day (defaults to today)
  *     tags: [Analytics]
+ *     parameters:
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           example: '2026-02-24'
+ *         description: Target date in YYYY-MM-DD format
  *     responses:
  *       200:
- *         description: Today's revenue breakdown
+ *         description: Revenue and sale count for the target date
  */
-router.get('/revenue/daily', getDailyRevenue);        // Ingresos del día
+router.get('/revenue/daily', getDailyRevenue);        // Ingresos del día (?date=YYYY-MM-DD)
 
 /**
  * @swagger
@@ -75,5 +83,24 @@ router.get('/financial-report', getFinancialReport);  // Reporte mensual: ventas
  *         description: List of audit log entries
  */
 router.get('/audit-logs', getAuditLogs);              // Historial anti-fraudes
+
+/**
+ * @swagger
+ * /api/v1/analytics/commissions:
+ *   get:
+ *     summary: Sales grouped by seller/staff for commissions (Module 11)
+ *     tags: [Analytics]
+ *     parameters:
+ *       - in: query
+ *         name: month
+ *         schema:
+ *           type: string
+ *           example: '2026-02'
+ *         description: Target month in YYYY-MM format (defaults to current month)
+ *     responses:
+ *       200:
+ *         description: Commission report sorted by total sales descending
+ */
+router.get('/commissions', getCommissions);
 
 export default router;

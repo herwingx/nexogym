@@ -39,7 +39,7 @@ export const getLiveOccupancy = async (req: Request, res: Response) => {
   }
 };
 
-// GET /analytics/revenue
+// GET /analytics/revenue/daily?date=YYYY-MM-DD
 export const getDailyRevenue = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
@@ -48,27 +48,33 @@ export const getDailyRevenue = async (req: Request, res: Response) => {
       return;
     }
 
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const todayStart = new Date(`${todayStr}T00:00:00.000Z`);
+    const dateParam = req.query.date as string | undefined;
+    let targetDate: string;
+
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      targetDate = dateParam;
+    } else {
+      targetDate = new Date().toISOString().split('T')[0];
+    }
+
+    const todayStart = new Date(`${targetDate}T00:00:00.000Z`);
+    const todayEnd = new Date(`${targetDate}T23:59:59.999Z`);
 
     const dailySales = await prisma.sale.aggregate({
       where: {
         gym_id: gymId,
-        created_at: {
-          gte: todayStart,
-        },
+        created_at: { gte: todayStart, lte: todayEnd },
       },
-      _sum: {
-        total: true,
-      },
+      _sum: { total: true },
+      _count: { id: true },
     });
 
     const totalRevenue = Number(dailySales._sum.total || 0);
 
     res.status(200).json({
-      date: todayStr,
+      date: targetDate,
       revenue: totalRevenue,
+      sale_count: dailySales._count.id,
     });
   } catch (error) {
     handleControllerError(req, res, error, '[getDailyRevenue Error]', 'Failed to retrieve revenue data.');
@@ -206,5 +212,75 @@ export const getAuditLogs = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleControllerError(req, res, error, '[getAuditLogs Error]', 'Failed to retrieve audit logs.');
+  }
+};
+
+/**
+ * GET /analytics/commissions?month=YYYY-MM
+ * Reporte de ventas agrupadas por vendedor (staff) para pago de comisiones.
+ * Módulo 11 — Control de Staff y Comisiones.
+ */
+export const getCommissions = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const monthParam = req.query.month as string | undefined;
+    let periodStart: Date;
+    let periodEnd: Date;
+
+    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+      const [year, month] = monthParam.split('-').map(Number);
+      periodStart = new Date(year, month - 1, 1);
+      periodEnd = new Date(year, month, 1);
+    } else {
+      const now = new Date();
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    }
+
+    const salesBySeller = await prisma.sale.groupBy({
+      by: ['seller_id'],
+      where: {
+        gym_id: gymId,
+        seller_id: { not: null },
+        created_at: { gte: periodStart, lt: periodEnd },
+      },
+      _sum: { total: true },
+      _count: { id: true },
+    });
+
+    // Enrich with seller names
+    const sellerIds = salesBySeller
+      .map((s) => s.seller_id)
+      .filter((id): id is string => id !== null);
+
+    const sellers = await prisma.user.findMany({
+      where: { id: { in: sellerIds } },
+      select: { id: true, name: true, role: true },
+    });
+
+    const sellersMap = new Map(sellers.map((s) => [s.id, s]));
+
+    const report = salesBySeller.map((row) => ({
+      seller: sellersMap.get(row.seller_id!) ?? { id: row.seller_id, name: 'Unknown', role: null },
+      total_sales: Number(row._sum.total || 0),
+      sale_count: row._count.id,
+    }));
+
+    report.sort((a, b) => b.total_sales - a.total_sales);
+
+    res.status(200).json({
+      period: {
+        start: periodStart.toISOString().split('T')[0],
+        end: new Date(periodEnd.getTime() - 1).toISOString().split('T')[0],
+      },
+      data: report,
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getCommissions Error]', 'Failed to retrieve commission report.');
   }
 };

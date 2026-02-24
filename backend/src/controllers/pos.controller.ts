@@ -186,3 +186,129 @@ export const registerExpense = async (req: Request, res: Response) => {
     handleControllerError(req, res, error, '[registerExpense Error]', 'Failed to register expense.');
   }
 };
+
+// GET /pos/sales?shiftId=&date=YYYY-MM-DD&page=1&limit=50
+export const getSales = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const { shiftId, date, page = '1', limit = '50' } = req.query;
+    const take = Math.min(Number(limit) || 50, 200);
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
+
+    const where: any = { gym_id: gymId };
+    if (shiftId) where.cash_shift_id = String(shiftId);
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+      const dayStart = new Date(`${date}T00:00:00.000Z`);
+      const dayEnd = new Date(`${date}T23:59:59.999Z`);
+      where.created_at = { gte: dayStart, lte: dayEnd };
+    }
+
+    const [sales, total] = await Promise.all([
+      prisma.sale.findMany({
+        where,
+        include: {
+          items: { include: { product: { select: { name: true } } } },
+          seller: { select: { id: true, name: true } },
+        },
+        orderBy: { created_at: 'desc' },
+        take,
+        skip,
+      }),
+      prisma.sale.count({ where }),
+    ]);
+
+    res.status(200).json({
+      data: sales,
+      meta: { total, page: Number(page), limit: take },
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getSales Error]', 'Failed to retrieve sales.');
+  }
+};
+
+// GET /pos/shifts/current
+export const getCurrentShift = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    const userId = req.user?.id;
+    if (!gymId || !userId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const shift = await prisma.cashShift.findFirst({
+      where: { gym_id: gymId, user_id: userId, status: ShiftStatus.OPEN },
+    });
+
+    if (!shift) {
+      res.status(404).json({ error: 'No open shift found for this user.' });
+      return;
+    }
+
+    const [salesAgg, expensesAgg, saleCount] = await Promise.all([
+      prisma.sale.aggregate({
+        where: { gym_id: gymId, cash_shift_id: shift.id },
+        _sum: { total: true },
+      }),
+      prisma.expense.aggregate({
+        where: { gym_id: gymId, cash_shift_id: shift.id },
+        _sum: { amount: true },
+      }),
+      prisma.sale.count({ where: { gym_id: gymId, cash_shift_id: shift.id } }),
+    ]);
+
+    const totalSales = Number(salesAgg._sum.total || 0);
+    const totalExpenses = Number(expensesAgg._sum.amount || 0);
+    const expectedBalance = Number(shift.opening_balance) + totalSales - totalExpenses;
+
+    res.status(200).json({
+      shift,
+      running_totals: {
+        total_sales: totalSales,
+        sale_count: saleCount,
+        total_expenses: totalExpenses,
+        expected_balance: expectedBalance,
+      },
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getCurrentShift Error]', 'Failed to retrieve current shift.');
+  }
+};
+
+// GET /pos/shifts?page=1&limit=20
+export const getShifts = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const { page = '1', limit = '20' } = req.query;
+    const take = Math.min(Number(limit) || 20, 100);
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
+
+    const [shifts, total] = await Promise.all([
+      prisma.cashShift.findMany({
+        where: { gym_id: gymId, status: ShiftStatus.CLOSED },
+        include: { user: { select: { id: true, name: true } } },
+        orderBy: { closed_at: 'desc' },
+        take,
+        skip,
+      }),
+      prisma.cashShift.count({ where: { gym_id: gymId, status: ShiftStatus.CLOSED } }),
+    ]);
+
+    res.status(200).json({
+      data: shifts,
+      meta: { total, page: Number(page), limit: take },
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getShifts Error]', 'Failed to retrieve shifts.');
+  }
+};

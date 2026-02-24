@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createBooking } from './booking.controller';
+import { createBooking, cancelBooking, markAttendance } from './booking.controller';
 import { prisma } from '../db';
 
 vi.mock('../db', () => ({
@@ -14,6 +14,7 @@ vi.mock('../db', () => ({
       count: vi.fn(),
       findFirst: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
     },
   },
 }));
@@ -59,5 +60,108 @@ describe('booking.controller', () => {
       }),
     );
     expect(mockRes.status).toHaveBeenCalledWith(201);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────
+describe('cancelBooking', () => {
+  const mockRes = {
+    status: vi.fn().mockReturnThis(),
+    json: vi.fn(),
+  } as any;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('devuelve 404 si la reserva no pertenece al usuario ni al gym', async () => {
+    (prisma.classBooking.findFirst as any).mockResolvedValue(null);
+    const req: any = {
+      gymId: 'gym-1',
+      user: { id: 'user-1' },
+      params: { id: 'booking-X' },
+    };
+    await cancelBooking(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(404);
+  });
+
+  it('devuelve 400 si la reserva ya está cancelada', async () => {
+    (prisma.classBooking.findFirst as any).mockResolvedValue({
+      id: 'b-1',
+      status: 'CANCELLED',
+    });
+    const req: any = {
+      gymId: 'gym-1',
+      user: { id: 'user-1' },
+      params: { id: 'b-1' },
+    };
+    await cancelBooking(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.stringContaining('already cancelled') }),
+    );
+  });
+
+  it('cancela la reserva correctamente verificando ownership (gym + user)', async () => {
+    (prisma.classBooking.findFirst as any).mockResolvedValue({
+      id: 'b-1',
+      status: 'PENDING',
+    });
+    (prisma.classBooking.update as any).mockResolvedValue({ id: 'b-1', status: 'CANCELLED' });
+    const req: any = {
+      gymId: 'gym-1',
+      user: { id: 'user-1' },
+      params: { id: 'b-1' },
+    };
+    await cancelBooking(req, mockRes);
+    // Verifica que usó gym_id + user_id en la búsqueda (no puede cancelar reservas de otro)
+    expect(prisma.classBooking.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ gym_id: 'gym-1', user_id: 'user-1' }),
+      }),
+    );
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────
+describe('markAttendance', () => {
+  const mockRes = {
+    status: vi.fn().mockReturnThis(),
+    json: vi.fn(),
+  } as any;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('devuelve 404 si la reserva no existe en el gym', async () => {
+    (prisma.classBooking.findFirst as any).mockResolvedValue(null);
+    const req: any = { gymId: 'gym-1', params: { id: 'b-X' } };
+    await markAttendance(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(404);
+  });
+
+  it('devuelve 400 si la reserva no está en estado PENDING', async () => {
+    (prisma.classBooking.findFirst as any).mockResolvedValue({
+      id: 'b-1',
+      status: 'ATTENDED',
+    });
+    const req: any = { gymId: 'gym-1', params: { id: 'b-1' } };
+    await markAttendance(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+  });
+
+  it('marca la reserva como ATTENDED correctamente', async () => {
+    (prisma.classBooking.findFirst as any).mockResolvedValue({
+      id: 'b-1',
+      status: 'PENDING',
+    });
+    (prisma.classBooking.update as any).mockResolvedValue({ id: 'b-1', status: 'ATTENDED' });
+    const req: any = { gymId: 'gym-1', params: { id: 'b-1' } };
+    await markAttendance(req, mockRes);
+    expect(prisma.classBooking.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'b-1' },
+        data: expect.objectContaining({ status: 'ATTENDED' }),
+      }),
+    );
+    expect(mockRes.status).toHaveBeenCalledWith(200);
   });
 });

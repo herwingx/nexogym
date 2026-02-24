@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getProducts } from './inventory.controller';
+import { getProducts, updateProduct, getInventoryTransactions } from './inventory.controller';
 import { prisma } from '../db';
 
 vi.mock('../db', () => ({
@@ -7,6 +7,12 @@ vi.mock('../db', () => ({
     product: {
       findMany: vi.fn(),
       create: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    },
+    inventoryTransaction: {
+      findMany: vi.fn(),
+      count: vi.fn(),
     },
   },
 }));
@@ -91,5 +97,81 @@ describe('Inventory Controller - Multitenancy Strictness', () => {
         gym_id: maliciousGymId,
       }),
     }));
+  });
+});
+
+// ──────────────────────────────────────────────────────────────
+describe('updateProduct', () => {
+  const mockRes = {
+    status: vi.fn().mockReturnThis(),
+    json: vi.fn(),
+  } as any;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('devuelve 400 si no se envía ningún campo a actualizar', async () => {
+    const req: any = { gymId: 'gym-1', params: { id: 'p-1' }, body: {} };
+    await updateProduct(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(400);
+  });
+
+  it('devuelve 404 si el producto no pertenece al gym', async () => {
+    (prisma.product.findFirst as any).mockResolvedValue(null);
+    const req: any = { gymId: 'gym-1', params: { id: 'p-X' }, body: { price: 50 } };
+    await updateProduct(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(404);
+  });
+
+  it('actualiza el producto y no permite cambiar stock directamente', async () => {
+    (prisma.product.findFirst as any).mockResolvedValue({ id: 'p-1', gym_id: 'gym-1' });
+    (prisma.product.update as any).mockResolvedValue({ id: 'p-1', price: 99 });
+    const req: any = {
+      gymId: 'gym-1',
+      params: { id: 'p-1' },
+      body: { price: 99, stock: 999 }, // stock debe ignorarse
+    };
+    await updateProduct(req, mockRes);
+    expect(prisma.product.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ stock: 999 }),
+      }),
+    );
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────
+describe('getInventoryTransactions', () => {
+  const mockRes = {
+    status: vi.fn().mockReturnThis(),
+    json: vi.fn(),
+  } as any;
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('devuelve 401 si falta gymId', async () => {
+    const req: any = { gymId: undefined, query: {} };
+    await getInventoryTransactions(req, mockRes);
+    expect(mockRes.status).toHaveBeenCalledWith(401);
+  });
+
+  it('filtra transacciones por gym_id del JWT y devuelve paginación', async () => {
+    const gymId = 'gym-1';
+    const fakeTxs = [{ id: 'tx-1', type: 'RESTOCK' }];
+    (prisma.inventoryTransaction.findMany as any).mockResolvedValue(fakeTxs);
+    (prisma.inventoryTransaction.count as any).mockResolvedValue(1);
+
+    const req: any = { gymId, query: { page: '1', limit: '10' } };
+    await getInventoryTransactions(req, mockRes);
+
+    expect(prisma.inventoryTransaction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ gym_id: gymId }),
+      }),
+    );
+    expect(mockRes.status).toHaveBeenCalledWith(200);
+    expect(mockRes.json).toHaveBeenCalledWith(
+      expect.objectContaining({ data: fakeTxs, meta: expect.objectContaining({ total: 1 }) }),
+    );
   });
 });

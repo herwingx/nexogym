@@ -90,14 +90,11 @@ export const closeShift = async (req: Request, res: Response) => {
     const now = new Date();
 
     // Calculate total expected balance:
-    // Opening Balance + Sales made during this shift (from opened_at to now)
+    // Sales are linked directly to this shift via cash_shift_id
     const salesDuringShift = await prisma.sale.aggregate({
       where: {
         gym_id: gymId,
-        created_at: {
-          gte: currentShift.opened_at,
-          lte: now,
-        },
+        cash_shift_id: currentShift.id,
       },
       _sum: {
         total: true,

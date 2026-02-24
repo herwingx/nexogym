@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProducts, createSale, registerExpense } from '../controllers/pos.controller';
+import { getProducts, createSale, registerExpense, getSales, getCurrentShift, getShifts } from '../controllers/pos.controller';
 import { openShift, closeShift } from '../controllers/shift.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
@@ -62,6 +62,38 @@ router.get('/products', getProducts);           // Catálogo del POS
  *         description: Sale completed successfully
  */
 router.post('/sales', createSale);              // Crear venta (ACID)
+
+/**
+ * @swagger
+ * /api/v1/pos/sales:
+ *   get:
+ *     summary: List sales (filterable by shift or date)
+ *     tags: [POS]
+ *     parameters:
+ *       - in: query
+ *         name: shiftId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           example: '2026-02-24'
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *     responses:
+ *       200:
+ *         description: Paginated list of sales with items
+ */
+router.get('/sales', getSales);
 
 /**
  * @swagger
@@ -134,5 +166,42 @@ router.post('/shifts/open', openShift);         // Abrir turno
  *         description: Shift closed and reconciled
  */
 router.post('/shifts/close', closeShift);       // Cerrar turno + corte de caja
+
+/**
+ * @swagger
+ * /api/v1/pos/shifts/current:
+ *   get:
+ *     summary: Get active shift with running totals
+ *     tags: [Shifts]
+ *     responses:
+ *       200:
+ *         description: Current open shift with sales and expense totals
+ *       404:
+ *         description: No open shift
+ */
+router.get('/shifts/current', getCurrentShift);
+
+/**
+ * @swagger
+ * /api/v1/pos/shifts:
+ *   get:
+ *     summary: List closed shift history with pagination
+ *     tags: [Shifts]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: List of closed shifts
+ */
+router.get('/shifts', getShifts);
 
 export default router;

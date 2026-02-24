@@ -223,3 +223,81 @@ export const adjustLoss = async (req: Request, res: Response) => {
     handleControllerError(req, res, error, '[adjustLoss Error]', 'Failed to register inventory loss.');
   }
 };
+
+// PATCH /inventory/products/:id
+export const updateProduct = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const id = req.params.id as string;
+    const { name, barcode, price } = req.body;
+
+    if (!name && barcode === undefined && price === undefined) {
+      res.status(400).json({ error: 'At least one field (name, barcode, price) must be provided.' });
+      return;
+    }
+
+    const existing = await prisma.product.findFirst({
+      where: { id, gym_id: gymId, deleted_at: null },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: 'Product not found.' });
+      return;
+    }
+
+    const updated = await prisma.product.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(barcode !== undefined && { barcode }),
+        ...(price !== undefined && { price }),
+      },
+    });
+
+    res.status(200).json({ message: 'Product updated.', product: updated });
+  } catch (error) {
+    handleControllerError(req, res, error, '[updateProduct Error]', 'Failed to update product.');
+  }
+};
+
+// GET /inventory/transactions?productId=&type=RESTOCK|LOSS|SALE&page=1&limit=50
+export const getInventoryTransactions = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const { productId, type, page = '1', limit = '50' } = req.query;
+    const take = Math.min(Number(limit) || 50, 200);
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
+
+    const where: any = { gym_id: gymId };
+    if (productId) where.product_id = String(productId);
+    if (type) where.type = String(type);
+
+    const [transactions, total] = await Promise.all([
+      prisma.inventoryTransaction.findMany({
+        where,
+        include: { product: { select: { name: true, barcode: true } } },
+        orderBy: { created_at: 'desc' },
+        take,
+        skip,
+      }),
+      prisma.inventoryTransaction.count({ where }),
+    ]);
+
+    res.status(200).json({
+      data: transactions,
+      meta: { total, page: Number(page), limit: take },
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getInventoryTransactions Error]', 'Failed to retrieve inventory transactions.');
+  }
+};
