@@ -1,7 +1,9 @@
 import { logger } from '../lib/logger';
 import { prisma } from '../db';
 
-const N8N_BASE_URL = process.env.N8N_BASE_URL || 'http://localhost:5678';
+import { env } from '../config/env';
+
+const N8N_BASE_URL = env.N8N_BASE_URL;
 const DEFAULT_N8N_WEBHOOKS = {
   welcome: `${N8N_BASE_URL}/webhook/nuevo-cliente`,
   reward: `${N8N_BASE_URL}/webhook/recompensa`,

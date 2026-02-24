@@ -2,6 +2,7 @@ import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { Express, Request, Response, NextFunction } from 'express';
 import { logger } from './lib/logger';
+import { env } from './config/env';
 import path from 'path';
 
 const options: swaggerJsdoc.Options = {
@@ -14,8 +15,8 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
-        url: 'http://localhost:3000',
-        description: 'Servidor de desarrollo',
+        url: env.PUBLIC_URL,
+        description: env.NODE_ENV === 'production' ? 'Producción' : 'Servidor de desarrollo',
       },
     ],
     components: {

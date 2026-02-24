@@ -6,11 +6,12 @@ dotenv.config({ quiet: true });
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
+  // URL pública del backend (usada en Swagger servers[], CDN, etc.)
+  PUBLIC_URL: z.string().default('http://localhost:3000'),
   DATABASE_URL: z.string().default(''),
   SUPABASE_URL: z.string().default(''),
   SUPABASE_ANON_KEY: z.string().default(''),
-  ANON_KEY: z.string().default(''),
-  LOG_LEVEL: z.string().default('debug'),
+  LOG_LEVEL: z.string().default('info'),
   LOG_PRETTY: z.enum(['true', 'false']).default('true'),
   BODY_LIMIT: z.string().default('1mb'),
   CORS_ORIGIN: z.string().default('*'),
@@ -23,6 +24,7 @@ const envSchema = z.object({
   RATE_LIMIT_BIOMETRIC_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   METRICS_ENABLED: z.enum(['true', 'false']).default('true'),
   METRICS_TOKEN: z.string().default(''),
+  N8N_BASE_URL: z.string().default('http://localhost:5678'),
 });
 
 export const env = envSchema.parse(process.env);
