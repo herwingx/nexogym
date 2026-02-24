@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMyContext, updateUser, cancelSubscription, exportUserData, anonymizeUserData } from './user.controller';
 import { prisma } from '../db';
 import { logAuditEvent } from '../utils/audit.logger';
-import { SubscriptionStatus } from '@prisma/client';
 
 vi.mock('../db', () => ({
   prisma: {
@@ -123,11 +122,11 @@ describe('user.controller', () => {
 
     (prisma.subscription.findFirst as any).mockResolvedValue({
       id: 'sub-1',
-      status: SubscriptionStatus.ACTIVE,
+      status: 'ACTIVE',
     });
     (prisma.subscription.update as any).mockResolvedValue({
       id: 'sub-1',
-      status: SubscriptionStatus.CANCELED,
+      status: 'CANCELED',
     });
 
     await cancelSubscription(req, mockRes);
@@ -135,7 +134,7 @@ describe('user.controller', () => {
     expect(prisma.subscription.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'sub-1' },
-        data: expect.objectContaining({ status: SubscriptionStatus.CANCELED }),
+        data: expect.objectContaining({ status: 'CANCELED' }),
       }),
     );
     expect(logAuditEvent).toHaveBeenCalledWith(
