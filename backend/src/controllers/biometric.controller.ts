@@ -94,7 +94,7 @@ export const biometricCheckIn = async (req: Request, res: Response) => {
       newStreak,
     });
   } catch (error) {
-    console.error('[biometricCheckIn Error]:', error);
+    req.log?.error({ err: error }, '[biometricCheckIn Error]');
     res.status(500).json({ openDoor: false, error: 'Internal Server Error' });
   }
 };

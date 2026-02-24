@@ -1,4 +1,5 @@
 import { prisma } from '../db';
+import { logger } from '../lib/logger';
 
 /**
  * Registra un evento de auditoría en la tabla AuditLog.
@@ -27,6 +28,6 @@ export const logAuditEvent = async (
     });
   } catch (error) {
     // El logger nunca debe detener el flujo principal de la app.
-    console.error(`[AuditLogger] Failed to write audit log — Action: ${action}`, error);
+    logger.error({ err: error, action, gymId, userId }, '[AuditLogger] Failed to write audit log');
   }
 };

@@ -25,7 +25,7 @@ export const requireHardwareKey = async (req: Request, res: Response, next: Next
     req.gymId = gym.id;
     next();
   } catch (error) {
-    console.error('[Hardware Middleware Error]:', error);
+    req.log?.error({ err: error }, '[Hardware Middleware Error]');
     res.status(500).json({ openDoor: false, error: 'Internal Server Error' });
   }
 };

@@ -20,3 +20,20 @@
    - Test: "Debe calcular correctamente el `expected_balance` sumando ventas y restando gastos del turno actual".
 3. **Multitenancy Estricto:**
    - Test: "Debe fallar o devolver vacío si un Admin intenta consultar datos enviando un `gym_id` diferente al suyo en el JWT".
+
+## 4. Cobertura Fase 2 (Hardening)
+1. **SaaS Feature Flags y métricas (`saas.controller.test.ts`)**
+   - Verificar `modules_config` automático por `subscription_tier`.
+   - Verificar overwrite de módulos al cambiar tier.
+   - Verificar respuesta de `getGlobalMetrics`.
+2. **Booking Tenant Isolation (`booking.controller.test.ts`)**
+   - Verificar que búsquedas y conteos se ejecuten con `gym_id`.
+3. **Auth con Supabase (`auth.middleware.test.ts`)**
+   - Verificar mapeo `auth_user_id` → usuario interno y contexto `req.gymId` / `req.userRole`.
+4. **CRM y operaciones financieras**
+   - `user.controller.test.ts`: actualización de `profile_picture_url` + auditoría.
+   - `pos.controller.test.ts`: flujo de fallo cuando no hay turno abierto.
+
+## 5. Convenciones de Tipado en Tests
+- Evitar depender de enums importados de Prisma en tests unitarios cuando el entorno de tipos pueda ir desfasado.
+- Preferir literales del dominio (`'ACTIVE'`, `'PRO_QR'`, `'PREMIUM_BIO'`) y validar comportamiento del controlador.

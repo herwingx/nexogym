@@ -1,10 +1,12 @@
+import { logger } from '../lib/logger';
+
 const N8N_BASE_URL = process.env.N8N_BASE_URL || 'http://localhost:5678';
 const N8N_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/nuevo-cliente`;
 const N8N_REWARD_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/recompensa`;
 
 export const sendWelcomeMessage = async (phone: string, pin: string, qrPayload: string) => {
   try {
-    console.log(`[n8n] Triggering welcome message for ${phone}...`);
+    logger.debug({ phone }, '[n8n] Triggering welcome message');
 
     // We do not await this on the main thread when we call it in the controller.
     const response = await fetch(N8N_WEBHOOK_URL, {
@@ -20,14 +22,14 @@ export const sendWelcomeMessage = async (phone: string, pin: string, qrPayload: 
     });
 
     if (!response.ok) {
-      console.warn(`[n8n] Failed to trigger welcome webhook. Status: ${response.status}`);
+      logger.warn({ phone, status: response.status }, '[n8n] Failed to trigger welcome webhook');
     } else {
-      console.log(`[n8n] Welcome message queued successfully for ${phone}.`);
+      logger.debug({ phone }, '[n8n] Welcome message queued successfully');
     }
 
   } catch (error) {
     // Isolated catch block ensures the server doesn't crash if webhook service is down
-    console.error('[n8n] Webhook trigger error:', error);
+    logger.error({ err: error, phone }, '[n8n] Welcome webhook trigger error');
   }
 };
 
@@ -42,7 +44,7 @@ export const sendShiftSummary = async (ownerPhone: string, summary: {
 }) => {
   const N8N_SHIFT_WEBHOOK_URL = `${N8N_BASE_URL}/webhook/corte-caja`;
   try {
-    console.log(`[n8n] Triggering shift summary for ${ownerPhone}...`);
+    logger.debug({ ownerPhone }, '[n8n] Triggering shift summary');
 
     const response = await fetch(N8N_SHIFT_WEBHOOK_URL, {
       method: 'POST',
@@ -51,18 +53,18 @@ export const sendShiftSummary = async (ownerPhone: string, summary: {
     });
 
     if (!response.ok) {
-      console.warn(`[n8n] Failed to trigger shift summary webhook. Status: ${response.status}`);
+      logger.warn({ ownerPhone, status: response.status }, '[n8n] Failed to trigger shift summary webhook');
     } else {
-      console.log(`[n8n] Shift summary queued successfully for ${ownerPhone}.`);
+      logger.debug({ ownerPhone }, '[n8n] Shift summary queued successfully');
     }
   } catch (error) {
-    console.error('[n8n] Shift summary webhook trigger error:', error);
+    logger.error({ err: error, ownerPhone }, '[n8n] Shift summary webhook trigger error');
   }
 };
 
 export const sendRewardMessage = async (phone: string, rewardName: string, streak: number) => {
   try {
-    console.log(`[n8n] Triggering reward notification for ${phone} (streak: ${streak})...`);
+    logger.debug({ phone, streak }, '[n8n] Triggering reward notification');
 
     const response = await fetch(N8N_REWARD_WEBHOOK_URL, {
       method: 'POST',
@@ -71,11 +73,11 @@ export const sendRewardMessage = async (phone: string, rewardName: string, strea
     });
 
     if (!response.ok) {
-      console.warn(`[n8n] Failed to trigger reward webhook. Status: ${response.status}`);
+      logger.warn({ phone, status: response.status }, '[n8n] Failed to trigger reward webhook');
     } else {
-      console.log(`[n8n] Reward notification queued successfully for ${phone}.`);
+      logger.debug({ phone }, '[n8n] Reward notification queued successfully');
     }
   } catch (error) {
-    console.error('[n8n] Reward webhook trigger error:', error);
+    logger.error({ err: error, phone, streak }, '[n8n] Reward webhook trigger error');
   }
 };

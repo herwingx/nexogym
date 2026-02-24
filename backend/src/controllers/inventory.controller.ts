@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { TransactionType } from '@prisma/client';
 import { logAuditEvent } from '../utils/audit.logger';
+import { handleControllerError } from '../utils/http';
 
 // GET /inventory/products
 export const getProducts = async (req: Request, res: Response) => {
@@ -19,8 +20,7 @@ export const getProducts = async (req: Request, res: Response) => {
 
     res.status(200).json({ data: products });
   } catch (error) {
-    console.error('[getProducts Error]:', error);
-    res.status(500).json({ error: 'Failed to retrieve products.' });
+    handleControllerError(req, res, error, '[getProducts Error]', 'Failed to retrieve products.');
   }
 };
 
@@ -51,8 +51,7 @@ export const createProduct = async (req: Request, res: Response) => {
 
     res.status(201).json({ message: 'Product created.', product });
   } catch (error) {
-    console.error('[createProduct Error]:', error);
-    res.status(500).json({ error: 'Failed to create product.' });
+    handleControllerError(req, res, error, '[createProduct Error]', 'Failed to create product.');
   }
 };
 
@@ -85,8 +84,7 @@ export const deleteProduct = async (req: Request, res: Response) => {
 
     res.status(200).json({ message: 'Product soft-deleted successfully.' });
   } catch (error) {
-    console.error('[deleteProduct Error]:', error);
-    res.status(500).json({ error: 'Failed to delete product.' });
+    handleControllerError(req, res, error, '[deleteProduct Error]', 'Failed to delete product.');
   }
 };
 
@@ -143,8 +141,7 @@ export const restockProduct = async (req: Request, res: Response) => {
       transaction_id: transaction.id,
     });
   } catch (error) {
-    console.error('[restockProduct Error]:', error);
-    res.status(500).json({ error: 'Failed to restock product.' });
+    handleControllerError(req, res, error, '[restockProduct Error]', 'Failed to restock product.');
   }
 };
 
@@ -223,7 +220,6 @@ export const adjustLoss = async (req: Request, res: Response) => {
       transaction_id: transaction.id,
     });
   } catch (error) {
-    console.error('[adjustLoss Error]:', error);
-    res.status(500).json({ error: 'Failed to register inventory loss.' });
+    handleControllerError(req, res, error, '[adjustLoss Error]', 'Failed to register inventory loss.');
   }
 };

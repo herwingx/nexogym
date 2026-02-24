@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { ShiftStatus, TransactionType } from '@prisma/client';
 import { saleSchema, expenseSchema } from '../schemas/pos.schema';
+import { handleControllerError } from '../utils/http';
 
 // GET /pos/products — mirrors inventory but from a POS-optimized view
 export const getProducts = async (req: Request, res: Response) => {
@@ -19,8 +20,7 @@ export const getProducts = async (req: Request, res: Response) => {
 
     res.status(200).json({ data: products });
   } catch (error) {
-    console.error('[getProducts Error]:', error);
-    res.status(500).json({ error: 'Failed to retrieve products.' });
+    handleControllerError(req, res, error, '[getProducts Error]', 'Failed to retrieve products.');
   }
 };
 
@@ -129,7 +129,7 @@ export const createSale = async (req: Request, res: Response) => {
       sale: result,
     });
   } catch (error: any) {
-    console.error('[createSale Error]:', error);
+    req.log?.error({ err: error }, '[createSale Error]');
     res.status(400).json({ error: error.message || 'Failed to complete sale.' });
   }
 };
@@ -183,7 +183,6 @@ export const registerExpense = async (req: Request, res: Response) => {
       expense,
     });
   } catch (error) {
-    console.error('[registerExpense Error]:', error);
-    res.status(500).json({ error: 'Failed to register expense.' });
+    handleControllerError(req, res, error, '[registerExpense Error]', 'Failed to register expense.');
   }
 };

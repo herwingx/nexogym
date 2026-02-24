@@ -90,3 +90,16 @@ Devuelve el total de gimnasios activos registrados en la base de datos.
 ```json
 { "total_active_gyms": 42 }
 ```
+
+---
+
+## Fase 2 — Hardening Operativo
+
+### Rate Limiting (Nuevo)
+- La API aplica límites por IP para mitigar abuso y picos no controlados.
+- Endpoints con política reforzada: `POST /api/v1/checkin` y `POST /biometric/checkin`.
+
+```json
+// Response 429
+{ "error": "Too many requests. Please try again later." }
+```

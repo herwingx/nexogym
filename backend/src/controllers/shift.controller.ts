@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { ShiftStatus } from '@prisma/client';
 import { sendShiftSummary } from '../services/n8n.service';
 import { logAuditEvent } from '../utils/audit.logger';
+import { handleControllerError } from '../utils/http';
 
 // POST /shifts/open
 export const openShift = async (req: Request, res: Response) => {
@@ -50,8 +51,7 @@ export const openShift = async (req: Request, res: Response) => {
       shift,
     });
   } catch (error: any) {
-    console.error('[openShift Error]:', error);
-    res.status(500).json({ error: 'Failed to open shift.' });
+    handleControllerError(req, res, error, '[openShift Error]', 'Failed to open shift.');
   }
 };
 
@@ -154,7 +154,9 @@ export const closeShift = async (req: Request, res: Response) => {
         expectedBalance: expected_balance,
         actualBalance: Number(actual_balance),
         difference,
-      }).catch(console.error);
+      }).catch((err) => {
+        req.log?.error({ err }, '[closeShift SummaryWebhook Error]');
+      });
     }
 
     res.status(200).json({
@@ -171,7 +173,6 @@ export const closeShift = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('[closeShift Error]:', error);
-    res.status(500).json({ error: 'Failed to close shift.' });
+    handleControllerError(req, res, error, '[closeShift Error]', 'Failed to close shift.');
   }
 };

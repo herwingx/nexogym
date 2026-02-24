@@ -4,6 +4,7 @@ import { SubscriptionStatus, AccessMethod, AccessType, Role } from '@prisma/clie
 import { sendRewardMessage } from '../services/n8n.service';
 import { logAuditEvent } from '../utils/audit.logger';
 import { checkinSchema } from '../schemas/checkin.schema';
+import { handleControllerError } from '../utils/http';
 
 export const processCheckin = async (req: Request, res: Response) => {
   try {
@@ -135,7 +136,9 @@ export const processCheckin = async (req: Request, res: Response) => {
     ]);
 
     if (rewardUnlocked && user.phone) {
-      sendRewardMessage(user.phone, String(rewardMessage), newStreak).catch(console.error);
+      sendRewardMessage(user.phone, String(rewardMessage), newStreak).catch((err) => {
+        req.log?.error({ err }, '[processCheckin RewardWebhook Error]');
+      });
     }
 
     res.status(200).json({
@@ -149,8 +152,7 @@ export const processCheckin = async (req: Request, res: Response) => {
       message: rewardUnlocked ? `¡Premio desbloqueado: ${rewardMessage}!` : '¡De vuelta al ruedo!',
     });
   } catch (error) {
-    console.error('[processCheckin Error]:', error);
-    res.status(500).json({ error: 'Failed to process check-in.' });
+    handleControllerError(req, res, error, '[processCheckin Error]', 'Failed to process check-in.');
   }
 };
 
@@ -219,7 +221,6 @@ export const processCourtesyAccess = async (req: Request, res: Response) => {
       visit_id: visit.id,
     });
   } catch (error) {
-    console.error('[processCourtesyAccess Error]:', error);
-    res.status(500).json({ error: 'Failed to process courtesy access.' });
+    handleControllerError(req, res, error, '[processCourtesyAccess Error]', 'Failed to process courtesy access.');
   }
 };

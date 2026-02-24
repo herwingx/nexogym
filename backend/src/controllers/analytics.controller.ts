@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
+import { handleControllerError } from '../utils/http';
 
 // GET /analytics/occupancy
 export const getLiveOccupancy = async (req: Request, res: Response) => {
@@ -34,8 +35,7 @@ export const getLiveOccupancy = async (req: Request, res: Response) => {
       status,
     });
   } catch (error) {
-    console.error('[getLiveOccupancy Error]:', error);
-    res.status(500).json({ error: 'Failed to retrieve occupancy data.' });
+    handleControllerError(req, res, error, '[getLiveOccupancy Error]', 'Failed to retrieve occupancy data.');
   }
 };
 
@@ -71,8 +71,7 @@ export const getDailyRevenue = async (req: Request, res: Response) => {
       revenue: totalRevenue,
     });
   } catch (error) {
-    console.error('[getDailyRevenue Error]:', error);
-    res.status(500).json({ error: 'Failed to retrieve revenue data.' });
+    handleControllerError(req, res, error, '[getDailyRevenue Error]', 'Failed to retrieve revenue data.');
   }
 };
 
@@ -155,8 +154,7 @@ export const getFinancialReport = async (req: Request, res: Response) => {
       net_profit: netProfit,
     });
   } catch (error) {
-    console.error('[getFinancialReport Error]:', error);
-    res.status(500).json({ error: 'Failed to generate financial report.' });
+    handleControllerError(req, res, error, '[getFinancialReport Error]', 'Failed to generate financial report.');
   }
 };
 
@@ -207,7 +205,6 @@ export const getAuditLogs = async (req: Request, res: Response) => {
       meta: { total, page: Number(page), limit: take },
     });
   } catch (error) {
-    console.error('[getAuditLogs Error]:', error);
-    res.status(500).json({ error: 'Failed to retrieve audit logs.' });
+    handleControllerError(req, res, error, '[getAuditLogs Error]', 'Failed to retrieve audit logs.');
   }
 };

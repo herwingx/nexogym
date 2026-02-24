@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import crypto from 'crypto';
 import { SubscriptionTier } from '@prisma/client';
 import { createGymSchema, updateGymTierSchema } from '../schemas/saas.schema';
+import { handleControllerError } from '../utils/http';
 
 const MODULES_CONFIG_BY_TIER: Record<SubscriptionTier, Record<string, boolean>> = {
   [SubscriptionTier.BASIC]: {
@@ -59,8 +60,7 @@ export const createGym = async (req: Request, res: Response) => {
       gym,
     });
   } catch (error) {
-    console.error('[createGym Error]:', error);
-    res.status(500).json({ error: 'Failed to create Gym.' });
+    handleControllerError(req, res, error, '[createGym Error]', 'Failed to create Gym.');
   }
 };
 
@@ -89,8 +89,7 @@ export const updateGymTier = async (req: Request, res: Response) => {
       gym,
     });
   } catch (error) {
-    console.error('[updateGymTier Error]:', error);
-    res.status(500).json({ error: 'Failed to update Gym tier.' });
+    handleControllerError(req, res, error, '[updateGymTier Error]', 'Failed to update Gym tier.');
   }
 };
 
@@ -103,7 +102,6 @@ export const getGlobalMetrics = async (_req: Request, res: Response) => {
       total_active_gyms: totalActiveGyms,
     });
   } catch (error) {
-    console.error('[getGlobalMetrics Error]:', error);
-    res.status(500).json({ error: 'Failed to retrieve global metrics.' });
+    handleControllerError(_req, res, error, '[getGlobalMetrics Error]', 'Failed to retrieve global metrics.');
   }
 };

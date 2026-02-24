@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { classSchema, bookingSchema } from '../schemas/booking.schema';
 import { SubscriptionStatus } from '@prisma/client';
+import { handleControllerError } from '../utils/http';
 
 export const getClasses = async (req: Request, res: Response) => {
   try {
@@ -23,7 +24,7 @@ export const getClasses = async (req: Request, res: Response) => {
 
     res.status(200).json({ data: classes });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch classes' });
+    handleControllerError(req, res, error, '[getClasses Error]', 'Failed to fetch classes');
   }
 };
 
@@ -47,7 +48,7 @@ export const createClass = async (req: Request, res: Response) => {
 
     res.status(201).json({ data: newClass });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create class' });
+    handleControllerError(req, res, error, '[createClass Error]', 'Failed to create class');
   }
 };
 
@@ -107,6 +108,6 @@ export const createBooking = async (req: Request, res: Response) => {
 
     res.status(201).json({ data: booking });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create booking' });
+    handleControllerError(req, res, error, '[createBooking Error]', 'Failed to create booking');
   }
 };

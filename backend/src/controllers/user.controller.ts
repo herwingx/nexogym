@@ -4,6 +4,7 @@ import { SubscriptionStatus, Role } from '@prisma/client';
 import { sendWelcomeMessage } from '../services/n8n.service';
 import { logAuditEvent } from '../utils/audit.logger';
 import crypto from 'crypto';
+import { handleControllerError } from '../utils/http';
 
 // GET /users
 export const getUsers = async (req: Request, res: Response) => {
@@ -35,8 +36,7 @@ export const getUsers = async (req: Request, res: Response) => {
 
     res.status(200).json({ data: users });
   } catch (error) {
-    console.error('[getUsers Error]:', error);
-    res.status(500).json({ error: 'Failed to retrieve users.' });
+    handleControllerError(req, res, error, '[getUsers Error]', 'Failed to retrieve users.');
   }
 };
 
@@ -97,7 +97,9 @@ export const createUser = async (req: Request, res: Response) => {
     // Fire and forget (Execute in background, no await)
     // Generating a basic payload for the QR, e.g. the user ID or a signed token
     const qrPayload = `GYM_QR_${result.user.id}`;
-    sendWelcomeMessage(phone, pin, qrPayload).catch(console.error);
+    sendWelcomeMessage(phone, pin, qrPayload).catch((err) => {
+      req.log?.error({ err }, '[createUser WelcomeWebhook Error]');
+    });
 
     res.status(201).json({
       id: result.user.id,
@@ -105,8 +107,7 @@ export const createUser = async (req: Request, res: Response) => {
       assigned_pin: pinFromBody ? undefined : pin, // Only expose auto-generated PINs
     });
   } catch (error) {
-    console.error('[createUser Error]:', error);
-    res.status(500).json({ error: 'Failed to create user' });
+    handleControllerError(req, res, error, '[createUser Error]', 'Failed to create user');
   }
 };
 
@@ -163,8 +164,7 @@ export const renewSubscription = async (req: Request, res: Response) => {
       subscription: updatedSub,
     });
   } catch (error) {
-    console.error('[renewSubscription Error]:', error);
-    res.status(500).json({ error: 'Failed to renew subscription' });
+    handleControllerError(req, res, error, '[renewSubscription Error]', 'Failed to renew subscription');
   }
 };
 
@@ -207,8 +207,7 @@ export const updateUser = async (req: Request, res: Response) => {
 
     res.status(200).json({ message: 'User updated.', user: updatedUser });
   } catch (error) {
-    console.error('[updateUser Error]:', error);
-    res.status(500).json({ error: 'Failed to update user.' });
+    handleControllerError(req, res, error, '[updateUser Error]', 'Failed to update user.');
   }
 };
 
@@ -244,8 +243,7 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     res.status(200).json({ message: 'User soft-deleted successfully.' });
   } catch (error) {
-    console.error('[deleteUser Error]:', error);
-    res.status(500).json({ error: 'Failed to delete user.' });
+    handleControllerError(req, res, error, '[deleteUser Error]', 'Failed to delete user.');
   }
 };
 
@@ -291,8 +289,7 @@ export const freezeSubscription = async (req: Request, res: Response) => {
       subscription: frozenSub,
     });
   } catch (error) {
-    console.error('[freezeSubscription Error]:', error);
-    res.status(500).json({ error: 'Failed to freeze subscription.' });
+    handleControllerError(req, res, error, '[freezeSubscription Error]', 'Failed to freeze subscription.');
   }
 };
 
@@ -340,7 +337,6 @@ export const unfreezeSubscription = async (req: Request, res: Response) => {
       subscription: activatedSub,
     });
   } catch (error) {
-    console.error('[unfreezeSubscription Error]:', error);
-    res.status(500).json({ error: 'Failed to unfreeze subscription.' });
+    handleControllerError(req, res, error, '[unfreezeSubscription Error]', 'Failed to unfreeze subscription.');
   }
 };

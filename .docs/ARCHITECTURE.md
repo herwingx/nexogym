@@ -117,6 +117,16 @@ backend/
 - `saas.controller.ts` asigna `modules_config` al crear/actualizar planes
 - `GET /api/v1/saas/metrics` expone `total_active_gyms` para panel global
 
+### 4.3 Seguridad y resiliencia operativa (Fase 2)
+- Rate limiting en `server.ts` con política general para `/api/v1` y límites específicos para `/api/v1/checkin` y `/biometric`
+- Manejo de errores estandarizado vía `utils/http.ts` (`handleControllerError`) para respuestas homogéneas y logs estructurados
+- Eliminación de `console.error` en controladores/middlewares de request path
+
+### 4.4 Integración Auth Supabase (Fase 2)
+- `User.auth_user_id` como vínculo explícito entre usuario de Supabase y usuario interno del ERP
+- `auth.middleware.ts` resuelve identidad por `id` legado o `auth_user_id` y adjunta `req.authUserId`
+- Soporte RBAC reforzado en rutas sensibles de CRM (`ADMIN` / `SUPERADMIN`)
+
 ### 5. Variables de Entorno (Dos archivos .env)
 | Archivo | Usado por | Propósito |
 |---|---|---|

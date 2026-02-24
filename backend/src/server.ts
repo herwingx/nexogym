@@ -16,11 +16,30 @@ import biometricRouter from './routes/biometric.routes';
 import bookingRouter from './routes/booking.routes';
 import { setupSwagger } from './swagger';
 import { logger } from './lib/logger';
+import { createRateLimiter } from './middlewares/rate-limit.middleware';
 
 dotenv.config({ quiet: true });
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+const apiRateLimiter = createRateLimiter({
+  keyPrefix: 'api',
+  max: 180,
+  windowMs: 60 * 1000,
+});
+
+const checkinRateLimiter = createRateLimiter({
+  keyPrefix: 'checkin',
+  max: 60,
+  windowMs: 60 * 1000,
+});
+
+const biometricRateLimiter = createRateLimiter({
+  keyPrefix: 'biometric',
+  max: 40,
+  windowMs: 60 * 1000,
+});
 
 app.disable('x-powered-by');
 
@@ -57,15 +76,17 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', service: 'GymSaaS Backend API' });
 });
 
+app.use('/api/v1', apiRateLimiter);
+
 // --- API Routes ---
 app.use('/api/v1/saas', saasRouter);            // Sprint B3: SuperAdmin Panel
 app.use('/api/v1/users', userRouter);            // Sprint B3: Member CRM (lifecycle completo)
-app.use('/api/v1/checkin', checkinRouter);       // Sprint B4: Check-in & Gamification
+app.use('/api/v1/checkin', checkinRateLimiter, checkinRouter);       // Sprint B4: Check-in & Gamification
 app.use('/api/v1/pos', posRouter);               // Sprint B6/B7: POS, Expenses & Cash Shifts
 app.use('/api/v1/inventory', inventoryRouter);   // Sprint B5: Control de Inventario
 app.use('/api/v1/analytics', analyticsRouter);   // Sprint B8: Dashboard, Reportes y Auditoría
 app.use('/api/v1/bookings', bookingRouter);      // Sprint B10: Clases y Reservas
-app.use('/biometric', biometricRouter);          // Sprint B9: IoT / Hardware endpoint (no JWT, x-api-key)
+app.use('/biometric', biometricRateLimiter, biometricRouter);          // Sprint B9: IoT / Hardware endpoint (no JWT, x-api-key)
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
