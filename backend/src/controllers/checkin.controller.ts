@@ -57,12 +57,8 @@ export const processCheckin = async (req: Request, res: Response) => {
       where: { id: userId },
     });
 
-    const gym = await prisma.gym.findUnique({
-      where: { id: gymId },
-    });
-
-    if (!user || !gym) {
-      res.status(404).json({ error: 'User or Gym not found.' });
+    if (!user) {
+      res.status(404).json({ error: 'User not found.' });
       return;
     }
 
@@ -76,6 +72,15 @@ export const processCheckin = async (req: Request, res: Response) => {
         res.status(403).json({ error: 'Anti-Passback: Este pase ya fue utilizado recientemente.' });
         return;
       }
+    }
+
+    const gym = await prisma.gym.findUnique({
+      where: { id: gymId },
+    });
+
+    if (!gym) {
+      res.status(404).json({ error: 'Gym not found.' });
+      return;
     }
 
     // 3. Gamification Logic (Streak calculation)
