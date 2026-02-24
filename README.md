@@ -4,14 +4,20 @@ ERP Multitenant de alto rendimiento para la gestión de gimnasios.
 
 ## Comandos Rápidos
 
-- `npm install` - Instala dependencias.
-- `npm run dev` - Levanta el servidor de desarrollo (tsx).
-- `npm test` - Corre la suite de pruebas (Vitest).
-- `npm run test:coverage` - Reporte de cobertura de código.
-- `npx prisma migrate dev` - Aplica cambios en la base de datos.
-- `npm run db:enforce-modules` - Aplica trigger DB que fuerza módulos por plan.
+| Comando | Descripción |
+|---|---|
+| `npm install` | Instala dependencias |
+| `npm run dev` | Levanta el servidor de desarrollo (tsx watch) |
+| `npm test` | Corre la suite de pruebas (Vitest) |
+| `npm run test:coverage` | Reporte de cobertura |
+| `npm run typecheck` | Valida tipos TypeScript sin compilar |
+| `npm run db:push` | Sincroniza el schema con la DB (dev) |
+| `npm run db:seed` | Puebla la DB local con datos de prueba |
+| `npm run db:reset` | Resetea y re-seedea la DB local |
+| `npm run db:studio` | GUI visual de la DB (Prisma Studio) |
 
 ## Documentación
+- **Flujo de Desarrollo / DB Seeding:** [DEV_WORKFLOW.md](./.docs/DEV_WORKFLOW.md)
 - **API (Swagger):** `http://localhost:3000/api-docs`
 - **Health:** `http://localhost:3000/health`
 - **Readiness:** `http://localhost:3000/health/ready`
