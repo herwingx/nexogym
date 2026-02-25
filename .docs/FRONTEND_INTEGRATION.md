@@ -77,6 +77,15 @@ Regla UX: si `false`, ocultar menú/acción y no renderizar CTA.
 - [ ] Manejo visual de 401/403/429 homogéneo.
 - [ ] E2E mínimo: login → context → menú dinámico → flujo check-in.
 
+### Qué falta y por qué (revisión posterior)
+
+| Qué falta | Dónde hacerlo | Por qué no está “hecho” aquí |
+|-----------|----------------|------------------------------|
+| **Verificar ítems del checklist** | Código frontend (revisión manual o E2E) | Cada ítem es una decisión de implementación; este doc solo lista requisitos. Revisar que cada uno esté cubierto antes de dar por cerrada la integración. |
+| **Bucket `profile-pictures` en Supabase** | Dashboard de Supabase → Storage → crear bucket y políticas | La subida de foto de perfil usa Supabase Storage; el bucket y sus límites (tamaño, MIME) se configuran en el proyecto de Supabase, no en el repo. Si el bucket no existe o no tiene límite de tamaño, las subidas pueden fallar. |
+| **E2E mínimo** | Suite E2E (Playwright/Cypress, etc.) en el repo o en otro | Si aún no existe, hay que escribir y mantener los tests; depende de prioridad del equipo. |
+| **Redirect URLs en Supabase** (recuperación de contraseña) | Supabase → Authentication → URL Configuration | Las URLs permitidas tras “olvidé contraseña” se configuran en el dashboard; no en código. |
+
 ## 7) Notas operativas
 
 - `modules_config` no se define manualmente desde frontend.
@@ -84,3 +93,4 @@ Regla UX: si `false`, ocultar menú/acción y no renderizar CTA.
 - Para frontend SuperAdmin, usar además:
   - `GET /api/v1/saas/gyms/:id/modules`
   - `PATCH /api/v1/saas/gyms/:id/tier`
+- **Foto de perfil al alta (Registrar socio):** el backend acepta `profile_picture_url` opcional en `POST /users`. En recepción el formulario permite pegar una URL o subir archivo; la subida usa Supabase Storage bucket **`profile-pictures`** (crear el bucket en el dashboard y política de escritura si aplica). Si el bucket no existe, se puede usar solo el campo URL.

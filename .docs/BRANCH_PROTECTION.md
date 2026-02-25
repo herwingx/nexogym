@@ -38,3 +38,13 @@ Do not merge if:
 - CI is red
 - Required reviews are missing
 - Docs/tests are not updated for behavior changes
+
+---
+
+## Qué falta y por qué (revisión posterior)
+
+| Qué falta | Dónde hacerlo | Por qué no está en el repo |
+|-----------|----------------|----------------------------|
+| **Activar realmente las reglas de branch protection** | GitHub → Repository → Settings → Branches → Add rule (o edit rule for `main`) | Las reglas de protección se configuran en la interfaz de GitHub (o con GitHub API/terraform), no en archivos del repo. Este documento solo describe **qué** configurar; la acción es ir a GitHub y marcar las opciones (require PR, require approvals, require status checks, etc.). |
+| **Crear/actualizar `.github/CODEOWNERS`** (si se usa “Require review from Code Owners”) | Archivo `.github/CODEOWNERS` en el repo | Sí puede estar en el repo; si no existe o está vacío, la regla “Code Owners” no tendrá efecto o fallará. Revisar que el archivo exista y liste los responsables. |
+| **El workflow `backend-quality` / checks requeridos** | El nombre debe coincidir con el job en `.github/workflows/ci.yml` | El check que se exige en “Require status checks” debe ser el que emite el CI; si el nombre no coincide, GitHub no permitirá marcar el check como requerido. |

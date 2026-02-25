@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 5% 96%;
+    --foreground: 240 10% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 10%;
+
+    --border: 240 5% 84%;
+    --input: 240 5% 96%;
+    --ring: 222 84% 56%;
+
+    /* Default corporate primary (overridable per-tenant) */
+    --theme-primary: 222 84% 56%;
+    --theme-primary-foreground: 0 0% 100%;
+
+    color-scheme: light;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 98%;
+
+    --border: 0 0% 20%;
+    --input: 240 10% 10%;
+    --ring: 222 84% 56%;
+
+    --theme-primary-foreground: 0 0% 100%;
+
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Inter', 'Geist',
+      sans-serif;
+    margin: 0;
+  }
+}

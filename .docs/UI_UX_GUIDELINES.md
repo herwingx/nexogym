@@ -1,72 +1,99 @@
-# Reglas de Interfaz (UI_UX_GUIDELINES)
+# Reglas de Interfaz y Experiencia de Usuario (UI/UX GUIDELINES)
 
-Actualizado tras la implementación del ERP Full (Sprints B1–B9).
+Documento arquitectónico para el desarrollo del Frontend de NexoGym (PWA y Dashboards).
 
-Este documento contiene directrices obligatorias para la estética, accesibilidad e interfaces generadas tanto para la aplicación móvil progresiva (Portal de Clientes), como el tablero de administración de escritorio.
-
-## Estética "Cyberpunk / Lo-Fi" (OBLIGATORIA)
-El objetivo de la plataforma es no parecer ni de lejos un software "corporativo" (Evita azules estándar, grises insípidos y fondos blancos predeterminados).
-
-1. **Dark Mode Profundo**
-   - El tema de fondo universal no es completamente negro, es extremadamente oscuro, por ejemplo, `#0a0a0a` o un `zinc-950` casi absoluto con algo de tintado.
-   - Todo el texto general debe estar en escalas de grises claros (`gray-300`, `gray-400`).
-
-2. **Cristalmorfismo (Glassmorphism)**
-   - Paneles flotantes flotantes, top-bars de navegación y modales de confirmación o alerta siempre deben usar utilidades de difuminado del fondo de css (`backdrop-blur-md` a `backdrop-blur-xl`) así como un ligero fondo semi transparente con blanco al 5% o 10% (ej. `bg-white/5`).
-   - Todos los bordes de componentes como tarjetas de precios de POS o cajas de suscripción usan radio grande, típicamente `rounded-xl` o `rounded-2xl`.
-
-3. **Acentos Brillantes (Tono Neón)**
-   - Usa sombras extendidas de colores vibrantes (`shadow-lg shadow-theme-accent/50`) para dar impacto a los botones clave (Ej: El botón primario de "Abrir Caja" o "Escanear QR").
+> El estado mental del usuario final dicta nuestra interfaz: El **Recepcionista** necesita velocidad extrema y cero fricción. El **Admin/SuperAdmin** necesita claridad analítica y confianza. El **Socio (Member)** necesita una experiencia móvil rápida y gamificada.
 
 ---
 
-## White-Labeling Dinámico: La Regla del Color Dinámico
-El SaaS es Multitenant en su diseño para cada gimnasio, lo que prohíbe fuertemente setear variables absolutas en tailwind (ej, no escribas NUNCA `bg-blue-500` para un fondo principal).
+## 1. Estética Minimalista B2B (Estilo Vercel / Linear)
 
-- **Cómo hacerlo:** Usa Variables CSS inyectadas.
-  ```html
-  <!-- Ejemplo Prohibido -->
-  <button className="bg-red-500 text-white rounded-xl">Entrar</button>
+El objetivo de la plataforma es proyectar absoluta confianza, seguridad y modernidad. Alejándonos de diseños estridentes o genéricos, adoptamos un minimalismo técnico y elegante.
 
-  <!-- Ejemplo Obligatorio de White-Labeling -->
-  <button className="bg-theme-primary text-white rounded-xl">Entrar</button>
-  ```
-- **Nota técnica:** Las variables CSS globales como `--theme-primary` y `--theme-accent` son devueltas en la conexión API y almacenadas en el estado global (Zustand) para ser inyectadas en la etiqueta `<body>` o de raíz dinámicamente, lo cual Tailwind toma con una extensión simple en su configuración de variables.
+- **Tipografía:** Geométrica, limpia y de altísima legibilidad. Uso estricto de **Geist** o **Inter**.
+- **Light/Dark Mode Dinámico:** Soporte nativo para ambos temas, permitiendo al usuario operar sin fatiga visual sin importar la iluminación de su entorno.
 
----
+### Light Mode (Corporativo)
+- Fondos blancos puros o `zinc-50`.
+- Sombras ultra-suaves (`shadow-sm`) y bordes nítidos (`border-zinc-200`).
+- Textos en `zinc-900`.
 
-## Componentes y Layouts Adaptativos Híbridos
-El diseño de interfaces está en el núcleo de un abordaje de "Mobile-First":
-
-1. **Dispositivos Móviles (Clientes / Portal PWA)**
-   - Barra de Navegación Inferior (Bottom Navigation Bar) fijada a toda costa en el final de las pantallas táctiles.
-   - Todas las llamadas a la acción deben ser de buen tamaño táctil (Padding mínimo de 3 a 4 rem `py-3 px-4`).
-
-2. **Escritorio (Panel de Administración Admin/Recepción)**
-   - Se debe utilizar un Layout con un "Sidebar" vertical colapsable lateral a la izquierda.
-   - Optimización de tablas para mostrar bases de datos extensas.
+### Dark Mode (Profundo)
+- Fondos `zinc-950` o negro puro (`#000000`).
+- Bordes sutiles y elegantes (`border-white/10`).
+- Textos en `zinc-100`.
 
 ---
 
-## Escaneo de Códigos QR
-Dado que no requerimos hardware propietario caro como torniquetes:
-1. **Lector por Cámara (Móvil):** La app del recepcionista incorpora el componente de JavaScript libre de dependencias pesadas `html5-qrcode` para disparar el lector desde la cámara del celular.
-2. **Lector de Hardware (PC Desktop USB):** La configuración del lector asume que el escáner escribe como un teclado USB directo con un "Enter" final. Por defecto, en el panel de recepción siempre hay un campo tipo `input` oculto temporalmente u opacado que forza foco infinito (`autoFocus={true}` + `onBlur={(e) => e.target.focus()}`) en background para nunca perder una lectura del torniquete.
+## 2. White-Labeling y Accesibilidad WCAG (Color Math)
+
+El SaaS es Multitenant. La interfaz debe adaptarse al color corporativo del gimnasio sin romper el diseño base ni la accesibilidad.
+
+- **Inyección de Variables:** PROHIBIDO usar clases utilitarias estáticas de colores de marca. NUNCA usar `bg-blue-500` como color principal. Todo el color de marca se maneja mediante la variable CSS `--theme-primary`.
+- **Color Math Dinámico (WCAG):** El sistema (vía la librería `colord`) evaluará matemáticamente la luminancia del color hexadecimal recibido del backend. Generará automáticamente una variable `--theme-primary-foreground` que será texto `#FFFFFF` (blanco) o `#000000` (negro) para garantizar siempre un contraste perfecto en los botones.
+- **Acento Elegante:** El color de marca se usa como "acento" (para botones primarios, checks, y estados activos), no para rellenar fondos masivos.
 
 ---
 
-## Pantallas Requeridas por Módulo ERP
+## 3. Skeletons de Carga
+
+Para que la carga de datos se perciba como más rápida y consistente, todas las vistas que dependen de datos asincrónicos (API) deben usar **skeletons** en lugar de un spinner genérico o campos en blanco.
+
+- **Estilo:** Bloques con `bg-zinc-200 dark:bg-zinc-800` y `animate-pulse`, dentro de la misma estructura de cards/bordes que el contenido final.
+- **Componentes:** Ver **`.docs/SKELETONS.md`** para la definición completa: cuándo usarlos, componentes disponibles (`Skeleton`, `CardSkeleton`, `TableRowSkeleton`, `ListSkeleton`) y lista de vistas que deben aplicarlos.
+
+---
+
+## 4. Librería de Microinteracciones y Componentes
+
+### Botones (Buttons)
+
+- **Primary:** `bg-primary text-primary-foreground hover:opacity-90 transition-opacity rounded-md px-4 py-2 font-medium shadow-sm`
+- **Secondary / Outline:** `bg-transparent border border-zinc-200 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors rounded-md px-4 py-2`
+- **States:**
+  - `Disabled`: `opacity-50 cursor-not-allowed`
+  - `Loading`: reemplazar ícono por spinner circular, manteniendo el ancho del botón.
+
+### Inputs y Formularios
+
+- **Base:** `bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow`
+
+### Modales (Dialogs — Efecto "Acrylic Blur")
+
+- **Overlay:** Fondo con `backdrop-blur-md bg-black/60` (Dark) o `bg-zinc-900/20` (Light).
+- **Contenedor:** `bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-white/10 shadow-xl rounded-xl`. Animación de entrada suave (`fade-in`, `scale-95` a `scale-100`).
+
+### Tarjetas (Cards / Bento Grids)
+
+```
+bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow
+```
+
+---
+
+## 5. Check-in y Flujo "Hardware-First"
+
+En horarios pico, el recepcionista no puede depender de un clic manual ni de encender webcams.
+
+- **El Input Invisible (Hardware):** La pantalla de recepción debe incluir un `<input type="text">` estéticamente invisible (`opacity-0 absolute -z-10`) que mantenga un `autoFocus={true}` perpetuo. Si el input pierde el foco, un event listener `onBlur` debe recuperarlo en milisegundos. Esto permite que una pistola lectora QR (USB/Bluetooth) tipee el código y dispare el `Enter` automáticamente.
+- **Lector por Cámara (Fallback):** La librería `html5-qrcode` (cámara del dispositivo) estará oculta detrás de un botón secundario ("Usar Cámara") para casos de emergencia o tablets.
+- **Validación Visual:** Al escanear un QR válido, el sistema no solo registra el acceso, sino que **DEBE** disparar un Modal Acrílico mostrando en tamaño grande la Foto de Perfil y el nombre del socio, permitiendo al staff detener fraudes visualmente. El error `403` (Anti-passback) debe mostrarse claramente en rojo intenso.
+
+---
+
+## 6. Pantallas Requeridas por Módulo ERP
+
+Las vistas se ocultan o muestran dinámicamente evaluando el store global `gym.modules_config`.
 
 ### Panel de Recepción (Rol: RECEPTIONIST)
 
 | Pantalla | Descripción | Ruta sugerida |
 |---|---|---|
-| **Dashboard turno** | Estado del turno activo: fondo inicial, ventas acumuladas, egresos | `/reception` |
-| **Check-in** | Campo de PIN / lector QR / cámara para registrar entrada de socios | `/reception/checkin` |
-| **POS** | Catálogo de productos con botones grandes táctiles, carrito y botón "Confirmar Venta" | `/reception/pos` |
-| **Egresos** | Formulario rápido: monto + descripción para sacar efectivo de la caja | `/reception/expenses` |
-| **Abrir / Cerrar turno** | Formulario de fondo inicial y pantalla de cierre con reconciliación | `/reception/shift` |
-| **Registrar socio** | Formulario de alta con auto-generación de PIN | `/reception/members/new` |
+| **Dashboard / Check-in** | Flujo Hardware-First para registrar entrada de socios | `/reception/checkin` |
+| **POS** | Catálogo de productos (grid táctil), carrito y botón "Confirmar Venta" | `/reception/pos` |
+| **Egresos** | Formulario rápido para sacar efectivo de la caja | `/reception/expenses` |
+| **Abrir / Cerrar turno** | Formulario de fondo inicial y pantalla de reconciliación | `/reception/shift` |
+| **Registrar socio** | Formulario de alta con soporte para capturar foto (cámara web/móvil) | `/reception/members/new` |
 
 ### Panel de Administración (Rol: ADMIN)
 
@@ -74,28 +101,31 @@ Dado que no requerimos hardware propietario caro como torniquetes:
 |---|---|---|
 | **Dashboard principal** | Semáforo de ocupación + ingresos del día + socios activos | `/admin` |
 | **Reporte financiero** | Selector de mes + desglose de ventas, egresos y ganancia neta | `/admin/finance` |
-| **Socios** | Lista con filtros, estado de membresía y acciones (renovar, congelar, cortesía) | `/admin/members` |
+| **Socios** | Lista con filtros, estado de membresía y acciones | `/admin/members` |
 | **Inventario** | Tabla de productos con stock actual + botones Restock y Merma | `/admin/inventory` |
-| **Auditoría** | Tabla filtrable de `AuditLog`: cortesías, mermas, cortes con descuadre | `/admin/audit` |
+| **Auditoría** | Tabla filtrable de `AuditLog` (Mermas, Cortesías, etc.) | `/admin/audit` |
 | **Cortes de caja** | Historial de turnos con estado BALANCED / SURPLUS / SHORTAGE | `/admin/shifts` |
 
 ### Portal del Socio — PWA Móvil (Rol: MEMBER)
 
 | Pantalla | Descripción | Ruta sugerida |
 |---|---|---|
-| **Home** | Racha actual + estado de membresía + próximo premio | `/` |
-| **Mi QR** | Código QR grande para escanear en recepción | `/qr` |
+| **Home (Código QR)** | Código QR estático gigante + estado de membresía | `/` |
+| **Gamificación** | Racha actual (fuego 🔥) + próximo premio | `/rewards` |
 | **Historial** | Últimas visitas del socio | `/history` |
 
 ---
 
-## Componentes Clave del ERP
+## 7. Componentes Clave de Negocio
 
-### Tarjeta de Turno de Caja
+### Tarjeta de Turno de Caja (POS)
+
+Debe reflejar una interfaz financiera limpia:
+
 ```
 ┌─────────────────────────────────────────┐
 │  TURNO ACTIVO          [Cerrar Turno]   │
-│  Abierto: 08:00  ·  Fondo: $500.00     │
+│  Abierto: 08:00  ·  Fondo: $500.00      │
 │  ─────────────────────────────────────  │
 │  Ventas:    +$780.00                    │
 │  Egresos:   -$50.00                     │
@@ -103,46 +133,52 @@ Dado que no requerimos hardware propietario caro como torniquetes:
 │  Esperado:  $1,230.00                   │
 └─────────────────────────────────────────┘
 ```
-- Fondo glassmorphism + borde `theme-accent`
-- Ventas en verde neón, egresos en rojo/rosa
+
+- Ventas en verde sutil (`text-emerald-600 dark:text-emerald-400`).
+- Egresos en rojo (`text-rose-600 dark:text-rose-400`).
 
 ### Badge de Estado de Membresía
+
+Variantes de colores desaturados estilo Vercel:
+
 ```
-ACTIVE    → bg-green-500/20  · text-green-400  · border-green-500/30
-EXPIRED   → bg-red-500/20    · text-red-400    · border-red-500/30
-FROZEN    → bg-blue-500/20   · text-blue-400   · border-blue-500/30
-CANCELED  → bg-zinc-500/20   · text-zinc-400   · border-zinc-500/30
+ACTIVE  → bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20
+EXPIRED → bg-rose-500/10    text-rose-600    dark:text-rose-400    border-rose-500/20
+FROZEN  → bg-blue-500/10    text-blue-600    dark:text-blue-400    border-blue-500/20
 ```
 
-### Semáforo de Ocupación
-```
-VACÍO  (0 personas)   → Punto verde pulsante
-NORMAL (1-20)         → Punto amarillo pulsante
-LLENO  (21+)          → Punto rojo pulsante con advertencia
-```
-El punto usa `animate-pulse` de Tailwind. El color se mapea a `text-theme-accent`.
+### Fila de AuditLog (Tabla)
 
-### Fila de AuditLog (tabla)
-- Acciones críticas (`COURTESY_ACCESS_GRANTED`, `INVENTORY_LOSS_REPORTED`, `SHIFT_CLOSED` con diferencia ≠ 0) deben resaltarse con `bg-red-500/10` y un ícono de alerta.
-- El campo `details` (JSONB) se expande en un `<details>` colapsable inline.
-
-### Reconciliación del Corte de Caja
-```
-BALANCED  → Badge verde  "✓ Cuadrado"
-SURPLUS   → Badge azul   "↑ Sobrante: +$X"
-SHORTAGE  → Badge rojo   "⚠ Faltante: -$X"  ← requiere atención del admin
-```
+Acciones críticas como `COURTESY_ACCESS_GRANTED`, `INVENTORY_LOSS_REPORTED` o `SHIFT_CLOSED` con diferencia, deben resaltarse con un fondo `bg-rose-500/5` y un ícono de alerta visual.
 
 ---
 
-## Flujos de Notificación Visual
+## 8. Flujos de Notificación Visual (Sileo)
 
-Toda acción que dispara un webhook a n8n debe mostrar un **toast** (notificación no bloqueante) en la UI:
+Toda interacción de éxito, error o envío de webhooks a n8n debe comunicarse mediante la librería **Sileo** (`sileo`).
 
-| Acción | Toast |
+Los "Toasts" deben configurarse globalmente para heredar el Dark/Light mode, usando bordes sutiles y fondo sólido:
+
+```
+bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 shadow-xl
+```
+
+| Acción | Estilo de Toast |
 |---|---|
-| Socio creado | `"✓ WhatsApp de bienvenida enviado a +52..."` |
-| Premio desbloqueado | `"🏆 Premio notificado al socio"` |
-| Corte de caja cerrado | `"✓ Resumen enviado al dueño por WhatsApp"` |
+| Carga de datos | Spinner `"Sincronizando..."` |
+| Socio creado | Success `"✓ WhatsApp de bienvenida enviado"` |
+| Premio desbloqueado | Success `"🏆 Premio notificado al socio"` |
+| Error Anti-Passback | Error `"El pase fue utilizado recientemente"` |
 
-Los toasts usan el mismo glassmorphism de los paneles: `backdrop-blur-md bg-white/5 border border-white/10`.
+---
+
+## Qué falta y por qué (revisión posterior)
+
+Este doc son **reglas de interfaz**; lo que “falta” son cosas que no se definen aquí porque dependen de otro sitio o de aplicación continua:
+
+| Qué no cubre este doc | Dónde está / quién lo hace | Por qué |
+|------------------------|-----------------------------|--------|
+| **Assets de diseño (Figma, iconos, ilustraciones)** | Herramienta de diseño o carpeta de assets en el repo | Este doc define estilos y patrones (colores, tipografía, componentes); los mockups y assets los define diseño o el equipo. |
+| **Copy real de la app (textos, mensajes, errores)** | Código y/o ficheros de i18n | Las frases concretas que ve el usuario; pueden vivir en componentes o en archivos de traducción. |
+| **Configuración de fuentes (Geist/Inter) en el build** | `index.html`, CSS o config de Vite/fonts | El doc pide Geist o Inter; asegurarse de que estén cargadas en el proyecto corresponde a quien configura el frontend. |
+| **Aplicar estas reglas en cada pantalla nueva** | Al desarrollar cada vista | No hay “tarea única” que marque todo como hecho; cada pantalla nueva debe revisarse contra este doc (skeletons, botones, inputs, notificaciones Sileo). Ver SKELETONS.md para lista de vistas con skeleton. |

@@ -324,6 +324,20 @@ de autenticación (vincular el UUID de Supabase con el usuario en Prisma Studio)
 
 ---
 
+### Qué queda fuera del repo y por qué (revisión posterior)
+
+Todo lo que no se puede “completar” solo con código en este repo aparece aquí, para que al revisar sepas qué es y por qué.
+
+| Qué queda fuera | Dónde se hace | Por qué no está en el repo |
+|-----------------|----------------|----------------------------|
+| **Branch protection** (PR obligatorio, aprobaciones, checks) | GitHub → Settings → Branches | Son reglas de la plataforma; se documentan en `.docs/BRANCH_PROTECTION.md` pero se activan en la UI de GitHub. |
+| **Secrets y variables de entorno** (DB, Supabase, CORS, etc.) | GitHub Actions Secrets; panel del hosting (Railway, Render, etc.) para prod | No deben estar en el repo por seguridad; cada entorno se configura aparte. |
+| **Proyectos Supabase (dev / staging / prod)** | Dashboard Supabase: crear proyectos y copiar URLs/keys | Un proyecto por entorno; la creación y la configuración (Redirect URLs, Storage buckets) es en el dashboard. |
+| **Vincular JWT (auth_user_id) en dev** | Manual: Supabase Auth → crear usuario, luego Prisma Studio → editar `User.auth_user_id` | El seed no crea usuarios en Supabase Auth; es un paso manual de desarrollo para poder usar Swagger y el frontend con el mismo usuario. Solo afecta a dev. |
+| **Cron para sync de suscripciones vencidas** | Scheduler del hosting, GitHub Actions scheduled workflow, o script externo que llame `POST /users/sync-expired-subscriptions` | El endpoint existe; quién lo llama y cada cuánto se configura en la infra, no en el código de la API. Ver `.docs/SUBSCRIPTION_EXPIRY_AND_RENEWAL.md`. |
+
+---
+
 ### Valores del seed para usar en Swagger
 
 Después de correr `npm run db:seed`, la consola imprime todos los IDs necesarios.
@@ -354,9 +368,10 @@ Se usan como header: `X-Hardware-Key: <valor>`
 | `POST` | `/api/v1/users` | Crear nuevo miembro |
 | `PATCH` | `/api/v1/users/:id` | Editar nombre, teléfono, PIN |
 | `DELETE` | `/api/v1/users/:id` | Soft delete (no borra de DB) |
-| `PATCH` | `/api/v1/users/:id/renew` | `{ "days": 30 }` — Renovar suscripción |
-| `PATCH` | `/api/v1/users/:id/freeze` | `{ "days": 7 }` — Congelar |
-| `PATCH` | `/api/v1/users/:id/unfreeze` | Descongelar suscripción |
+| `PATCH` | `/api/v1/users/:id/renew` | Renovar: +30 días (desde hoy si venció/congelado; desde expires_at si sigue activo) |
+| `PATCH` | `/api/v1/users/:id/freeze` | Congelar (guarda días restantes) |
+| `PATCH` | `/api/v1/users/:id/unfreeze` | Descongelar (reactiva con días guardados desde hoy) |
+| `POST` | `/api/v1/users/sync-expired-subscriptions` | Marcar ACTIVE con expires_at pasada como EXPIRED (cron diario) |
 | `PATCH` | `/api/v1/users/:id/cancel-subscription` | Cancelar |
 | `GET` | `/api/v1/users/:id/data-export` | Exportar datos GDPR |
 | `POST` | `/api/v1/users/:id/anonymize` | Anonimizar (irreversible) |

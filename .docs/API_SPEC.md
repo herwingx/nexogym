@@ -272,6 +272,30 @@ Exporta los datos del socio para cumplimiento y portabilidad (JSON).
 
 ### `POST /api/v1/users/:id/anonymize`
 Anonimiza PII del socio y cancela suscripciones activas (irreversible).
+
+### `POST /api/v1/users/:id/send-qr`
+Reenvía el QR de acceso del socio por WhatsApp (mismo código estable). Staff.
 ```json
-{ "message": "User data anonymized and active subscriptions cancelled.", "user_id": "uuid" }
+{ "message": "Si el gym tiene WhatsApp configurado, el socio recibirá su código de acceso en unos segundos." }
 ```
+
+### `POST /api/v1/users/:id/regenerate-qr`
+Regenera el QR del socio (invalida el anterior). Solo Admin/SuperAdmin.
+```json
+// Body opcional
+{ "sendToWhatsApp": true }
+// Response
+{ "message": "QR regenerado. El socio recibirá el nuevo código por WhatsApp en unos segundos." }
+```
+
+---
+
+## Qué falta y por qué (revisión posterior)
+
+Este doc es el **contrato** de la API (sprints y endpoints). Lo que “falta” aquí no son pasos en el repo, sino claridad sobre estado de implementación:
+
+| Qué puede faltar | Dónde revisar | Por qué |
+|------------------|----------------|--------|
+| **Endpoints de un sprint no implementados aún** | Código en `backend/src/routes/` y controladores | Los sprints son planificación; la implementación se hace por fases. Si un endpoint de este doc no existe en el backend, falta desarrollarlo según el contrato. |
+| **Diferencias entre este spec y el comportamiento real** | Tests y Swagger (`/api-docs`) | Si la API se desvía del spec (campos, códigos de error), hay que actualizar el spec o el código para que coincidan. |
+| **Documentación OpenAPI (JSDoc @swagger)** por endpoint | Comentarios en las rutas; ver TESTING_STRATEGY.md | Cada endpoint debe tener su bloque JSDoc para que Swagger esté al día; es responsabilidad al añadir o cambiar rutas. |

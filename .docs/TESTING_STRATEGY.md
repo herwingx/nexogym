@@ -57,3 +57,19 @@
    3. Type checking estricto (`npm run typecheck`).
    4. Test suite completa (`npm test`).
    5. Security audit high (`npm run audit:high`, modo informativo/no bloqueante).
+
+---
+
+## 9. Qué falta (cobertura por fases) y por qué
+
+Las secciones 3–4 definen casos críticos obligatorios; las secciones 4 (Fase 2), 6 (Fase 3) y 7 (Fase 4) son cobertura adicional por prioridad. Esta tabla resume qué tests pueden no estar aún implementados y por qué.
+
+| Qué puede faltar | Dónde implementarlo | Por qué no está necesariamente hecho |
+|------------------|---------------------|--------------------------------------|
+| **Tests Fase 2** (SaaS feature flags, booking tenant isolation, auth middleware, CRM/finanzas) | Archivos `*.controller.test.ts` y `auth.middleware.test.ts` junto a cada módulo | Son parte del “hardening”; se priorizan después de los casos críticos de la sección 3. Revisar qué archivos existen y cuáles de estos casos están cubiertos. |
+| **Tests Fase 3** (rate-limit, http utils) | `rate-limit.middleware.test.ts`, `utils/http.test.ts` | Guardrails de seguridad/operación; se añaden cuando se considera necesario. |
+| **Tests Fase 4** (observabilidad) | `observability/metrics.test.ts` | Depende de que el módulo de métricas esté estable; no bloquea el CI inicial. |
+| **Documentación Swagger (JSDoc @swagger)** en cada endpoint nuevo | En los archivos de `routes/` y controladores | Regla del doc: todo endpoint debe tener su bloque JSDoc. Si algún endpoint no lo tiene, falta añadirlo; es responsabilidad al añadir o modificar rutas. |
+| **E2E / tests de integración frontend** | Repo frontend o proyecto aparte | Este doc se centra en backend (Vitest + Supertest). E2E es otro esfuerzo; ver FRONTEND_INTEGRATION.md. |
+
+**Resumen:** Lo que “falta” son tests y documentación Swagger que se van cubriendo por fases o al tocar cada módulo. No hay un único cambio que “cierre” todo; conviene revisar periódicamente qué archivos `.test.ts` existen y qué bloques `@swagger` faltan en rutas nuevas.

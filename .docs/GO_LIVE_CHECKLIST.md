@@ -28,6 +28,20 @@ Estos puntos son de configuración/operación, no de desarrollo:
 5. Definir backups y pruebas de restore para PostgreSQL/Supabase.
 6. Acordar ventana y plan de rollback de primer despliegue productivo.
 
+### 2.0) Qué falta y por qué (revisión posterior)
+
+Todo lo anterior se hace **fuera del código**; esta tabla indica qué es cada punto y por qué no está “hecho” en el repo.
+
+| Qué falta | Dónde hacerlo | Por qué no está en el repo |
+|-----------|----------------|----------------------------|
+| **Branch protection** | GitHub → Repository → Settings → Branches | Son reglas de la plataforma GitHub; no se pueden definir en código (sí se puede documentar, como en BRANCH_PROTECTION.md). |
+| **Variables/secrets para CI/CD** | GitHub → Repository → Settings → Secrets and variables → Actions (y panel del hosting para prod) | Los secrets no deben vivir en el repo por seguridad; se configuran en cada entorno. |
+| **Entorno de staging + smoke tests** | Infra / hosting (Railway, Render, Vercel, etc.) | Definir el servicio, la URL y el pipeline de deploy es configuración de infra; el repo solo tiene el código y los scripts de test. |
+| **Monitoreo y alertas** | Herramienta de observabilidad (Datadog, Grafana, Uptime Robot, etc.) | Configurar dashboards, umbrales y alertas es operación; el backend ya expone `/health`, `/metrics`. |
+| **Backups y pruebas de restore** | Supabase (Dashboard → Database → Backups) y/o scripts propios + cron | Política de backups depende del proveedor y del contrato; no es código de la app. |
+| **Ventana y plan de rollback** | Acuerdo interno (documento operativo o wiki) | Proceso humano y organizativo; no automatizable en el repo. |
+| **Paso obligatorio `db:enforce-modules`** (sección 2.1) | Ejecutar manualmente o en script de release tras cada deploy | El comando está en el repo (`npm run db:enforce-modules`); lo que “falta” es que alguien (o el pipeline) lo ejecute en cada release; depende de cómo definas el proceso de deploy. |
+
 ## 2.1) Paso obligatorio de release (staging/prod)
 
 Para evitar drift de `modules_config` y asegurar que el plan gobierna features:
