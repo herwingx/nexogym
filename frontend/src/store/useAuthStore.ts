@@ -30,19 +30,20 @@ export type AuthState = {
   token: string | null
   modulesConfig: ModulesConfig
   tenantTheme: TenantTheme
+  /** White-label: nombre del gym (users/me/context). */
+  gymName: string | null
+  /** White-label: logo URL del gym (users/me/context). */
+  gymLogoUrl: string | null
   isBootstrapped: boolean
-  /**
-   * Mock de contexto de autenticación.
-   * En F2 se conectará al endpoint /users/me/context.
-   */
   setAuthContext: (payload: {
     user: AuthUser
     token: string
     modulesConfig: ModulesConfig
     tenantTheme: TenantTheme
+    gymName?: string | null
+    gymLogoUrl?: string | null
   }) => void
   clearAuth: () => void
-  /** Marca que ya se comprobó la sesión (restore al cargar). Sin sesión → redirect login. */
   setBootstrapped: (value: boolean) => void
 }
 
@@ -63,13 +64,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   modulesConfig: defaultModulesConfig,
   tenantTheme: defaultTenantTheme,
+  gymName: null,
+  gymLogoUrl: null,
   isBootstrapped: false,
-  setAuthContext: ({ user, token, modulesConfig, tenantTheme }) =>
+  setAuthContext: ({ user, token, modulesConfig, tenantTheme, gymName, gymLogoUrl }) =>
     set({
       user,
       token,
       modulesConfig,
       tenantTheme,
+      gymName: gymName ?? null,
+      gymLogoUrl: gymLogoUrl ?? null,
       isBootstrapped: true,
     }),
   clearAuth: () =>
@@ -78,6 +83,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       token: null,
       modulesConfig: defaultModulesConfig,
       tenantTheme: defaultTenantTheme,
+      gymName: null,
+      gymLogoUrl: null,
       isBootstrapped: false,
     }),
   setBootstrapped: (value) => set({ isBootstrapped: value }),

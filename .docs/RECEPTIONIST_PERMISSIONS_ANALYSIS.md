@@ -45,10 +45,11 @@ Documento de referencia para decidir **qué sí** y **qué no** puede hacer el r
 | Acción | Recepcionista | Admin | Notas |
 |--------|----------------|-------|--------|
 | Abrir turno (fondo inicial) | ✅ Sí | ✅ Sí | Operación de caja diaria. |
-| Cerrar turno (corte con saldo real) | ✅ Sí | ✅ Sí | Quien abre cierra; AuditLog registra diferencia. |
+| Cerrar turno (corte con saldo real) | ✅ Sí | ✅ Sí | **Cierre ciego:** recepcionista no ve saldo esperado; solo ingresa efectivo contado. Backend no devuelve reconciliación si rol RECEPTIONIST; AuditLog sí registra todo. |
 | Registrar venta POS | ✅ Sí | ✅ Sí | Core del rol. |
-| Registrar egreso de caja | ✅ Sí | ✅ Sí | Parte del flujo de caja. |
+| Registrar egreso de caja | ✅ Sí | ✅ Sí | **Egresos tipados:** tipo obligatorio (SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP); descripción obligatoria para los dos primeros (mín. 5 caracteres). |
 | Ver historial de turnos (cortes) | ⚠️ Opcional | ✅ Sí | Recepción podría ver solo “su” turno; historial completo suele ser admin. |
+| Forzar cierre de turno ajeno | ❌ No | ✅ Sí | Solo Admin/SuperAdmin (Cortes de caja → Turnos abiertos → Forzar Cierre). |
 
 ### Socios (CRM)
 

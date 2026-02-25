@@ -322,6 +322,14 @@ usan `X-Hardware-Key`. Ver tabla más abajo.
 `GET /users/me/context` solo funciona una vez que hayas hecho el Paso 3 de la sección
 de autenticación (vincular el UUID de Supabase con el usuario en Prisma Studio).
 
+**Depuración de errores 500 (login / contexto)**
+
+Si al hacer login (admin o cualquier rol) obtienes **500** en `GET /api/v1/users/me/context`:
+
+1. **En desarrollo**, la respuesta JSON incluye un campo **`detail`** con el mensaje técnico del error (ej. columna faltante en la DB, error de Prisma). Revisa la pestaña Network → respuesta del request a `users/me/context` → body (`error` + `detail`).
+2. El **frontend** (Login, AuthRestore) muestra ese `detail` en el toast de error cuando está presente (ej. "Error al cargar contexto: column \"theme_colors\" of relation \"Gym\" does not exist").
+3. Causas habituales: migraciones no aplicadas (`npm run db:push`), BD apagada o inaccesible, seed no ejecutado (usuario o gym no existen). Corrige según el mensaje en `detail` y en los logs del backend.
+
 ---
 
 ### Qué queda fuera del repo y por qué (revisión posterior)

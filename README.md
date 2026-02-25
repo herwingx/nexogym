@@ -40,11 +40,12 @@
 
 | Módulo | Plan |
 |---|---|
-| 🛒 POS — Punto de Venta, turnos de caja, gastos | BASIC · PRO · PREMIUM |
+| 🛒 POS — Punto de Venta, turnos de caja, egresos tipados (proveedor/operativo/retiro), cierre ciego, forzar cierre (admin) | BASIC · PRO · PREMIUM |
 | 📦 Inventario — productos, restock, mermas | BASIC · PRO · PREMIUM |
 | 🚪 Check-in — manual, QR, biométrico | BASIC · PRO · PREMIUM |
 | 📅 Clases y Reservas | PRO · PREMIUM |
 | 🏋️ Rutinas de entrenamiento | PRO · PREMIUM |
+| 👥 Personal — listado de staff, dar de baja (soft delete) | Admin (BASIC · PRO · PREMIUM) |
 | 🎮 Gamificación — streaks y recompensas | PRO · PREMIUM |
 | 🖐 Biometría | PREMIUM |
 | 📊 Analytics — ocupación, ingresos, auditoría | BASIC · PRO · PREMIUM |
@@ -88,9 +89,14 @@ npm run db:studio        # GUI visual de la DB (Prisma Studio)
 
 | Doc | Descripción |
 |---|---|
+| [.docs/README.md](./.docs/README.md) | **Índice** de toda la documentación y cambios recientes (POS, caja, personal, roles) |
 | [DEV_WORKFLOW.md](./.docs/DEV_WORKFLOW.md) | Entornos, flujo de trabajo, auth, testing manual, seed |
 | [TESTING_STRATEGY.md](./.docs/TESTING_STRATEGY.md) | Estrategia de pruebas automatizadas |
-| [DATABASE_SCHEMA.md](./.docs/DATABASE_SCHEMA.md) | Modelos, relaciones y enums |
+| [DATABASE_SCHEMA.md](./.docs/DATABASE_SCHEMA.md) | Modelos, relaciones y enums (incl. ExpenseType, Expense, auditoría) |
+| [API_SPEC.md](./.docs/API_SPEC.md) | Contratos de la API por sprint (POS, users, turnos, egresos, force-close) |
+| [CORTES_CAJA_Y_STOCK.md](./.docs/CORTES_CAJA_Y_STOCK.md) | Turnos de caja, cierre ciego, tipos de egreso, forzar cierre, stock, bloqueo logout |
+| [SEED_USERS_AND_ROLES.md](./.docs/SEED_USERS_AND_ROLES.md) | Roles (Admin, Recep, COACH, INSTRUCTOR, Socio), planes, credenciales de prueba |
+| [EMAIL_POLITICA_GYM.md](./.docs/EMAIL_POLITICA_GYM.md) | Correos corporativos del gym para staff, dar de baja y reasignación |
 | [FRONTEND_INTEGRATION.md](./.docs/FRONTEND_INTEGRATION.md) | Contratos de API para el frontend |
 | [BRANCH_PROTECTION.md](./.docs/BRANCH_PROTECTION.md) | Reglas de ramas y PR |
 | [GO_LIVE_CHECKLIST.md](./.docs/GO_LIVE_CHECKLIST.md) | Checklist de despliegue a producción |

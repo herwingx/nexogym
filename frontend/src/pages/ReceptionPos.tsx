@@ -2,17 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { ShoppingCart, Trash2, Wallet, Banknote } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { FormOpenShift, FormCloseShift, FormExpense } from '../components/reception/ShiftForms'
 import {
   fetchPosProducts,
   fetchCurrentShift,
-  openShift,
-  closeShift,
   createPosSale,
-  registerExpense,
   type PosProduct,
   type CurrentShiftResponse,
 } from '../lib/apiClient'
-import { notifyError, notifySuccess, notifyPromise } from '../lib/notifications'
+import { notifyError, notifyPromise } from '../lib/notifications'
+import { useAuthStore } from '../store/useAuthStore'
 
 type CartLine = { product: PosProduct; quantity: number }
 
@@ -20,6 +19,7 @@ const fmt = (n: number) =>
   n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export const ReceptionPosPage = () => {
+  const user = useAuthStore((s) => s.user)
   const [products, setProducts] = useState<PosProduct[]>([])
   const [cart, setCart] = useState<CartLine[]>([])
   const [shiftData, setShiftData] = useState<CurrentShiftResponse | null | undefined>(undefined)
@@ -125,9 +125,11 @@ export const ReceptionPosPage = () => {
                   <span className="text-xs text-rose-600 dark:text-rose-400">
                     Egresos: -${fmt(running?.total_expenses ?? 0)}
                   </span>
-                  <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                    Esperado: ${fmt(running?.expected_balance ?? 0)}
-                  </span>
+                  {user?.role !== 'RECEPTIONIST' && (
+                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Esperado: ${fmt(running?.expected_balance ?? 0)}
+                    </span>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
@@ -257,6 +259,7 @@ export const ReceptionPosPage = () => {
         <Modal isOpen title="Cerrar turno" onClose={() => setCloseModal(false)}>
           <FormCloseShift
             expected={running.expected_balance}
+            showExpectedBalance={user?.role !== 'RECEPTIONIST'}
             onSuccess={() => {
               setCloseModal(false)
               void loadShift()
@@ -277,156 +280,5 @@ export const ReceptionPosPage = () => {
         </Modal>
       )}
     </div>
-  )
-}
-
-function FormOpenShift({
-  onSuccess,
-  onCancel,
-}: { onSuccess: () => void; onCancel: () => void }) {
-  const [balance, setBalance] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const n = parseFloat(balance)
-    if (Number.isNaN(n) || n < 0) return
-    setSubmitting(true)
-    try {
-      await openShift(n)
-      notifySuccess({ title: 'Turno abierto' })
-      onSuccess()
-    } catch (e) {
-      notifyError({ title: 'Error', description: (e as Error)?.message })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-xs font-medium text-zinc-500 mb-1">Fondo inicial ($)</label>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          value={balance}
-          onChange={(e) => setBalance(e.target.value)}
-          className="w-full rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-          required
-        />
-      </div>
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" disabled={submitting}>{submitting ? 'Abriendo...' : 'Abrir turno'}</Button>
-      </div>
-    </form>
-  )
-}
-
-function FormCloseShift({
-  expected,
-  onSuccess,
-  onCancel,
-}: { expected: number; onSuccess: () => void; onCancel: () => void }) {
-  const [actual, setActual] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const n = parseFloat(actual)
-    if (Number.isNaN(n) || n < 0) return
-    setSubmitting(true)
-    try {
-      await closeShift(n)
-      notifySuccess({ title: 'Turno cerrado' })
-      onSuccess()
-    } catch (e) {
-      notifyError({ title: 'Error', description: (e as Error)?.message })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <p className="text-sm text-zinc-500">
-        Saldo esperado en caja: <strong className="text-zinc-900 dark:text-zinc-100">${fmt(expected)}</strong>
-      </p>
-      <div>
-        <label className="block text-xs font-medium text-zinc-500 mb-1">Saldo real en caja ($)</label>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          value={actual}
-          onChange={(e) => setActual(e.target.value)}
-          className="w-full rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-          required
-        />
-      </div>
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" disabled={submitting}>{submitting ? 'Cerrando...' : 'Cerrar turno'}</Button>
-      </div>
-    </form>
-  )
-}
-
-function FormExpense({
-  onSuccess,
-  onCancel,
-}: { onSuccess: () => void; onCancel: () => void }) {
-  const [amount, setAmount] = useState('')
-  const [description, setDescription] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const n = parseFloat(amount)
-    if (Number.isNaN(n) || n <= 0 || !description.trim()) return
-    setSubmitting(true)
-    try {
-      await registerExpense(n, description.trim())
-      notifySuccess({ title: 'Egreso registrado' })
-      onSuccess()
-    } catch (e) {
-      notifyError({ title: 'Error', description: (e as Error)?.message })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-xs font-medium text-zinc-500 mb-1">Monto ($)</label>
-        <input
-          type="number"
-          step="0.01"
-          min="0.01"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className="w-full rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-          required
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-zinc-500 mb-1">Descripción</label>
-        <input
-          type="text"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-          required
-          placeholder="Ej. Limpieza, cambio..."
-        />
-      </div>
-      <div className="flex gap-2 justify-end">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit" disabled={submitting}>{submitting ? 'Guardando...' : 'Registrar'}</Button>
-      </div>
-    </form>
   )
 }

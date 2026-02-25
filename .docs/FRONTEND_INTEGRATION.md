@@ -17,7 +17,7 @@ Objetivo: integrar frontend con backend sin fricción, con contratos claros y fl
 ## 2) Endpoint de contexto (clave)
 
 ### `GET /api/v1/users/me/context`
-Respuesta esperada:
+Respuesta esperada (incluye white-label: `theme_colors`, `logo_url`):
 
 ```json
 {
@@ -37,7 +37,9 @@ Respuesta esperada:
       "gamification": true,
       "classes": true,
       "biometrics": false
-    }
+    },
+    "theme_colors": { "primary": "#2563eb" },
+    "logo_url": null
   }
 }
 ```
@@ -58,6 +60,7 @@ Regla UX: si `false`, ocultar menú/acción y no renderizar CTA.
 - `403` con mensaje `Feature disabled for current subscription: <module>` → mostrar banner de plan no habilitado.
 - `404`: recurso inexistente en gym actual.
 - `429`: rate limit → retry con backoff.
+- `500`: error interno del servidor. En desarrollo, la API puede devolver en el body un campo **`detail`** con el mensaje técnico (ej. error de BD o Prisma). El cliente (`apiClient.fetchUserContext` y otros que lean el body de error) puede mostrar ese `detail` en el toast o en consola para facilitar la depuración (p. ej. "Error al cargar contexto: column X does not exist").
 
 ## 5) Flujo de baja y privacidad (pantallas)
 

@@ -51,9 +51,9 @@ export const createSale = async (req: Request, res: Response) => {
 
     const { items, sellerId } = validation.data;
 
-    // Find the currently open shift for this gym (required to link the sale)
+    // Find the currently open shift for this user/gym (sales go to the seller's shift)
     const openShift = await prisma.cashShift.findFirst({
-      where: { gym_id: gymId, status: ShiftStatus.OPEN },
+      where: { gym_id: gymId, user_id: actorId, status: ShiftStatus.OPEN },
     });
 
     if (!openShift) {
@@ -156,11 +156,11 @@ export const registerExpense = async (req: Request, res: Response) => {
       return;
     }
 
-    const { amount, description } = validation.data;
+    const { amount, type, description } = validation.data;
 
-    // Must have an open shift
+    // Must have an open shift for this user (expenses go to the current user's shift)
     const openShift = await prisma.cashShift.findFirst({
-      where: { gym_id: gymId, status: ShiftStatus.OPEN },
+      where: { gym_id: gymId, user_id: actorId, status: ShiftStatus.OPEN },
     });
 
     if (!openShift) {
@@ -173,8 +173,9 @@ export const registerExpense = async (req: Request, res: Response) => {
       data: {
         gym_id: gymId,
         cash_shift_id: openShift.id,
+        type,
         amount,
-        description,
+        description: description?.trim() || null,
       },
     });
 
@@ -310,5 +311,26 @@ export const getShifts = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleControllerError(req, res, error, '[getShifts Error]', 'Failed to retrieve shifts.');
+  }
+};
+
+// GET /pos/shifts/open — Admin: list all open shifts in the gym (who has turn open, no corte yet)
+export const getOpenShifts = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const openShifts = await prisma.cashShift.findMany({
+      where: { gym_id: gymId, status: ShiftStatus.OPEN },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: { opened_at: 'asc' },
+    });
+
+    res.status(200).json({ data: openShifts });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getOpenShifts Error]', 'Failed to retrieve open shifts.');
   }
 };

@@ -14,6 +14,7 @@ import { AdminClasses } from './pages/AdminClasses'
 import { AdminRoutines } from './pages/AdminRoutines'
 import { AdminInventory } from './pages/AdminInventory'
 import { AdminShifts } from './pages/AdminShifts'
+import { AdminStaffView } from './pages/AdminStaffView'
 import { AdminRoute } from './components/auth/AdminRoute'
 import { ReceptionLayout } from './layouts/ReceptionLayout'
 import { ReceptionCheckInPage } from './pages/ReceptionCheckIn'
@@ -67,7 +68,9 @@ function App() {
         ? '/reception'
         : user.role === 'MEMBER'
           ? '/member'
-          : '/admin'
+          : user.role === 'COACH' || user.role === 'INSTRUCTOR'
+            ? '/admin/routines'
+            : '/admin'
 
   return (
     <>
@@ -83,6 +86,7 @@ function App() {
             <Route path="/admin/routines" element={<AdminRoutines />} />
             <Route path="/admin/inventory" element={<AdminInventory />} />
             <Route path="/admin/shifts" element={<AdminShifts />} />
+            <Route path="/admin/staff" element={<AdminStaffView />} />
             <Route path="/admin/audit" element={<AdminAudit />} />
           </Route>
         </Route>

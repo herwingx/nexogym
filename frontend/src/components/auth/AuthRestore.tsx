@@ -62,6 +62,8 @@ export const AuthRestore = ({ children }: { children: React.ReactNode }) => {
           tenantTheme: {
             primaryHex: context.gym.theme_colors?.primary ?? '#2563eb',
           },
+          gymName: context.gym.name ?? null,
+          gymLogoUrl: context.gym.logo_url ?? null,
         })
         if (!cancelled) setBootstrapped(true)
       } catch {

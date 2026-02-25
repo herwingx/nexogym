@@ -22,6 +22,7 @@ enum Role            { SUPERADMIN  ADMIN  RECEPTIONIST  INSTRUCTOR  COACH  MEMBE
 enum SubscriptionStatus { ACTIVE  EXPIRED  CANCELED  FROZEN }
 enum SubscriptionTier   { BASIC  PRO_QR  PREMIUM_BIO }
 enum ShiftStatus     { OPEN  CLOSED }
+enum ExpenseType     { SUPPLIER_PAYMENT  OPERATIONAL_EXPENSE  CASH_DROP }
 enum AccessMethod    { MANUAL  QR  BIOMETRIC }
 enum AccessType      { REGULAR  COURTESY }
 enum TransactionType { RESTOCK  LOSS  SALE }
@@ -128,11 +129,37 @@ Ejercicios individuales dentro de una rutina.
 
 ---
 
+### `CashShift` (Turnos de caja)
+Un turno por usuario; ventas y egresos se asocian al turno abierto del usuario que opera. Flujo: abrir → operar → cerrar (corte con saldo real). Detalle en **CORTES_CAJA_Y_STOCK.md**.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `gym_id` | UUID FK | Multitenancy |
+| `user_id` | UUID FK | Recepcionista dueño del turno |
+| `opening_balance` | Decimal | Fondo inicial al abrir |
+| `status` | ShiftStatus | OPEN / CLOSED |
+| `opened_at` | DateTime | Apertura |
+| `closed_at` | DateTime? | Cierre (corte) |
+| `expected_balance` | Decimal? | Saldo esperado (fondo + ventas - egresos) al cerrar |
+| `actual_balance` | Decimal? | Saldo real registrado al cerrar |
+
+### `Expense` (Egresos de caja)
+Cada egreso se asocia al turno abierto del usuario que lo registra. Clasificación por tipo para control de fugas y reportes.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `gym_id` | UUID FK | Multitenancy |
+| `cash_shift_id` | UUID FK | Turno en el que se registró |
+| `type` | ExpenseType | SUPPLIER_PAYMENT / OPERATIONAL_EXPENSE / CASH_DROP |
+| `amount` | Decimal | Monto |
+| `description` | String? | Obligatorio en UI para SUPPLIER_PAYMENT y OPERATIONAL_EXPENSE; opcional para CASH_DROP |
+
 ### `Sale` (Actualizada)
 Rastreo de comisiones y staff.
 
 | Campo | Tipo | Notas |
 |---|---|---|
+| `cash_shift_id` | UUID FK | Turno en el que se realizó la venta |
 | `seller_id` | UUID FK? | Referencia al `User` (Staff) que realizó la venta |
 
 ---
@@ -144,3 +171,6 @@ Rastreo de comisiones y staff.
 | `CLASS_CREATED` | Alta de nueva clase grupal |
 | `BOOKING_CANCELLED` | Cancelación de reserva |
 | `ROUTINE_ASSIGNED` | Nueva rutina creada para un socio |
+| `SHIFT_CLOSED` | Cierre de turno (incluye expected, actual, difference) |
+| `SHIFT_FORCE_CLOSED` | Cierre forzado de turno por Admin (force-close) |
+| `USER_SOFT_DELETED` | Dar de baja a usuario (Personal) |

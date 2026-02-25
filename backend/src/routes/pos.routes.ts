@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { getProducts, createSale, registerExpense, getSales, getCurrentShift, getShifts } from '../controllers/pos.controller';
-import { openShift, closeShift } from '../controllers/shift.controller';
+import { getProducts, createSale, registerExpense, getSales, getCurrentShift, getShifts, getOpenShifts } from '../controllers/pos.controller';
+import { openShift, closeShift, forceCloseShift } from '../controllers/shift.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
+import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -169,6 +170,32 @@ router.post('/shifts/close', closeShift);       // Cerrar turno + corte de caja
 
 /**
  * @swagger
+ * /api/v1/pos/shifts/{id}/force-close:
+ *   patch:
+ *     summary: [Admin] Force-close an open shift (e.g. abandoned by receptionist)
+ *     tags: [Shifts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               actual_balance: { type: number }
+ *     responses:
+ *       200:
+ *         description: Shift force-closed
+ *       403:
+ *         description: Admin/SuperAdmin required
+ */
+router.patch('/shifts/:id/force-close', requireAdminOrSuperAdmin, forceCloseShift);
+
+/**
+ * @swagger
  * /api/v1/pos/shifts/current:
  *   get:
  *     summary: Get active shift with running totals
@@ -180,6 +207,18 @@ router.post('/shifts/close', closeShift);       // Cerrar turno + corte de caja
  *         description: No open shift
  */
 router.get('/shifts/current', getCurrentShift);
+
+/**
+ * @swagger
+ * /api/v1/pos/shifts/open:
+ *   get:
+ *     summary: [Admin] List all open shifts in the gym
+ *     tags: [Shifts]
+ *     responses:
+ *       200:
+ *         description: List of open shifts (receptionists who have not done corte)
+ */
+router.get('/shifts/open', requireAdminOrSuperAdmin, getOpenShifts);
 
 /**
  * @swagger

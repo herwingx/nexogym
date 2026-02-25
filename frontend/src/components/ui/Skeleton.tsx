@@ -1,6 +1,6 @@
 import { cn } from '../../lib/utils'
 
-const baseClass = 'animate-pulse rounded bg-zinc-200 dark:bg-white/[0.07]'
+const baseClass = 'animate-pulse rounded bg-zinc-200 dark:bg-zinc-800'
 
 /**
  * Bloque genérico. Usar className para ancho/alto.

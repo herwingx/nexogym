@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
-import { SubscriptionStatus, Role } from '@prisma/client';
+import { SubscriptionStatus, Role, SubscriptionTier } from '@prisma/client';
 import { sendWelcomeMessage, sendQrResend } from '../services/n8n.service';
 import { logAuditEvent } from '../utils/audit.logger';
 import crypto from 'crypto';
@@ -58,6 +58,14 @@ export const getMyContext = async (req: Request, res: Response) => {
       return;
     }
 
+    let modulesConfig: ReturnType<typeof resolveModulesConfig>;
+    try {
+      const tier = gym.subscription_tier ?? SubscriptionTier.BASIC;
+      modulesConfig = resolveModulesConfig(gym.modules_config, tier);
+    } catch {
+      modulesConfig = resolveModulesConfig(null, SubscriptionTier.BASIC);
+    }
+
     const themeColors = gym.theme_colors as Record<string, string> | null | undefined;
     res.status(200).json({
       user,
@@ -65,7 +73,7 @@ export const getMyContext = async (req: Request, res: Response) => {
         id: gym.id,
         name: gym.name,
         subscription_tier: gym.subscription_tier,
-        modules_config: resolveModulesConfig(gym.modules_config, gym.subscription_tier),
+        modules_config: modulesConfig,
         theme_colors: themeColors ?? undefined,
         logo_url: gym.logo_url ?? undefined,
       },
@@ -75,7 +83,7 @@ export const getMyContext = async (req: Request, res: Response) => {
   }
 };
 
-// GET /users
+// GET /users — query: page, limit, role_not (e.g. role_not=MEMBER para listar solo staff)
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
@@ -84,18 +92,24 @@ export const getUsers = async (req: Request, res: Response) => {
       return;
     }
 
-    const { page = '1', limit = '50' } = req.query;
+    const { page = '1', limit = '50', role_not: roleNot } = req.query;
     const take = Math.min(Number(limit) || 50, 200);
     const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
 
+    const where: { gym_id: string; role?: { not: Role } } = { gym_id: gymId };
+    if (roleNot === 'MEMBER' || String(roleNot).toUpperCase() === 'MEMBER') {
+      where.role = { not: Role.MEMBER };
+    }
+
     const [users, total] = await Promise.all([
       prisma.user.findMany({
-        where: { gym_id: gymId },
+        where,
         select: {
           id: true,
           name: true,
           phone: true,
           role: true,
+          deleted_at: true,
           current_streak: true,
           last_visit_at: true,
           created_at: true,
@@ -109,7 +123,7 @@ export const getUsers = async (req: Request, res: Response) => {
         take,
         skip,
       }),
-      prisma.user.count({ where: { gym_id: gymId } }),
+      prisma.user.count({ where }),
     ]);
 
     res.status(200).json({ data: users, meta: { total, page: Number(page), limit: take } });

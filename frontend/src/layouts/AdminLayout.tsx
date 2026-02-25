@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   BarChart2,
   ShieldAlert,
   CalendarDays,
@@ -22,6 +23,8 @@ type NavItem = {
   to: string
   icon: typeof LayoutDashboard
   moduleKey: ModuleKey
+  /** Si está definido, solo estos roles ven el ítem (ADMIN y SUPERADMIN siempre si no se filtra por coachOnly). */
+  coachOrInstructorOnly?: boolean
 }
 
 // moduleKey null = siempre visible para admin. pos/classes = según modules_config del backend (plan del gym).
@@ -31,8 +34,9 @@ const navItems: NavItem[] = [
   { label: 'Finanzas', to: '/admin/finance', icon: BarChart2, moduleKey: null },
   { label: 'Inventario', to: '/admin/inventory', icon: Package, moduleKey: 'pos' },
   { label: 'Cortes de caja', to: '/admin/shifts', icon: Wallet, moduleKey: 'pos' },
-  { label: 'Clases', to: '/admin/classes', icon: CalendarDays, moduleKey: 'classes' },
-  { label: 'Rutinas', to: '/admin/routines', icon: Dumbbell, moduleKey: 'classes' },
+  { label: 'Personal', to: '/admin/staff', icon: UserCog, moduleKey: null },
+  { label: 'Clases', to: '/admin/classes', icon: CalendarDays, moduleKey: 'classes', coachOrInstructorOnly: true },
+  { label: 'Rutinas', to: '/admin/routines', icon: Dumbbell, moduleKey: 'classes', coachOrInstructorOnly: true },
   { label: 'Auditoría', to: '/admin/audit', icon: ShieldAlert, moduleKey: null },
 ]
 
@@ -47,9 +51,14 @@ export const AdminLayout = () => {
 
   if (!user) return null
 
-  const filteredNav = navItems.filter((item) =>
-    item.moduleKey ? modules[item.moduleKey] : true,
-  )
+  const isCoachOrInstructor = user.role === 'COACH' || user.role === 'INSTRUCTOR'
+  const filteredNav = navItems.filter((item) => {
+    if (isCoachOrInstructor) {
+      return item.coachOrInstructorOnly === true
+    }
+    if (item.coachOrInstructorOnly) return true
+    return item.moduleKey ? modules[item.moduleKey] : true
+  })
 
   return (
     <div className="min-h-screen bg-background text-foreground flex">
@@ -60,7 +69,7 @@ export const AdminLayout = () => {
             NexoGym
           </div>
           <div className="mt-0.5 text-xs text-zinc-500">
-            {user.role === 'ADMIN' ? 'Panel Admin' : user.role}
+            {user.role === 'ADMIN' ? 'Panel Admin' : user.role === 'COACH' || user.role === 'INSTRUCTOR' ? 'Clases y Rutinas' : user.role}
           </div>
         </div>
 

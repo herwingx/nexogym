@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
-import { ShiftStatus } from '@prisma/client';
+import { Role, ShiftStatus } from '@prisma/client';
 import { sendShiftSummary } from '../services/n8n.service';
 import { logAuditEvent } from '../utils/audit.logger';
 import { handleControllerError } from '../utils/http';
@@ -156,6 +156,13 @@ export const closeShift = async (req: Request, res: Response) => {
       });
     }
 
+    // Cierre ciego: RECEPTIONIST no recibe detalles de reconciliación (evitar trampas)
+    const userRole = req.userRole as Role | undefined;
+    if (userRole === Role.RECEPTIONIST) {
+      res.status(200).json({ message: 'Turno cerrado exitosamente.' });
+      return;
+    }
+
     res.status(200).json({
       message: 'Shift closed successfully.',
       shift: updatedShift,
@@ -171,5 +178,88 @@ export const closeShift = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     handleControllerError(req, res, error, '[closeShift Error]', 'Failed to close shift.');
+  }
+};
+
+/**
+ * PATCH /pos/shifts/:id/force-close — Admin/SuperAdmin only.
+ * Cierra forzosamente un turno abierto (ej. cajero abandonó sin corte).
+ * Body: { actual_balance?: number } (default 0 si no se envía).
+ */
+export const forceCloseShift = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    const actorId = req.user?.id;
+    const shiftId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+    if (!gymId || !actorId || !shiftId) {
+      res.status(401).json({ error: 'Unauthorized: Context missing' });
+      return;
+    }
+
+    const actual_balance = typeof req.body?.actual_balance === 'number' ? req.body.actual_balance : 0;
+
+    const currentShift = await prisma.cashShift.findFirst({
+      where: { id: shiftId, gym_id: gymId, status: ShiftStatus.OPEN },
+      include: { user: { select: { name: true } } },
+    });
+
+    if (!currentShift) {
+      res.status(404).json({ error: 'Turno abierto no encontrado o ya cerrado.' });
+      return;
+    }
+
+    const [salesAgg, expensesAgg] = await Promise.all([
+      prisma.sale.aggregate({
+        where: { gym_id: gymId, cash_shift_id: currentShift.id },
+        _sum: { total: true },
+      }),
+      prisma.expense.aggregate({
+        where: { gym_id: gymId, cash_shift_id: currentShift.id },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const totalSales = Number(salesAgg._sum.total || 0);
+    const totalExpenses = Number(expensesAgg._sum.amount || 0);
+    const expected_balance = Number(currentShift.opening_balance) + totalSales - totalExpenses;
+    const now = new Date();
+
+    const updatedShift = await prisma.cashShift.update({
+      where: { id: currentShift.id },
+      data: {
+        closed_at: now,
+        status: ShiftStatus.CLOSED,
+        expected_balance,
+        actual_balance,
+      },
+    });
+
+    const difference = actual_balance - expected_balance;
+
+    const openedByName = currentShift && 'user' in currentShift ? (currentShift as { user?: { name: string | null } }).user?.name : undefined;
+    await logAuditEvent(gymId, actorId, 'SHIFT_FORCE_CLOSED', {
+      shift_id: currentShift.id,
+      opened_by: openedByName,
+      opening_balance: Number(currentShift.opening_balance),
+      total_sales: totalSales,
+      total_expenses: totalExpenses,
+      expected_balance,
+      actual_balance,
+      difference,
+    });
+
+    res.status(200).json({
+      message: 'Turno cerrado forzosamente.',
+      shift: updatedShift,
+      reconciliation: {
+        expected: expected_balance,
+        actual: actual_balance,
+        difference,
+        status: difference === 0 ? 'BALANCED' : difference > 0 ? 'SURPLUS' : 'SHORTAGE',
+      },
+    });
+  } catch (error: any) {
+    handleControllerError(req, res, error, '[forceCloseShift Error]', 'Failed to force-close shift.');
   }
 };

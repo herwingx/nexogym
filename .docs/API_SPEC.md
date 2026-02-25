@@ -4,6 +4,24 @@
 
 ---
 
+## Formato de respuestas de error
+
+Las respuestas de error de la API siguen este contrato:
+
+```json
+{ "error": "Mensaje legible para el cliente" }
+```
+
+En **desarrollo** (`NODE_ENV !== 'production'`), las respuestas **500** pueden incluir un campo opcional `detail` con el mensaje técnico del error (excepción del servidor, mensaje de Prisma/DB, etc.) para facilitar la depuración. El frontend puede mostrar este `detail` en toasts o logs.
+
+```json
+{ "error": "Failed to retrieve user context.", "detail": "column \"theme_colors\" of relation \"Gym\" does not exist" }
+```
+
+En producción solo se envía `error`; nunca se expone `detail` al cliente.
+
+---
+
 ## Sprint B10 — Reservas y Clases (Booking)
 
 ### `GET /api/v1/classes`
@@ -213,10 +231,13 @@ Historial de visitas (check-ins) del socio, paginado.
 ## Frontend Handoff — Ciclo de Vida de Socio
 
 ### `GET /api/v1/users/me/context`
-Devuelve el contexto de sesión para bootstrap frontend (usuario + gym + módulos resueltos).
+Devuelve el contexto de sesión para bootstrap frontend (usuario + gym + módulos resueltos). Incluye white-label: `theme_colors` y `logo_url` para personalización por gym.
+
+**Códigos:** `200` OK, `401` Context missing, `403` Gym suspendido (excepto SUPERADMIN), `404` User/gym no encontrado, `500` Error interno (en desarrollo la respuesta puede incluir `detail` con el mensaje técnico).
+
 ```json
 {
-  "user": { "id": "uuid", "role": "ADMIN", "name": "Admin Gym" },
+  "user": { "id": "uuid", "role": "ADMIN", "name": "Admin Gym", "profile_picture_url": null },
   "gym": {
     "id": "uuid",
     "name": "Gym Pro",
@@ -227,13 +248,17 @@ Devuelve el contexto de sesión para bootstrap frontend (usuario + gym + módulo
       "gamification": true,
       "classes": true,
       "biometrics": false
-    }
+    },
+    "theme_colors": { "primary": "#2563eb", "secondary": "#3b82f6" },
+    "logo_url": "https://cdn.example.com/gym-logo.png"
   }
 }
 ```
 
+`theme_colors` y `logo_url` son opcionales; el frontend usa fallbacks si faltan.
+
 ### `GET /api/v1/users/search?q=<texto>`
-Búsqueda rápida para recepción por nombre o teléfono.
+Búsqueda rápida para recepción por nombre o teléfono (Staff). Mín. 2 caracteres.
 ```json
 {
   "data": [
@@ -247,6 +272,12 @@ Búsqueda rápida para recepción por nombre o teléfono.
   ]
 }
 ```
+
+### `GET /api/v1/users?page=1&limit=50&role_not=MEMBER`
+Lista usuarios del gym (Staff). Query **role_not=MEMBER** devuelve solo usuarios que no son socios (admin, recepcionista, coach, etc.). Incluye `deleted_at` para mostrar inactivos. Requiere Staff. Usado por la vista **Personal** (`/admin/staff`).
+
+### `DELETE /api/v1/users/:id`
+**Solo Admin/SuperAdmin.** Soft delete del usuario (`deleted_at = now()`). Usado en **Personal** para "Dar de baja". No borra registros; el usuario queda inactivo y sin acciones en la UI.
 
 ### `PATCH /api/v1/users/:id/cancel-subscription`
 Cancela inmediatamente una suscripción `ACTIVE` o `FROZEN`.
@@ -287,6 +318,33 @@ Regenera el QR del socio (invalida el anterior). Solo Admin/SuperAdmin.
 // Response
 { "message": "QR regenerado. El socio recibirá el nuevo código por WhatsApp en unos segundos." }
 ```
+
+---
+
+## POS y turnos de caja (Shifts)
+
+Rutas bajo `/api/v1/pos` (requieren `requireAuth` + módulo `pos`). Turno por usuario: ventas y egresos se asocian al turno abierto del usuario que opera. Detalle en **.docs/CORTES_CAJA_Y_STOCK.md**.
+
+### `GET /api/v1/pos/shifts/current`
+Devuelve el turno abierto del usuario actual con totales (ventas, egresos, saldo esperado). `404` si no hay turno abierto.
+
+### `GET /api/v1/pos/shifts/open`
+**Solo Admin/SuperAdmin.** Lista todos los turnos abiertos del gym (recepcionistas que aún no han hecho corte). Útil para supervisión.
+```json
+{ "data": [{ "id": "uuid", "opened_at": "ISO8601", "opening_balance": 500, "user": { "id": "uuid", "name": "Ana" } }] }
+```
+
+### `POST /api/v1/pos/shifts/open`
+Abre turno del usuario actual. Body: `{ "opening_balance": number }`. `400` si ya tiene un turno abierto.
+
+### `POST /api/v1/pos/shifts/close`
+Cierra el turno del usuario actual. Body: `{ "actual_balance": number }`. `404` si no hay turno abierto. **Cierre ciego:** si el rol es RECEPTIONIST, la respuesta es solo `200` con `{ "message": "Turno cerrado exitosamente." }` (no se devuelve reconciliación ni diferencia). Para ADMIN/SUPERADMIN se devuelve `shift` y `reconciliation` (expected, actual, difference, status).
+
+### `PATCH /api/v1/pos/shifts/:id/force-close`
+**Solo Admin/SuperAdmin.** Cierra forzosamente un turno (ej. empleado salió sin corte). Body opcional: `{ "actual_balance": number }` (default 0). Se registra en auditoría como `SHIFT_FORCE_CLOSED`.
+
+### `POST /api/v1/pos/expenses`
+Registra un egreso en el turno abierto del usuario. Body: `{ "amount": number, "type": "SUPPLIER_PAYMENT" | "OPERATIONAL_EXPENSE" | "CASH_DROP", "description"?: string }`. Para `SUPPLIER_PAYMENT` y `OPERATIONAL_EXPENSE` la descripción es obligatoria (mín. 5 caracteres); para `CASH_DROP` es opcional. `400` si no hay turno abierto o validación falla.
 
 ---
 

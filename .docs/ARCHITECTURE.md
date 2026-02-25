@@ -176,3 +176,14 @@ backend/
 | `backend/prisma/.env` | Prisma CLI | `DIRECT_URL` con IP local para migraciones |
 
 Ambos están en `.gitignore` vía el patrón `**/.env`.
+
+---
+
+## Documentación de referencia (.docs)
+
+| Documento | Contenido |
+|-----------|-----------|
+| **CORTES_CAJA_Y_STOCK.md** | Turnos por recepcionista, corte de caja, stock (actualización en venta), bloqueo de logout si turno abierto, vista admin (turnos abiertos/cerrados). |
+| **EMAIL_POLITICA_GYM.md** | Correos corporativos del gym para staff; dar de baja y reasignación del correo. |
+| **DATABASE_SCHEMA.md** | Modelo de datos y reglas (multitenancy, soft delete, enums). |
+| **API_SPEC.md** | Contratos de la API (endpoints, códigos, ejemplos). |

@@ -72,6 +72,8 @@ export const LoginPage = () => {
             tenantTheme: {
               primaryHex: context.gym.theme_colors?.primary ?? '#2563eb',
             },
+            gymName: context.gym.name ?? null,
+            gymLogoUrl: context.gym.logo_url ?? null,
           })
 
           navigate('/', { replace: true })

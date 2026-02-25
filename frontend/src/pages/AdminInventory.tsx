@@ -79,7 +79,7 @@ export const AdminInventory = () => {
             </thead>
             <tbody>
               {loading ? (
-                <TableRowSkeleton cols={4} rows={6} />
+                <TableRowSkeleton columns={4} rows={6} />
               ) : (
                 products.map((p) => (
                   <tr

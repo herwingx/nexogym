@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { fetchFinanceReport, fetchOccupancy, type OccupancyResponse, type FinanceReport } from '../lib/apiClient'
 import { notifyError } from '../lib/notifications'
 import { CardSkeleton } from '../components/ui/Skeleton'
+import { useAuthStore } from '../store/useAuthStore'
 
 type OccupancyLevel = 'empty' | 'normal' | 'full'
 
@@ -33,8 +35,13 @@ const fmt = (n: number) =>
   n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export const AdminDashboard = () => {
+  const user = useAuthStore((s) => s.user)
   const now = new Date()
   const [occupancy, setOccupancy] = useState<OccupancyResponse | null>(null)
+
+  if (user?.role === 'COACH' || user?.role === 'INSTRUCTOR') {
+    return <Navigate to="/admin/routines" replace />
+  }
   const [finance, setFinance] = useState<FinanceReport | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 

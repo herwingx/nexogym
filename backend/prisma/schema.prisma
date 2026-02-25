@@ -60,6 +60,12 @@ enum BookingStatus {
   CANCELLED
 }
 
+enum ExpenseType {
+  SUPPLIER_PAYMENT   // Pago a proveedores
+  OPERATIONAL_EXPENSE // Gasto operativo del gym
+  CASH_DROP          // Retiro de efectivo por el dueño
+}
+
 // -------------------------------------------------------------
 // MODELOS
 // -------------------------------------------------------------
@@ -332,11 +338,12 @@ model CashShift {
 }
 
 model Expense {
-  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id        String  @db.Uuid
-  cash_shift_id String  @db.Uuid
-  amount        Decimal @db.Decimal(10, 2)
-  description   String
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id        String      @db.Uuid
+  cash_shift_id String      @db.Uuid
+  type          ExpenseType @default(CASH_DROP)
+  amount        Decimal     @db.Decimal(10, 2)
+  description   String?     // Obligatorio en UI para SUPPLIER_PAYMENT y OPERATIONAL_EXPENSE
 
   // Relaciones
   gym        Gym       @relation(fields: [gym_id], references: [id], onDelete: Cascade)

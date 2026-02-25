@@ -69,7 +69,12 @@ export const fetchUserContext = async (): Promise<UserContextResponse> => {
   const response = await fetchWithAuth('/users/me/context')
 
   if (!response.ok) {
-    throw new Error(`Failed to load user context (${response.status})`)
+    const body = await response.json().catch(() => null)
+    const detail = body && typeof body.detail === 'string' ? body.detail : null
+    const message = detail
+      ? `Error al cargar contexto: ${detail}`
+      : `Failed to load user context (${response.status})`
+    throw new Error(message)
   }
 
   return (await response.json()) as UserContextResponse
@@ -451,12 +456,21 @@ export const regenerateQr = async (
 export type CheckinSuccessResponse = {
   success: true
   newStreak: number
+  streak_updated: boolean
   rewardUnlocked: boolean
   user: {
     name: string
     profile_picture_url?: string | null
   }
   message: string
+}
+
+/** Payload when backend returns 403 NO_ACTIVE_SUBSCRIPTION (debtor). */
+export type CheckinForbiddenPayload = {
+  error: string
+  code?: string
+  user_id?: string
+  user?: { name: string | null; profile_picture_url: string | null }
 }
 
 export const submitCheckin = async (
@@ -471,13 +485,31 @@ export const submitCheckin = async (
   const data = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const reason =
-      (data && (data.reason || data.error || data.message)) ||
-      `Error en check-in (${response.status})`
-    throw new Error(reason)
+    const payload = data as CheckinForbiddenPayload | null
+    const reason = payload?.error ?? payload?.message ?? `Error en check-in (${response.status})`
+    const err = new Error(reason) as Error & { payload?: CheckinForbiddenPayload }
+    err.payload = payload ?? undefined
+    throw err
   }
 
   return data as CheckinSuccessResponse
+}
+
+/** Cortesía: acceso sin membresía activa (solo ADMIN). */
+export const submitCourtesyCheckin = async (
+  userId: string,
+  reason?: string,
+): Promise<{ success: true; message: string; visit_id: string }> => {
+  const response = await fetchWithAuth('/checkin/courtesy', {
+    method: 'POST',
+    body: JSON.stringify({ userId, reason }),
+  })
+  const data = await response.json().catch(() => null)
+  if (!response.ok) {
+    const msg = (data as { error?: string })?.error ?? `Error (${response.status})`
+    throw new Error(msg)
+  }
+  return data as { success: true; message: string; visit_id: string }
 }
 
 // ────────────────────────────────────────────────
@@ -572,16 +604,54 @@ export type ShiftRow = {
 
 export type ShiftsResponse = { data: ShiftRow[]; meta: { total: number; page: number; limit: number } }
 
+export type OpenShiftRow = {
+  id: string
+  opened_at: string
+  opening_balance: number
+  user: { id: string; name: string | null }
+}
+
 export const fetchShifts = async (page = 1, limit = 20): Promise<ShiftsResponse> => {
   const res = await fetchWithAuth(`/pos/shifts?page=${page}&limit=${limit}`)
   if (!res.ok) throw new Error(`Failed to load shifts (${res.status})`)
   return res.json()
 }
 
-export const registerExpense = async (amount: number, description: string) => {
+/** Admin: list of open shifts in the gym (receptionists who have not done corte). */
+export const fetchOpenShifts = async (): Promise<{ data: OpenShiftRow[] }> => {
+  const res = await fetchWithAuth('/pos/shifts/open')
+  if (!res.ok) throw new Error(`Failed to load open shifts (${res.status})`)
+  return res.json()
+}
+
+/** Admin: force-close an open shift (e.g. abandoned without corte). */
+export const forceCloseShift = async (
+  shiftId: string,
+  actual_balance?: number,
+): Promise<{ message: string }> => {
+  const res = await fetchWithAuth(`/pos/shifts/${shiftId}/force-close`, {
+    method: 'PATCH',
+    body: JSON.stringify({ actual_balance: actual_balance ?? 0 }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Force-close failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export type ExpenseType = 'SUPPLIER_PAYMENT' | 'OPERATIONAL_EXPENSE' | 'CASH_DROP'
+
+export const registerExpense = async (
+  amount: number,
+  type: ExpenseType,
+  description?: string,
+) => {
+  const body: { amount: number; type: ExpenseType; description?: string } = { amount, type }
+  if (description != null && description.trim().length > 0) body.description = description.trim()
   const res = await fetchWithAuth('/pos/expenses', {
     method: 'POST',
-    body: JSON.stringify({ amount, description }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => null)
@@ -727,6 +797,36 @@ export const updateMember = async (
   if (!res.ok) {
     const err = await res.json().catch(() => null)
     throw new Error((err?.error ?? err?.message) ?? `Update failed (${res.status})`)
+  }
+  return res.json()
+}
+
+/** Staff list (admin): users with role_not=MEMBER, includes deleted_at for INACTIVO badge. */
+export type StaffUserRow = {
+  id: string
+  name: string | null
+  phone: string | null
+  role: string
+  deleted_at: string | null
+  created_at: string
+}
+
+export const fetchStaffUsers = async (
+  page = 1,
+  limit = 50,
+): Promise<{ data: StaffUserRow[]; meta: { total: number; page: number; limit: number } }> => {
+  const res = await fetchWithAuth(
+    `/users?page=${page}&limit=${limit}&role_not=MEMBER`,
+  )
+  if (!res.ok) throw new Error(`Failed to load staff (${res.status})`)
+  return res.json()
+}
+
+export const deleteUser = async (id: string): Promise<{ message: string }> => {
+  const res = await fetchWithAuth(`/users/${id}`, { method: 'DELETE' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Delete failed (${res.status})`)
   }
   return res.json()
 }

@@ -53,7 +53,18 @@ export const processCheckin = async (req: Request, res: Response) => {
     });
 
     if (!subscription) {
-      res.status(403).json({ error: 'Forbidden: No active subscription found.' });
+      const debtorUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true, profile_picture_url: true },
+      });
+      res.status(403).json({
+        error: 'Forbidden: No active subscription found.',
+        code: 'NO_ACTIVE_SUBSCRIPTION',
+        user_id: userId,
+        user: debtorUser
+          ? { name: debtorUser.name, profile_picture_url: debtorUser.profile_picture_url }
+          : undefined,
+      });
       return;
     }
 
