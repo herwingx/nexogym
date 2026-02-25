@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type Role = 'SUPERADMIN' | 'ADMIN' | 'RECEPTIONIST' | 'MEMBER'
+export type Role = 'SUPERADMIN' | 'ADMIN' | 'RECEPTIONIST' | 'COACH' | 'INSTRUCTOR' | 'MEMBER'
 
 export type ModulesConfig = {
   pos: boolean

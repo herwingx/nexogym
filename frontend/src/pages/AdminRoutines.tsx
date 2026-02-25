@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Plus, ChevronDown, ChevronUp, Dumbbell } from 'lucide-react'
 import {
   fetchRoutines,

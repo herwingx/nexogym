@@ -11,12 +11,11 @@ import {
   Wallet,
   LogOut,
 } from 'lucide-react'
-import { useAuthStore } from '../store/useAuthStore'
+import { useAuthStore, type ModulesConfig } from '../store/useAuthStore'
 import { cn } from '../lib/utils'
 import { logout } from '../lib/logout'
 
-type Modules = ReturnType<typeof useAuthStore>['modulesConfig']
-type ModuleKey = keyof Modules | null
+type ModuleKey = keyof ModulesConfig | null
 
 type NavItem = {
   label: string

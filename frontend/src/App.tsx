@@ -57,7 +57,7 @@ const useApplyTenantTheme = () => {
 }
 
 function App() {
-  const { mode, setMode } = useApplyTenantTheme()
+  const { mode } = useApplyTenantTheme()
   const user = useAuthStore((state) => state.user)
 
   const defaultPath = !user

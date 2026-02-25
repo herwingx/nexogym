@@ -84,9 +84,9 @@ export const ReceptionCheckInPage = () => {
       const res = await sileo.promise(checkInRequest(), {
         loading: { title: 'Validando acceso...' },
         success: () => ({ title: 'Check-in procesado' }),
-        error: (err: Error) => ({
+        error: (err: unknown) => ({
           title: 'Error de acceso',
-          description: err.message,
+          description: (err as Error)?.message ?? 'No se pudo procesar el check-in.',
         }),
       })
       setLastResult(res)

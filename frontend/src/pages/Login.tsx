@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuthStore } from '../store/useAuthStore'
@@ -94,9 +94,9 @@ export const LoginPage = () => {
             title: 'Bienvenido',
             description: 'Contexto de NexoGym cargado correctamente.',
           }),
-          error: (err) => ({
+          error: (err: unknown) => ({
             title: 'No pudimos iniciar sesión',
-            description: err?.message ?? 'Revisa tus credenciales e inténtalo de nuevo.',
+            description: (err as Error)?.message ?? 'Revisa tus credenciales e inténtalo de nuevo.',
           }),
         },
       )
