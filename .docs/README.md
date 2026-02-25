@@ -4,6 +4,14 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 
 ---
 
+## Marketing y landing
+
+| Documento | Contenido |
+|-----------|-----------|
+| **CONTEXTO_MARKETING_LANDING.md** | Contexto de producto para el sitio de marketing y landing: funcionalidades, planes, beneficios, headlines y mensajes clave. |
+
+---
+
 ## Arquitectura y producto
 
 | Documento | Contenido |
