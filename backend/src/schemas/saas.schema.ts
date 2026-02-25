@@ -14,6 +14,19 @@ export const updateGymTierSchema = z.object({
   }),
 });
 
+/** Override de módulos por gym (SuperAdmin). Cada key opcional; al menos una. */
+export const updateGymModulesSchema = z
+  .object({
+    pos: z.boolean().optional(),
+    qr_access: z.boolean().optional(),
+    gamification: z.boolean().optional(),
+    classes: z.boolean().optional(),
+    biometrics: z.boolean().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one module key must be provided.',
+  });
+
 export const updateGymSchema = z.object({
   name: z.string().min(2, { message: 'Gym name must have at least 2 characters.' }).optional(),
   theme_colors: z.record(z.string(), z.unknown()).optional(),

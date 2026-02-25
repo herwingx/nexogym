@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { SubscriptionStatus } from '@prisma/client';
 import { handleControllerError } from '../utils/http';
+import { sendQrResend } from '../services/n8n.service';
+
+const QR_PAYLOAD_PREFIX = 'GYM_QR_';
 
 /**
  * GET /members/me
@@ -20,6 +23,7 @@ export const getMemberProfile = async (req: Request, res: Response) => {
       where: { id: userId, gym_id: gymId, deleted_at: null },
       select: {
         id: true,
+        qr_token: true,
         name: true,
         profile_picture_url: true,
         current_streak: true,
@@ -71,8 +75,11 @@ export const getMemberProfile = async (req: Request, res: Response) => {
 
     const email = (req.user as { email?: string })?.email ?? null;
 
+    const qr_payload = `${QR_PAYLOAD_PREFIX}${user.qr_token ?? user.id}`;
+
     res.status(200).json({
       id: user.id,
+      qr_payload,
       name: user.name ?? '',
       email: email ?? '',
       profile_picture_url: user.profile_picture_url,
@@ -131,5 +138,47 @@ export const getMemberHistory = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleControllerError(req, res, error, '[getMemberHistory Error]', 'Failed to load visit history.');
+  }
+};
+
+/**
+ * POST /members/me/send-qr
+ * Reenvía el QR de acceso del socio por WhatsApp (mismo código estable). Ej.: borró el chat, lo perdió.
+ */
+export const requestQrResend = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const gymId = req.gymId;
+    if (!userId || !gymId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { id: userId, gym_id: gymId, deleted_at: null },
+      select: { id: true, qr_token: true, phone: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'Member not found' });
+      return;
+    }
+
+    const phone = user.phone?.trim();
+    if (!phone) {
+      res.status(400).json({
+        error: 'No tenemos un número de WhatsApp registrado. Pide en recepción que actualicen tu teléfono.',
+      });
+      return;
+    }
+
+    const qrPayload = `${QR_PAYLOAD_PREFIX}${user.qr_token ?? user.id}`;
+    await sendQrResend(gymId, phone, qrPayload);
+
+    res.status(200).json({
+      message: 'Si el gym tiene WhatsApp configurado, recibirás tu código de acceso en unos segundos.',
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[requestQrResend Error]', 'Failed to send QR.');
   }
 };

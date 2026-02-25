@@ -6,6 +6,8 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  sendQrToMember,
+  regenerateQr,
   renewSubscription,
   freezeSubscription,
   unfreezeSubscription,
@@ -158,6 +160,59 @@ router.post('/', requireStaff, createUser);
  *         description: Forbidden (Staff required)
  */
 router.patch('/:id', requireStaff, updateUser);
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/send-qr:
+ *   post:
+ *     summary: Reenviar QR de acceso del socio por WhatsApp (staff)
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: QR enviado (si n8n/WhatsApp está configurado)
+ *       400:
+ *         description: Socio sin teléfono registrado
+ *       404:
+ *         description: User not found
+ */
+router.post('/:id/send-qr', requireStaff, sendQrToMember);
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/regenerate-qr:
+ *   post:
+ *     summary: Regenerar QR de acceso del socio (Admin only). Invalida el anterior.
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sendToWhatsApp:
+ *                 type: boolean
+ *                 default: false
+ *     responses:
+ *       200:
+ *         description: QR regenerado
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
+ *       404:
+ *         description: User not found
+ */
+router.post('/:id/regenerate-qr', requireAdminOrSuperAdmin, regenerateQr);
 
 /**
  * @swagger

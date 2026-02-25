@@ -1,9 +1,25 @@
 import { z } from 'zod';
 
-export const checkinSchema = z.object({
-  userId: z.string().uuid({ message: "userId debe ser un UUID válido" }),
-  accessMethod: z.enum(['MANUAL', 'QR']).optional(),
-});
+const uuidSchema = z.string().uuid({ message: 'userId debe ser un UUID válido' });
+
+/**
+ * Acepta userId (UUID) o code: QR del socio (GYM_QR_<qr_token>).
+ * El qr_token se genera al alta y se envía por WhatsApp con la bienvenida.
+ */
+export const checkinSchema = z
+  .object({
+    userId: uuidSchema.optional(),
+    code: z.string().min(1).optional(),
+    accessMethod: z.enum(['MANUAL', 'QR']).optional(),
+  })
+  .refine((data) => data.userId != null || (data.code != null && data.code.trim().length > 0), {
+    message: 'Debe enviar userId o code (código escaneado del QR del socio).',
+  })
+  .transform((data) => ({
+    userId: data.userId as string | undefined,
+    code: data.code?.trim(),
+    accessMethod: data.accessMethod,
+  }));
 
 export const courtesyCheckinSchema = z.object({
   userId: z.string().uuid(),

@@ -10,6 +10,7 @@ import {
   getGymModules,
   listGyms,
   updateGym,
+  updateGymModules,
   updateGymTier,
 } from '../controllers/saas.controller';
 
@@ -182,6 +183,40 @@ router.patch('/gyms/:id', updateGym);
  *         description: Gym not found
  */
 router.patch('/gyms/:id/tier', updateGymTier);
+
+/**
+ * @swagger
+ * /api/v1/saas/gyms/{id}/modules:
+ *   patch:
+ *     summary: Update gym module overrides (SuperAdmin only)
+ *     description: Enable/disable individual modules per gym, independent of tier. Merges with tier defaults.
+ *     tags: [SaaS]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               pos: { type: boolean }
+ *               qr_access: { type: boolean }
+ *               gamification: { type: boolean }
+ *               classes: { type: boolean }
+ *               biometrics: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Modules updated
+ *       404:
+ *         description: Gym not found
+ */
+router.patch('/gyms/:id/modules', updateGymModules);
 
 /**
  * @swagger

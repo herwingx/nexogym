@@ -15,14 +15,30 @@ export const processCheckin = async (req: Request, res: Response) => {
       return;
     }
 
-    // 0. Zod Validation
+    // 0. Zod Validation (acepta userId o code del QR)
     const validation = checkinSchema.safeParse(req.body);
     if (!validation.success) {
       res.status(400).json({ error: validation.error.issues[0].message });
       return;
     }
 
-    const { userId, accessMethod = AccessMethod.MANUAL } = validation.data;
+    let userId = validation.data.userId;
+    if (!userId && validation.data.code) {
+      const payload = validation.data.code.startsWith('GYM_QR_')
+        ? validation.data.code.slice(7).trim()
+        : validation.data.code.trim();
+      const byToken = await prisma.user.findFirst({
+        where: { qr_token: payload, gym_id: gymId },
+        select: { id: true },
+      });
+      if (byToken) userId = byToken.id;
+    }
+    const accessMethod = validation.data.accessMethod ?? AccessMethod.MANUAL;
+
+    if (!userId) {
+      res.status(400).json({ error: 'Código QR no válido.' });
+      return;
+    }
 
     // 1. Validate Active Subscription
     const subscription = await prisma.subscription.findFirst({

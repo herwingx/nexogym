@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { SubscriptionStatus, Role } from '@prisma/client';
-import { sendWelcomeMessage } from '../services/n8n.service';
+import { sendWelcomeMessage, sendQrResend } from '../services/n8n.service';
 import { logAuditEvent } from '../utils/audit.logger';
 import crypto from 'crypto';
 import { handleControllerError } from '../utils/http';
@@ -168,6 +168,7 @@ export const createUser = async (req: Request, res: Response) => {
     const pin = pinFromBody ?? generatePin();
     // hash the pin before storing
     const pinHash = crypto.createHash('sha256').update(String(pin)).digest('hex');
+    const qrToken = crypto.randomBytes(16).toString('hex');
 
     // Calculate initial expiration (30 days from now)
     const expiresAt = new Date();
@@ -183,6 +184,7 @@ export const createUser = async (req: Request, res: Response) => {
           name: name ?? null,
           phone,
           pin_hash: pinHash,
+          qr_token: qrToken,
           role: (role && Object.values(Role).includes(role)) ? role : Role.MEMBER,
           ...(profile_picture_url != null && profile_picture_url !== '' && { profile_picture_url: String(profile_picture_url) }),
         },
@@ -202,8 +204,7 @@ export const createUser = async (req: Request, res: Response) => {
     });
 
     // Fire and forget (Execute in background, no await)
-    // Generating a basic payload for the QR, e.g. the user ID or a signed token
-    const qrPayload = `GYM_QR_${result.user.id}`;
+    const qrPayload = `GYM_QR_${result.user.qr_token ?? result.user.id}`;
     sendWelcomeMessage(gymId, phone, pin, qrPayload).catch((err) => {
       req.log?.error({ err }, '[createUser WelcomeWebhook Error]');
     });
@@ -356,6 +357,97 @@ export const deleteUser = async (req: Request, res: Response) => {
     res.status(200).json({ message: 'User soft-deleted successfully.' });
   } catch (error) {
     handleControllerError(req, res, error, '[deleteUser Error]', 'Failed to delete user.');
+  }
+};
+
+// POST /users/:id/send-qr — Reenviar QR de acceso por WhatsApp (staff)
+export const sendQrToMember = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const id = req.params.id as string;
+
+    const user = await prisma.user.findFirst({
+      where: { id, gym_id: gymId, deleted_at: null },
+      select: { id: true, qr_token: true, phone: true, name: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
+    const phone = user.phone?.trim();
+    if (!phone) {
+      res.status(400).json({
+        error: 'El socio no tiene número de teléfono registrado. Actualiza su ficha para poder enviar el QR por WhatsApp.',
+      });
+      return;
+    }
+
+    const qrPayload = `GYM_QR_${user.qr_token ?? user.id}`;
+    await sendQrResend(gymId, phone, qrPayload);
+
+    await logAuditEvent(gymId, req.user?.id ?? '', 'QR_RESENT', { target_user_id: id });
+
+    res.status(200).json({
+      message: 'Si el gym tiene WhatsApp configurado, el socio recibirá su código de acceso en unos segundos.',
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[sendQrToMember Error]', 'Failed to send QR.');
+  }
+};
+
+// POST /users/:id/regenerate-qr — Regenerar QR del socio (Admin only). Invalida el anterior.
+export const regenerateQr = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const id = req.params.id as string;
+    const sendToWhatsApp = req.body?.sendToWhatsApp === true;
+
+    const user = await prisma.user.findFirst({
+      where: { id, gym_id: gymId, deleted_at: null },
+      select: { id: true, phone: true, name: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
+    const newToken = crypto.randomBytes(16).toString('hex');
+    await prisma.user.update({
+      where: { id },
+      data: { qr_token: newToken },
+    });
+
+    const qrPayload = `GYM_QR_${newToken}`;
+
+    if (sendToWhatsApp && user.phone?.trim()) {
+      await sendQrResend(gymId, user.phone.trim(), qrPayload);
+    }
+
+    await logAuditEvent(gymId, req.user?.id ?? '', 'QR_REGENERATED', {
+      target_user_id: id,
+      send_to_whatsapp: sendToWhatsApp,
+    });
+
+    res.status(200).json({
+      message: sendToWhatsApp
+        ? 'QR regenerado. El socio recibirá el nuevo código por WhatsApp en unos segundos.'
+        : 'QR regenerado. El código anterior ya no es válido.',
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[regenerateQr Error]', 'Failed to regenerate QR.');
   }
 };
 

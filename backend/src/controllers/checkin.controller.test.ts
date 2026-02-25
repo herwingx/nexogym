@@ -11,6 +11,7 @@ vi.mock('../db', () => ({
       findFirst: vi.fn(),
     },
     user: {
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
     },
@@ -217,5 +218,45 @@ describe('Checkin Controller - Gamification Engine', () => {
       expect.objectContaining({ error: expect.stringContaining('qr_access') }),
     );
     expect(prisma.visit.create).not.toHaveBeenCalled();
+  });
+
+  it('Acepta code (QR GYM_QR_<qr_token>) y registra check-in igual que con userId', async () => {
+    const gymId = '550e8400-e29b-41d4-a716-446655440000';
+    const userId = '6f9619ff-8b86-4d01-b42d-00cf4fc964ff';
+    const qrToken = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4';
+    const code = `GYM_QR_${qrToken}`;
+
+    const mockReq = {
+      gymId,
+      body: { code, accessMethod: AccessMethod.QR },
+    } as any;
+
+    (prisma.user.findFirst as any).mockResolvedValueOnce({ id: userId });
+    (prisma.subscription.findFirst as any).mockResolvedValue({ id: 'sub-1', status: SubscriptionStatus.ACTIVE });
+    (prisma.user.findUnique as any).mockResolvedValue({
+      id: userId,
+      current_streak: 2,
+      last_visit_at: new Date(Date.now() - 86400000),
+      phone: '+573001112233',
+    });
+    (prisma.gym.findUnique as any).mockResolvedValue({
+      id: gymId,
+      subscription_tier: 'PRO_QR',
+      modules_config: { gamification: true, qr_access: true },
+      rewards_config: {},
+    });
+
+    await processCheckin(mockReq, mockRes);
+
+    expect(prisma.visit.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          user_id: userId,
+          gym_id: gymId,
+          access_method: AccessMethod.QR,
+        }),
+      }),
+    );
+    expect(mockRes.status).toHaveBeenCalledWith(200);
   });
 });

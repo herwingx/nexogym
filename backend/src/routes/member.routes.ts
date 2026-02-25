@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Role } from '@prisma/client';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { getMemberProfile, getMemberHistory } from '../controllers/member.controller';
+import { getMemberProfile, getMemberHistory, requestQrResend } from '../controllers/member.controller';
 
 const router = Router();
 
@@ -53,5 +53,21 @@ router.get('/me', getMemberProfile);
  *         description: Paginated visit history
  */
 router.get('/me/history', getMemberHistory);
+
+/**
+ * @swagger
+ * /api/v1/members/me/send-qr:
+ *   post:
+ *     summary: Reenviar mi QR de acceso por WhatsApp (mismo código estable)
+ *     tags: [Members]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: QR enviado (si el gym tiene n8n/WhatsApp configurado)
+ *       400:
+ *         description: Sin teléfono registrado
+ */
+router.post('/me/send-qr', requestQrResend);
 
 export default router;

@@ -101,6 +101,39 @@ export const sendWelcomeMessage = async (gymId: string, phone: string, pin: stri
   }
 };
 
+/** Reenvía el QR de acceso del socio por WhatsApp (mismo código estable). Para "borré el chat" o "recibir de nuevo". Usa el mismo webhook welcome con event: resend_qr. */
+export const sendQrResend = async (gymId: string, phone: string, qrPayload: string) => {
+  try {
+    const context = await resolveN8nContext(gymId, 'welcome');
+    if (!context.enabled) {
+      logger.info({ gymId, phone }, '[n8n] Resend QR skipped (welcome webhook disabled)');
+      return;
+    }
+
+    const response = await postEvent(context.webhookUrl, {
+      event: 'resend_qr',
+      gym_id: gymId,
+      gym_name: context.gymName,
+      phone,
+      qrData: qrPayload,
+      messaging: {
+        provider: context.config.provider || 'default',
+        sender_phone_id: context.config.sender_phone_id || null,
+        template: context.config.template_welcome || null,
+      },
+    });
+
+    if (!response.ok) {
+      logger.warn({ gymId, phone, status: response.status }, '[n8n] Failed to trigger resend QR webhook');
+      return;
+    }
+
+    logger.debug({ gymId, phone }, '[n8n] Resend QR queued successfully');
+  } catch (error) {
+    logger.error({ err: error, gymId, phone }, '[n8n] Resend QR webhook error');
+  }
+};
+
 export const sendShiftSummary = async (gymId: string, ownerPhone: string, summary: {
   openedAt: Date;
   closedAt: Date;

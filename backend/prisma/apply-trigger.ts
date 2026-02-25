@@ -17,6 +17,12 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  -- Solo recalcular modules_config cuando cambia el tier (o en INSERT).
+  -- Si solo se actualiza modules_config (override del SuperAdmin), no pisar.
+  IF TG_OP = 'UPDATE' AND OLD.subscription_tier IS NOT DISTINCT FROM NEW.subscription_tier THEN
+    RETURN NEW;
+  END IF;
+
   IF NEW.subscription_tier = 'BASIC'::"SubscriptionTier" THEN
     NEW.modules_config := jsonb_build_object(
       'pos',           true,
@@ -54,8 +60,14 @@ ON public."Gym"
 FOR EACH ROW
 EXECUTE FUNCTION public.enforce_gym_modules_config_by_tier();
 
--- Backfill: sincroniza filas existentes
-UPDATE public."Gym" SET modules_config = modules_config;
+-- Backfill: sincroniza filas existentes con su tier (sin depender del trigger)
+UPDATE public."Gym" g
+SET modules_config = CASE g.subscription_tier
+  WHEN 'BASIC'::"SubscriptionTier" THEN jsonb_build_object('pos', true, 'qr_access', false, 'gamification', false, 'classes', false, 'biometrics', false)
+  WHEN 'PRO_QR'::"SubscriptionTier" THEN jsonb_build_object('pos', true, 'qr_access', true, 'gamification', true, 'classes', true, 'biometrics', false)
+  WHEN 'PREMIUM_BIO'::"SubscriptionTier" THEN jsonb_build_object('pos', true, 'qr_access', true, 'gamification', true, 'classes', true, 'biometrics', true)
+  ELSE COALESCE(g.modules_config::jsonb, '{}'::jsonb)
+END;
 `;
 
 async function main() {

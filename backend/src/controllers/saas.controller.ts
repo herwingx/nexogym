@@ -2,9 +2,18 @@ import { Request, Response } from 'express';
 import { prisma } from '../db';
 import crypto from 'crypto';
 import { Prisma, SubscriptionTier } from '@prisma/client';
-import { createGymSchema, updateGymSchema, updateGymTierSchema } from '../schemas/saas.schema';
+import {
+  createGymSchema,
+  updateGymSchema,
+  updateGymTierSchema,
+  updateGymModulesSchema,
+} from '../schemas/saas.schema';
 import { handleControllerError } from '../utils/http';
-import { DEFAULT_MODULES_CONFIG_BY_TIER, resolveModulesConfig } from '../utils/modules-config';
+import {
+  DEFAULT_MODULES_CONFIG_BY_TIER,
+  type ModulesConfig,
+  resolveModulesConfig,
+} from '../utils/modules-config';
 
 // POST /saas/gym
 export const createGym = async (req: Request, res: Response) => {
@@ -308,5 +317,51 @@ export const getGymModules = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleControllerError(req, res, error, '[getGymModules Error]', 'Failed to retrieve gym modules.');
+  }
+};
+
+// PATCH /saas/gyms/:id/modules — override de módulos por gym (SuperAdmin)
+export const updateGymModules = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const validation = updateGymModulesSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
+      return;
+    }
+
+    const gym = await prisma.gym.findUnique({
+      where: { id },
+      select: { id: true, subscription_tier: true, modules_config: true },
+    });
+
+    if (!gym) {
+      res.status(404).json({ error: 'Gym not found.' });
+      return;
+    }
+
+    const currentResolved = resolveModulesConfig(
+      gym.modules_config,
+      gym.subscription_tier,
+    ) as ModulesConfig;
+    const merged: ModulesConfig = { ...currentResolved, ...validation.data };
+
+    await prisma.gym.update({
+      where: { id },
+      data: { modules_config: merged as Prisma.InputJsonValue },
+    });
+
+    res.status(200).json({
+      message: 'Gym modules updated.',
+      modules_config: merged,
+    });
+  } catch (error) {
+    handleControllerError(
+      req,
+      res,
+      error,
+      '[updateGymModules Error]',
+      'Failed to update gym modules.',
+    );
   }
 };
