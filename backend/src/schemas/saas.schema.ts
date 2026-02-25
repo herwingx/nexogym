@@ -6,6 +6,7 @@ export const createGymSchema = z.object({
   theme_colors: z.record(z.string(), z.unknown()).optional(),
   subscription_tier: z.nativeEnum(SubscriptionTier).optional(),
   n8n_config: z.record(z.string(), z.unknown()).optional(),
+  logo_url: z.string().url().optional().or(z.literal('')),
 });
 
 export const updateGymTierSchema = z.object({
@@ -31,6 +32,12 @@ export const updateGymSchema = z.object({
   name: z.string().min(2, { message: 'Gym name must have at least 2 characters.' }).optional(),
   theme_colors: z.record(z.string(), z.unknown()).optional(),
   n8n_config: z.record(z.string(), z.unknown()).optional(),
+  logo_url: z.string().url().optional().or(z.literal('')),
 }).refine((data) => Object.keys(data).length > 0, {
   message: 'At least one field must be provided to update.',
+});
+
+const GYM_STATUSES = ['ACTIVE', 'SUSPENDED', 'CANCELLED'] as const;
+export const updateGymStatusSchema = z.object({
+  status: z.enum(GYM_STATUSES, { message: 'status must be ACTIVE, SUSPENDED or CANCELLED' }),
 });

@@ -75,9 +75,18 @@ export const processCheckin = async (req: Request, res: Response) => {
       }
     }
 
-    // 2. Fetch User and Gym for Gamification
+    // 2. Anti-passback 2h: permite múltiples visitas por día si han pasado ≥2h
     const user = await prisma.user.findUnique({
       where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        profile_picture_url: true,
+        current_streak: true,
+        last_visit_at: true,
+        last_checkin_date: true,
+      },
     });
 
     if (!user) {
@@ -86,16 +95,23 @@ export const processCheckin = async (req: Request, res: Response) => {
     }
 
     const now = new Date();
+    const ANTI_PASSBACK_HOURS = 2;
     if (user.last_visit_at) {
-      const hoursSinceLastVisit = Math.abs(now.getTime() - user.last_visit_at.getTime()) / 3600000;
-      if (hoursSinceLastVisit < 4) {
-        res.status(403).json({ error: 'Anti-Passback: Este código ya fue utilizado hace menos de 4 horas.' });
+      const hoursSinceLastVisit = (now.getTime() - user.last_visit_at.getTime()) / 3600000;
+      if (hoursSinceLastVisit < ANTI_PASSBACK_HOURS) {
+        res.status(403).json({ error: 'Anti-Passback: Este código ya fue utilizado hace menos de 2 horas.' });
         return;
       }
     }
 
     const gym = await prisma.gym.findUnique({
       where: { id: gymId },
+      select: {
+        modules_config: true,
+        subscription_tier: true,
+        rewards_config: true,
+        last_reactivated_at: true,
+      },
     });
 
     if (!gym) {
@@ -115,49 +131,70 @@ export const processCheckin = async (req: Request, res: Response) => {
 
     const gamificationEnabled = modulesConfig.gamification;
 
-    // 3. Gamification Logic (Streak calculation)
+    // 3. Streak (solo 1 vez por día calendario): today > last_checkin_date → incrementa; mismo día → streak_updated false
     const todayStr = now.toISOString().split('T')[0];
-    const todayStart = new Date(todayStr);
+    const todayStart = new Date(todayStr + 'T00:00:00.000Z');
 
     let newStreak = user.current_streak;
+    let streakUpdated = false;
+    let newLastCheckinDate: Date | null = user.last_checkin_date;
 
     if (gamificationEnabled) {
-      if (user.last_visit_at) {
-        const lastVisitStr = user.last_visit_at.toISOString().split('T')[0];
-        const lastVisitStart = new Date(lastVisitStr);
-
-        const diffTime = Math.abs(todayStart.getTime() - lastVisitStart.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 1) {
-          newStreak += 1;
-        } else if (diffDays > 1) {
-          newStreak = 1;
-        }
-      } else {
+      if (!user.last_checkin_date) {
         newStreak = 1;
+        streakUpdated = true;
+        newLastCheckinDate = todayStart;
+      } else {
+        const lastStr = user.last_checkin_date.toISOString().split('T')[0];
+        const lastStart = new Date(lastStr + 'T00:00:00.000Z');
+        const diffTime = todayStart.getTime() - lastStart.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+          streakUpdated = false;
+        } else if (diffDays === 1) {
+          newStreak = user.current_streak + 1;
+          streakUpdated = true;
+          newLastCheckinDate = todayStart;
+        } else {
+          // diffDays > 1: normalmente rompe racha. Excepción: Streak Freeze (gym reactivado en últimas 48h)
+          const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+          const reactivatedWithin48h =
+            gym.last_reactivated_at != null && gym.last_reactivated_at >= fortyEightHoursAgo;
+          if (reactivatedWithin48h) {
+            newStreak = user.current_streak + 1;
+            streakUpdated = true;
+            newLastCheckinDate = todayStart;
+          } else {
+            newStreak = 1;
+            streakUpdated = true;
+            newLastCheckinDate = todayStart;
+          }
+        }
       }
     }
 
     // 4. Evaluate Reward
     let rewardUnlocked = false;
-    let rewardMessage = null;
-
+    let rewardMessage: string | null = null;
     if (gamificationEnabled && gym.rewards_config && typeof gym.rewards_config === 'object') {
-      const config = gym.rewards_config as Record<string, any>;
+      const config = gym.rewards_config as Record<string, string>;
       if (config[newStreak.toString()]) {
         rewardUnlocked = true;
         rewardMessage = config[newStreak.toString()];
       }
     }
 
-    // 5. Transaction
+    // 5. Transaction: Visit + User (last_visit_at siempre; last_checkin_date y current_streak si gamificación)
     await prisma.$transaction([
       prisma.user.update({
         where: { id: userId },
         data: {
-          ...(gamificationEnabled && { current_streak: newStreak }),
           last_visit_at: now,
+          ...(gamificationEnabled && {
+            current_streak: newStreak,
+            last_checkin_date: newLastCheckinDate,
+          }),
         },
       }),
       prisma.visit.create({
@@ -171,8 +208,8 @@ export const processCheckin = async (req: Request, res: Response) => {
       }),
     ]);
 
-    if (rewardUnlocked && user.phone) {
-      sendRewardMessage(gymId, user.phone, String(rewardMessage), newStreak, accessMethod).catch((err) => {
+    if (rewardUnlocked && user.phone && rewardMessage) {
+      sendRewardMessage(gymId, user.phone, rewardMessage, newStreak, accessMethod).catch((err) => {
         req.log?.error({ err }, '[processCheckin RewardWebhook Error]');
       });
     }
@@ -180,6 +217,7 @@ export const processCheckin = async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       newStreak,
+      streak_updated: streakUpdated,
       rewardUnlocked,
       user: {
         name: user.name,
@@ -189,6 +227,57 @@ export const processCheckin = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleControllerError(req, res, error, '[processCheckin Error]', 'Failed to process check-in.');
+  }
+};
+
+/**
+ * GET /checkin/visits
+ * Historial de visitas del gym (Staff). Paginado con índice compuesto (gym_id, check_in_time).
+ */
+export const listVisits = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+    const skip = (page - 1) * limit;
+
+    const [visits, total] = await Promise.all([
+      prisma.visit.findMany({
+        where: { gym_id: gymId },
+        orderBy: { check_in_time: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          user_id: true,
+          check_in_time: true,
+          access_method: true,
+          access_type: true,
+          user: { select: { name: true, phone: true } },
+        },
+      }),
+      prisma.visit.count({ where: { gym_id: gymId } }),
+    ]);
+
+    res.status(200).json({
+      data: visits.map((v) => ({
+        id: v.id,
+        user_id: v.user_id,
+        user_name: v.user.name,
+        user_phone: v.user.phone,
+        check_in_time: v.check_in_time.toISOString(),
+        access_method: v.access_method,
+        access_type: v.access_type,
+      })),
+      meta: { total, page, limit, total_pages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[listVisits Error]', 'Failed to list visits.');
   }
 };
 

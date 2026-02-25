@@ -18,7 +18,7 @@ Este documento describe el schema completo que Prisma ORM despliega en PostgreSQ
 ## Enums
 
 ```prisma
-enum Role            { SUPERADMIN  ADMIN  RECEPTIONIST  INSTRUCTOR  MEMBER }
+enum Role            { SUPERADMIN  ADMIN  RECEPTIONIST  INSTRUCTOR  COACH  MEMBER }
 enum SubscriptionStatus { ACTIVE  EXPIRED  CANCELED  FROZEN }
 enum SubscriptionTier   { BASIC  PRO_QR  PREMIUM_BIO }
 enum ShiftStatus     { OPEN  CLOSED }
@@ -33,10 +33,14 @@ enum BookingStatus  { PENDING  ATTENDED  CANCELLED }
 ## Diccionario de Tablas (Nuevas y Actualizadas)
 
 ### `Gym` (Actualizada)
-Motor de Feature Flags por gimnasio.
+Motor de Feature Flags por gimnasio y estado del inquilino (billing/churn).
 
 | Campo | Tipo | Notas |
 |---|---|---|
+| `status` | String | `ACTIVE` \| `SUSPENDED` \| `CANCELLED` (default ACTIVE) |
+| `deleted_at` | DateTime? | Soft delete; purga (hard delete) tras 60 días si status CANCELLED |
+| `logo_url` | String? | White-label logo del gym |
+| `last_reactivated_at` | DateTime? | Streak freeze: cuando pasó de SUSPENDED a ACTIVE (perdón 48h en check-in) |
 | `modules_config` | Json? | Configuración de módulos habilitados derivada de `subscription_tier` (enforced por trigger DB) |
 | `n8n_config` | Json? | Configuración de mensajería por gym (`sender_phone_id`, templates, eventos habilitados, overrides) |
 
@@ -48,11 +52,13 @@ Motor de Feature Flags por gimnasio.
 ---
 
 ### `User` (Actualizada)
-Soporte para validación visual en recepción/escáner.
+Soporte para validación visual, gamificación por día y n8n (cumpleaños).
 
 | Campo | Tipo | Notas |
 |---|---|---|
 | `profile_picture_url` | String? | URL de foto de perfil del socio |
+| `last_checkin_date` | DateTime? @db.Date | Último día calendario con check-in (para racha 1 vez/día) |
+| `birth_date` | DateTime? @db.Date | Fecha de nacimiento (n8n felicitaciones) |
 
 ### `Subscription` (Actualizada)
 Añade restricciones horarias para planes específicos (ej. "Solo Mañanas").

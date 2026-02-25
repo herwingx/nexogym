@@ -49,6 +49,7 @@ describe('user.controller', () => {
       user: { id: '6f9619ff-8b86-4d01-b42d-00cf4fc964ff' },
     };
 
+    (req as any).userRole = 'ADMIN';
     (prisma.$transaction as any).mockResolvedValue([
       {
         id: req.user.id,
@@ -58,8 +59,12 @@ describe('user.controller', () => {
       {
         id: req.gymId,
         name: 'Gym Pro',
+        status: 'ACTIVE',
+        deleted_at: null,
         subscription_tier: 'PRO_QR',
         modules_config: { classes: false },
+        theme_colors: null,
+        logo_url: null,
       },
     ]);
 

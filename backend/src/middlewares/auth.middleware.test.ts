@@ -13,9 +13,8 @@ vi.mock('../lib/supabase', () => ({
 
 vi.mock('../db', () => ({
   prisma: {
-    user: {
-      findFirst: vi.fn(),
-    },
+    user: { findFirst: vi.fn() },
+    gym: { findUnique: vi.fn() },
   },
 }));
 
@@ -45,6 +44,10 @@ describe('auth.middleware', () => {
       id: '6f9619ff-8b86-4d01-b42d-00cf4fc964ff',
       gym_id: '550e8400-e29b-41d4-a716-446655440000',
       role: 'ADMIN',
+    });
+    (prisma.gym.findUnique as any).mockResolvedValue({
+      status: 'ACTIVE',
+      deleted_at: null,
     });
 
     await requireAuth(req, mockRes, next);

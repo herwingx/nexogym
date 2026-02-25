@@ -8,10 +8,12 @@ import { handleControllerError } from '../utils/http';
 import { resolveModulesConfig } from '../utils/modules-config';
 
 // GET /users/me/context
+// Tenant Guard (capa 1): al establecer sesión (login/restore), rechaza si gym no está ACTIVE. SUPERADMIN exento.
 export const getMyContext = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
     const userId = req.user?.id;
+    const userRole = req.userRole;
 
     if (!gymId || !userId) {
       res.status(401).json({ error: 'Unauthorized: Context missing' });
@@ -35,8 +37,12 @@ export const getMyContext = async (req: Request, res: Response) => {
         select: {
           id: true,
           name: true,
+          status: true,
+          deleted_at: true,
           subscription_tier: true,
           modules_config: true,
+          theme_colors: true,
+          logo_url: true,
         },
       }),
     ]);
@@ -46,6 +52,13 @@ export const getMyContext = async (req: Request, res: Response) => {
       return;
     }
 
+    // Tenant Guard: if not SUPERADMIN, reject if gym is suspended or cancelled
+    if (userRole !== Role.SUPERADMIN && (gym.deleted_at != null || gym.status !== 'ACTIVE')) {
+      res.status(403).json({ error: 'El acceso a este gimnasio está suspendido.' });
+      return;
+    }
+
+    const themeColors = gym.theme_colors as Record<string, string> | null | undefined;
     res.status(200).json({
       user,
       gym: {
@@ -53,6 +66,8 @@ export const getMyContext = async (req: Request, res: Response) => {
         name: gym.name,
         subscription_tier: gym.subscription_tier,
         modules_config: resolveModulesConfig(gym.modules_config, gym.subscription_tier),
+        theme_colors: themeColors ?? undefined,
+        logo_url: gym.logo_url ?? undefined,
       },
     });
   } catch (error) {
@@ -157,12 +172,19 @@ export const createUser = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, phone, pin: pinFromBody, role, auth_user_id, profile_picture_url } = req.body;
+    const { name, phone, pin: pinFromBody, role, auth_user_id, profile_picture_url, birth_date: birthDateRaw } = req.body;
 
     if (!phone) {
       res.status(400).json({ error: 'Phone number is required' });
       return;
     }
+
+    const birthDate = birthDateRaw != null && birthDateRaw !== ''
+      ? (typeof birthDateRaw === 'string' ? new Date(birthDateRaw) : birthDateRaw)
+      : undefined;
+    const birthDateOnly = birthDate && !Number.isNaN(birthDate.getTime())
+      ? new Date(birthDate.toISOString().split('T')[0] + 'T00:00:00.000Z')
+      : undefined;
 
     // Use provided PIN or auto-generate a secure 4-digit one
     const pin = pinFromBody ?? generatePin();
@@ -187,6 +209,7 @@ export const createUser = async (req: Request, res: Response) => {
           qr_token: qrToken,
           role: (role && Object.values(Role).includes(role)) ? role : Role.MEMBER,
           ...(profile_picture_url != null && profile_picture_url !== '' && { profile_picture_url: String(profile_picture_url) }),
+          ...(birthDateOnly != null && { birth_date: birthDateOnly }),
         },
       });
 
@@ -291,7 +314,7 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     const id = req.params.id as string;
-    const { name, phone, profile_picture_url } = req.body;
+    const { name, phone, profile_picture_url, birth_date: birthDateRaw } = req.body;
 
     // Verify the user belongs to this gym (Multitenancy guard)
     const existing = await prisma.user.findFirst({
@@ -303,14 +326,25 @@ export const updateUser = async (req: Request, res: Response) => {
       return;
     }
 
+    const birthDateOnly =
+      birthDateRaw !== undefined
+        ? (birthDateRaw === null || birthDateRaw === ''
+          ? null
+          : (() => {
+              const d = typeof birthDateRaw === 'string' ? new Date(birthDateRaw) : birthDateRaw;
+              return !Number.isNaN(d.getTime()) ? new Date(d.toISOString().split('T')[0] + 'T00:00:00.000Z') : undefined;
+            })())
+        : undefined;
+
     const updatedUser = await prisma.user.update({
       where: { id: id as string },
       data: {
         ...(name !== undefined && { name }),
         ...(phone !== undefined && { phone }),
         ...(profile_picture_url !== undefined && { profile_picture_url }),
+        ...(birthDateOnly !== undefined && { birth_date: birthDateOnly }),
       },
-      select: { id: true, name: true, phone: true, profile_picture_url: true, role: true, updated_at: true },
+      select: { id: true, name: true, phone: true, profile_picture_url: true, role: true, birth_date: true, updated_at: true },
     });
 
     await logAuditEvent(gymId, req.user?.id ?? id, 'USER_UPDATED', {

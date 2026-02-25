@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
+import { requireAdminOrSuperAdmin, requireCoachOrAdmin } from '../middlewares/admin.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
 import {
   listRoutines,
@@ -37,7 +37,7 @@ router.use(requireModuleEnabled('classes'));
  *       200:
  *         description: List of routines with exercises
  */
-router.get('/', requireAdminOrSuperAdmin, listRoutines);
+router.get('/', requireCoachOrAdmin, listRoutines);
 
 /**
  * @swagger
@@ -73,7 +73,7 @@ router.get('/me', getMyRoutines);
  *       404:
  *         description: Member not found
  */
-router.get('/member/:userId', requireAdminOrSuperAdmin, getMemberRoutines);
+router.get('/member/:userId', requireCoachOrAdmin, getMemberRoutines);
 
 /**
  * @swagger
@@ -105,7 +105,7 @@ router.get('/member/:userId', requireAdminOrSuperAdmin, getMemberRoutines);
  *       404:
  *         description: Member not found
  */
-router.post('/', requireAdminOrSuperAdmin, createRoutine);
+router.post('/', requireCoachOrAdmin, createRoutine);
 
 /**
  * @swagger
@@ -117,8 +117,8 @@ router.post('/', requireAdminOrSuperAdmin, createRoutine);
  *     summary: Delete a routine and all its exercises (Admin/Instructor)
  *     tags: [Routines]
  */
-router.patch('/:id', requireAdminOrSuperAdmin, updateRoutine);
-router.delete('/:id', requireAdminOrSuperAdmin, deleteRoutine);
+router.patch('/:id', requireCoachOrAdmin, updateRoutine);
+router.delete('/:id', requireCoachOrAdmin, deleteRoutine);
 
 /**
  * @swagger
@@ -151,7 +151,7 @@ router.delete('/:id', requireAdminOrSuperAdmin, deleteRoutine);
  *       201:
  *         description: Exercise added
  */
-router.post('/:id/exercises', requireAdminOrSuperAdmin, addExercise);
+router.post('/:id/exercises', requireCoachOrAdmin, addExercise);
 
 /**
  * @swagger
@@ -174,6 +174,6 @@ router.post('/:id/exercises', requireAdminOrSuperAdmin, addExercise);
  *       200:
  *         description: Exercise removed
  */
-router.delete('/:id/exercises/:exerciseId', requireAdminOrSuperAdmin, removeExercise);
+router.delete('/:id/exercises/:exerciseId', requireCoachOrAdmin, removeExercise);
 
 export default router;

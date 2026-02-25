@@ -11,6 +11,7 @@ import {
   listGyms,
   updateGym,
   updateGymModules,
+  updateGymStatus,
   updateGymTier,
 } from '../controllers/saas.controller';
 
@@ -148,6 +149,28 @@ router.get('/gyms/:id', getGymDetail);
  *         description: Gym not found
  */
 router.patch('/gyms/:id', updateGym);
+
+/**
+ * @swagger
+ * /api/v1/saas/gyms/{id}/status:
+ *   patch:
+ *     summary: Set gym status ACTIVE | SUSPENDED | CANCELLED (SuperAdmin only)
+ *     tags: [SaaS]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [ACTIVE, SUSPENDED, CANCELLED]
+ *     responses:
+ *       200:
+ *         description: Status updated; CANCELLED sets deleted_at; SUSPENDED→ACTIVE sets last_reactivated_at
+ */
+router.patch('/gyms/:id/status', updateGymStatus);
 
 /**
  * @swagger

@@ -11,7 +11,7 @@ import {
 } from '../controllers/booking.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
-import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
+import { requireAdminOrSuperAdmin, requireCoachOrAdmin } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -77,6 +77,6 @@ router.delete('/:id', cancelBooking);
  *     summary: Mark booking as attended (Admin/Instructor)
  *     tags: [Bookings]
  */
-router.patch('/:id/attend', requireAdminOrSuperAdmin, markAttendance);
+router.patch('/:id/attend', requireCoachOrAdmin, markAttendance);
 
 export default router;

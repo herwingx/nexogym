@@ -28,3 +28,20 @@ export const requireStaff = (req: Request, res: Response, next: NextFunction) =>
 
   next();
 };
+
+/** Admin, SuperAdmin o Coach. Para rutinas y marcado de asistencia a clases (sin POS ni finanzas). */
+export const requireCoachOrAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (
+    !req.user ||
+    (req.userRole !== Role.ADMIN &&
+      req.userRole !== Role.SUPERADMIN &&
+      req.userRole !== Role.COACH)
+  ) {
+    res.status(403).json({
+      error: 'Forbidden: Coach, Admin or SuperAdmin access required.',
+    });
+    return;
+  }
+
+  next();
+};

@@ -25,6 +25,7 @@ const envSchema = z.object({
   METRICS_ENABLED: z.enum(['true', 'false']).default('true'),
   METRICS_TOKEN: z.string().default(''),
   N8N_BASE_URL: z.string().default('http://localhost:5678'),
+  BILLING_WEBHOOK_SECRET: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

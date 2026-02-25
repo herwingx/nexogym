@@ -58,6 +58,10 @@ export type UserContextResponse = {
     name: string
     subscription_tier: string
     modules_config: Record<string, boolean>
+    /** White-label: primary hex, etc. Used for --theme-primary and color math. */
+    theme_colors?: { primary?: string; [key: string]: string | undefined }
+    /** White-label: logo URL for tenant. */
+    logo_url?: string
   }
 }
 

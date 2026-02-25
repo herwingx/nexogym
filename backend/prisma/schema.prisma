@@ -21,6 +21,7 @@ enum Role {
   ADMIN
   RECEPTIONIST
   INSTRUCTOR
+  COACH
   MEMBER
 }
 
@@ -64,14 +65,18 @@ enum BookingStatus {
 // -------------------------------------------------------------
 
 model Gym {
-  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name              String
-  theme_colors      Json? // Configuración de Theme/White-Labeling (ej. {"primary": "#ff0000"})
-  subscription_tier SubscriptionTier @default(BASIC)
-  modules_config    Json? // Feature Flags por nivel de suscripción (trigger aplicado con db:push o db:trigger)
-  n8n_config        Json? // Configuración de mensajería por gym (sender/template/webhook overrides)
-  rewards_config    Json? // Portal de Gamificación: Reglas y recompensas
-  api_key_hardware  String?          @unique // Sprint B9 hardware auth
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  status             String           @default("ACTIVE") // ACTIVE | SUSPENDED | CANCELLED
+  deleted_at         DateTime?        // Soft delete; purga (hard delete) tras retención
+  logo_url           String?          // White-label logo
+  theme_colors       Json?            // Configuración de Theme/White-Labeling (ej. {"primary": "#ff0000"})
+  subscription_tier  SubscriptionTier  @default(BASIC)
+  modules_config     Json?            // Feature Flags por nivel de suscripción (trigger aplicado con db:push o db:trigger)
+  n8n_config         Json?            // Configuración de mensajería por gym (sender/template/webhook overrides)
+  rewards_config     Json?            // Portal de Gamificación: Reglas y recompensas
+  api_key_hardware   String?          @unique // Sprint B9 hardware auth
+  last_reactivated_at DateTime?       // Streak freeze: cuando pasó de SUSPENDED a ACTIVE (perdón 48h)
 
   // Relaciones inversas
   users                  User[]
@@ -101,9 +106,11 @@ model User {
   profile_picture_url String?
   pin_hash            String? // Control de Acceso Manual / Biométrico
   role                Role      @default(MEMBER)
-  current_streak      Int       @default(0) // Gamificación
-  last_visit_at       DateTime?
-  deleted_at          DateTime? // Soft delete
+  current_streak      Int       @default(0) // Gamificación (solo se incrementa 1 vez por día calendario)
+  last_visit_at       DateTime?  // Última visita (anti-passback 2h)
+  last_checkin_date   DateTime?  @db.Date // Último día calendario con check-in (para racha)
+  birth_date          DateTime?  @db.Date // Cumpleaños (n8n / retención)
+  deleted_at          DateTime?  // Soft delete
   qr_token            String?   @unique // Token para QR; al regenerar se invalida el anterior
 
   // Relaciones
@@ -159,6 +166,7 @@ model Visit {
 
   @@index([gym_id])
   @@index([user_id])
+  @@index([gym_id, check_in_time])
 }
 
 model GymClass {

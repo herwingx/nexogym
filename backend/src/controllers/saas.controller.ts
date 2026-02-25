@@ -7,6 +7,7 @@ import {
   updateGymSchema,
   updateGymTierSchema,
   updateGymModulesSchema,
+  updateGymStatusSchema,
 } from '../schemas/saas.schema';
 import { handleControllerError } from '../utils/http';
 import {
@@ -24,7 +25,7 @@ export const createGym = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, theme_colors, subscription_tier, n8n_config } = validation.data;
+    const { name, theme_colors, subscription_tier, n8n_config, logo_url } = validation.data;
 
     // Generate a secure, unique hardware API key
     const apiKeyHardware = crypto.randomBytes(32).toString('hex');
@@ -36,11 +37,13 @@ export const createGym = async (req: Request, res: Response) => {
     const gym = await prisma.gym.create({
       data: {
         name,
+        status: 'ACTIVE',
         theme_colors: (theme_colors ?? {}) as Prisma.InputJsonValue,
         subscription_tier: selectedTier,
         modules_config: DEFAULT_MODULES_CONFIG_BY_TIER[selectedTier],
         n8n_config: n8n_config ? (n8n_config as Prisma.InputJsonValue) : undefined,
         api_key_hardware: apiKeyHardware,
+        ...(logo_url != null && logo_url !== '' && { logo_url }),
       },
     });
 
@@ -85,7 +88,9 @@ export const updateGymTier = async (req: Request, res: Response) => {
 // GET /saas/metrics
 export const getGlobalMetrics = async (_req: Request, res: Response) => {
   try {
-    const totalActiveGyms = await prisma.gym.count();
+    const totalActiveGyms = await prisma.gym.count({
+      where: { status: 'ACTIVE', deleted_at: null },
+    });
 
     res.status(200).json({
       total_active_gyms: totalActiveGyms,
@@ -116,6 +121,8 @@ export const listGyms = async (req: Request, res: Response) => {
         select: {
           id: true,
           name: true,
+          status: true,
+          deleted_at: true,
           subscription_tier: true,
           modules_config: true,
           created_at: true,
@@ -184,7 +191,7 @@ export const updateGym = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, theme_colors, n8n_config } = validation.data;
+    const { name, theme_colors, n8n_config, logo_url } = validation.data;
 
     const existing = await prisma.gym.findUnique({ where: { id } });
     if (!existing) {
@@ -198,12 +205,56 @@ export const updateGym = async (req: Request, res: Response) => {
         ...(name !== undefined && { name }),
         ...(theme_colors !== undefined && { theme_colors: theme_colors as Prisma.InputJsonValue }),
         ...(n8n_config !== undefined && { n8n_config: n8n_config as Prisma.InputJsonValue }),
+        ...(logo_url !== undefined && { logo_url: logo_url === '' ? null : logo_url }),
       },
     });
 
     res.status(200).json({ message: 'Gym updated successfully.', gym });
   } catch (error) {
     handleControllerError(req, res, error, '[updateGym Error]', 'Failed to update gym.');
+  }
+};
+
+// PATCH /saas/gyms/:id/status — SuperAdmin: ACTIVE | SUSPENDED | CANCELLED. Al reactivar (SUSPENDED→ACTIVE) setea last_reactivated_at. Al CANCELLED setea deleted_at.
+export const updateGymStatus = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const validation = updateGymStatusSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
+      return;
+    }
+
+    const existing = await prisma.gym.findUnique({ where: { id }, select: { id: true, status: true } });
+    if (!existing) {
+      res.status(404).json({ error: 'Gym not found.' });
+      return;
+    }
+
+    const { status } = validation.data;
+    const now = new Date();
+    const data: { status: string; deleted_at?: Date | null; last_reactivated_at?: Date | null } = { status };
+    if (status === 'CANCELLED') {
+      data.deleted_at = now;
+      data.last_reactivated_at = null;
+    } else if (status === 'ACTIVE' && existing.status === 'SUSPENDED') {
+      data.last_reactivated_at = now;
+      data.deleted_at = null;
+    } else if (status !== 'CANCELLED') {
+      data.deleted_at = null;
+    }
+
+    const gym = await prisma.gym.update({
+      where: { id },
+      data,
+    });
+
+    res.status(200).json({
+      message: `Gym status updated to ${status}.`,
+      gym,
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[updateGymStatus Error]', 'Failed to update gym status.');
   }
 };
 

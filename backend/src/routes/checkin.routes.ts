@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { processCheckin, processCourtesyAccess } from '../controllers/checkin.controller';
+import { processCheckin, processCourtesyAccess, listVisits } from '../controllers/checkin.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
+import { requireStaff } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -12,6 +13,8 @@ const router = Router();
  */
 
 router.use(requireAuth);
+
+router.get('/visits', requireStaff, listVisits);
 
 /**
  * @swagger

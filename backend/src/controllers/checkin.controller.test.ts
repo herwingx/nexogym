@@ -45,29 +45,32 @@ describe('Checkin Controller - Gamification Engine', () => {
     const userId = '6f9619ff-8b86-4d01-b42d-00cf4fc964ff';
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const lastCheckinDate = new Date(yesterdayStr + 'T00:00:00.000Z');
 
     const mockReq = {
       gymId,
       body: { userId },
     } as any;
 
-    // 1. Mock subscription found
     (prisma.subscription.findFirst as any).mockResolvedValue({ id: 'sub-1', status: SubscriptionStatus.ACTIVE });
-    
-    // 2. Mock user with last visit yesterday
+
     (prisma.user.findUnique as any).mockResolvedValue({
       id: userId,
+      name: 'Test',
+      phone: '123456789',
+      profile_picture_url: null,
       current_streak: 5,
       last_visit_at: yesterday,
-      phone: '123456789',
+      last_checkin_date: lastCheckinDate,
     });
 
-    // 3. Mock gym
     (prisma.gym.findUnique as any).mockResolvedValue({
       id: gymId,
       subscription_tier: 'PRO_QR',
       modules_config: { gamification: true, qr_access: true },
       rewards_config: {},
+      last_reactivated_at: null,
     });
 
     await processCheckin(mockReq, mockRes);
@@ -75,12 +78,13 @@ describe('Checkin Controller - Gamification Engine', () => {
     expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: userId },
       data: expect.objectContaining({
-        current_streak: 6, // 5 + 1
+        current_streak: 6,
       }),
     }));
     expect(mockRes.status).toHaveBeenCalledWith(200);
     expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
       newStreak: 6,
+      streak_updated: true,
     }));
   });
 
@@ -96,16 +100,22 @@ describe('Checkin Controller - Gamification Engine', () => {
     } as any;
 
     (prisma.subscription.findFirst as any).mockResolvedValue({ id: 'sub-1', status: SubscriptionStatus.ACTIVE });
+    const threeDaysAgoStr = threeDaysAgo.toISOString().split('T')[0];
     (prisma.user.findUnique as any).mockResolvedValue({
       id: userId,
+      name: null,
+      phone: null,
+      profile_picture_url: null,
       current_streak: 10,
       last_visit_at: threeDaysAgo,
+      last_checkin_date: new Date(threeDaysAgoStr + 'T00:00:00.000Z'),
     });
     (prisma.gym.findUnique as any).mockResolvedValue({
       id: gymId,
       subscription_tier: 'PRO_QR',
       modules_config: { gamification: true, qr_access: true },
       rewards_config: {},
+      last_reactivated_at: null,
     });
 
     await processCheckin(mockReq, mockRes);
@@ -142,6 +152,8 @@ describe('Checkin Controller - Gamification Engine', () => {
     const userId = '6f9619ff-8b86-4d01-b42d-00cf4fc964ff';
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const lastCheckinDate = new Date(yesterdayStr + 'T00:00:00.000Z');
 
     const mockReq = {
       gymId,
@@ -155,6 +167,7 @@ describe('Checkin Controller - Gamification Engine', () => {
       profile_picture_url: 'https://cdn.test/qr.png',
       current_streak: 2,
       last_visit_at: yesterday,
+      last_checkin_date: lastCheckinDate,
       phone: '+573001112233',
     });
     (prisma.gym.findUnique as any).mockResolvedValue({
@@ -162,6 +175,7 @@ describe('Checkin Controller - Gamification Engine', () => {
       subscription_tier: 'PRO_QR',
       modules_config: { gamification: true, qr_access: true },
       rewards_config: { '3': 'Batido gratis' },
+      last_reactivated_at: null,
     });
 
     await processCheckin(mockReq, mockRes);
@@ -185,7 +199,11 @@ describe('Checkin Controller - Gamification Engine', () => {
     );
 
     expect(mockRes.status).toHaveBeenCalledWith(200);
-    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({ rewardUnlocked: true, newStreak: 3 }));
+    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+      rewardUnlocked: true,
+      newStreak: 3,
+      streak_updated: true,
+    }));
   });
 
   it('Debe bloquear check-in QR cuando qr_access está deshabilitado por suscripción', async () => {
@@ -200,8 +218,11 @@ describe('Checkin Controller - Gamification Engine', () => {
     (prisma.subscription.findFirst as any).mockResolvedValue({ id: 'sub-1', status: SubscriptionStatus.ACTIVE });
     (prisma.user.findUnique as any).mockResolvedValue({
       id: userId,
+      name: null,
+      profile_picture_url: null,
       current_streak: 1,
       last_visit_at: null,
+      last_checkin_date: null,
       phone: '+573001112233',
     });
     (prisma.gym.findUnique as any).mockResolvedValue({
@@ -209,6 +230,7 @@ describe('Checkin Controller - Gamification Engine', () => {
       subscription_tier: 'BASIC',
       modules_config: { qr_access: false, gamification: false },
       rewards_config: {},
+      last_reactivated_at: null,
     });
 
     await processCheckin(mockReq, mockRes);
@@ -235,8 +257,11 @@ describe('Checkin Controller - Gamification Engine', () => {
     (prisma.subscription.findFirst as any).mockResolvedValue({ id: 'sub-1', status: SubscriptionStatus.ACTIVE });
     (prisma.user.findUnique as any).mockResolvedValue({
       id: userId,
+      name: null,
+      profile_picture_url: null,
       current_streak: 2,
       last_visit_at: new Date(Date.now() - 86400000),
+      last_checkin_date: new Date(new Date(Date.now() - 86400000).toISOString().split('T')[0] + 'T00:00:00.000Z'),
       phone: '+573001112233',
     });
     (prisma.gym.findUnique as any).mockResolvedValue({
@@ -244,6 +269,7 @@ describe('Checkin Controller - Gamification Engine', () => {
       subscription_tier: 'PRO_QR',
       modules_config: { gamification: true, qr_access: true },
       rewards_config: {},
+      last_reactivated_at: null,
     });
 
     await processCheckin(mockReq, mockRes);

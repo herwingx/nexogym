@@ -60,7 +60,7 @@ export const AuthRestore = ({ children }: { children: React.ReactNode }) => {
             portal: context.gym.modules_config?.portal ?? false,
           },
           tenantTheme: {
-            primaryHex: (context.gym as { theme_colors?: { primary?: string } })?.theme_colors?.primary ?? '#2563eb',
+            primaryHex: context.gym.theme_colors?.primary ?? '#2563eb',
           },
         })
         if (!cancelled) setBootstrapped(true)
