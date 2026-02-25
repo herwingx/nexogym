@@ -13,6 +13,10 @@ export const handleControllerError = (
     { err, message: err.message, stack: err.stack, requestId: req.requestId, path: req.path, method: req.method },
     logContext,
   );
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+    console.error(`[${logContext}]`, err.message, err.stack);
+  }
   const payload: { error: string; detail?: string } = { error: message };
   if (process.env.NODE_ENV !== 'production') {
     payload.detail = err.message;

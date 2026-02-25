@@ -113,6 +113,37 @@ export const fetchGyms = async (): Promise<GymSummary[]> => {
   return Array.isArray(data) ? data : data.data
 }
 
+export type CreateGymPayload = {
+  name: string
+  subscription_tier?: 'BASIC' | 'PRO_QR' | 'PREMIUM_BIO'
+  admin_email?: string
+  admin_password?: string
+  admin_name?: string | null
+}
+
+export type CreateGymResponse = {
+  message: string
+  gym: GymSummary
+  admin?: { email: string }
+}
+
+export const createGym = async (payload: CreateGymPayload): Promise<CreateGymResponse> => {
+  const response = await fetchWithAuth('/saas/gyms', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    const detail = (data as { detail?: string })?.detail
+    throw new Error(
+      (data as { error?: string })?.error ?? detail ?? `Failed to create gym (${response.status})`,
+    )
+  }
+
+  return response.json() as Promise<CreateGymResponse>
+}
+
 export const updateGymTier = async (gymId: string, tier: GymSummary['subscription_tier']) => {
   const response = await fetchWithAuth(`/saas/gyms/${gymId}/tier`, {
     method: 'PATCH',

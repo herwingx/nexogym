@@ -62,6 +62,7 @@ Para evitar drift de `modules_config` y asegurar que el plan gobierna features:
 - `CORS_ORIGIN` (NO usar `*` en producción pública)
 - `METRICS_ENABLED=true`
 - `METRICS_TOKEN` (si `/metrics` será accesible fuera de red interna)
+- `SUPABASE_SERVICE_ROLE_KEY` (opcional; necesario para crear el primer admin al dar de alta un gym desde /saas; si no está, el gym se crea pero el admin debe darse con el script `create-gym-admin`)
 
 ## 4) Smoke tests de salida
 

@@ -75,7 +75,7 @@ Si el plan no tiene `pos` o `classes`, esas opciones se ocultan; si el usuario i
 | **Flujo backend cubierto en frontend** | Sí: Admin (socios, finanzas, inventario, turnos, clases, rutinas, auditoría), Recepción (check-in, POS, socios, alta), Miembro (inicio, premios, historial), SuperAdmin (gyms, métricas, cambio de tier). |
 | **Permisos por rol** | Sí: rutas protegidas por `AdminRoute`, `ReceptionRoute`, `MemberRoute`; SuperAdmin redirige a `/saas` y tiene su dashboard. La autorización real está en el backend (JWT + rol + módulo). |
 | **Menú condicionado por plan** | Sí: Admin oculta Inventario/Cortes si no hay `pos`, y Clases/Rutinas si no hay `classes`. Socios, Finanzas y Auditoría visibles siempre para admin (el backend aplica 403 si no corresponde). |
-| **SuperAdmin control total del SaaS** | Sí: listar/crear/editar/eliminar gyms, métricas, cambio de tier y **edición de módulos por gym** (activar/desactivar pos, qr_access, gamification, classes, biometrics independiente del plan). |
+| **SuperAdmin control total del SaaS** | Sí: listar/**crear gym (con opción de dar de alta al primer admin en el mismo paso)**/editar/eliminar gyms, métricas, cambio de tier y **edición de módulos por gym** (activar/desactivar pos, qr_access, gamification, classes, biometrics independiente del plan). |
 | **Bug corregido** | El menú Admin usaba `crm` y `analytics` (que el backend no envía); Socios y Finanzas quedaban siempre ocultos. Se cambió a `moduleKey: null` para Socios, Finanzas y Auditoría para que siempre se muestren a los admins. |
 
 Con esto se puede considerar el frontend alineado con el backend para hacer commit; el SuperAdmin tiene control completo (tier + módulos por gym).

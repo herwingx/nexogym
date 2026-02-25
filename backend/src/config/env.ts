@@ -11,6 +11,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().default(''),
   SUPABASE_URL: z.string().default(''),
   SUPABASE_ANON_KEY: z.string().default(''),
+  /** Opcional; necesario para crear admin al dar de alta un gym (POST /saas/gyms con admin_*). */
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional().default(''),
   LOG_LEVEL: z.string().default('info'),
   LOG_PRETTY: z.enum(['true', 'false']).default('true'),
   BODY_LIMIT: z.string().default('1mb'),

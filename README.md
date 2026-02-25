@@ -91,6 +91,8 @@ npm run db:studio        # GUI visual de la DB (Prisma Studio)
 |---|---|
 | [.docs/README.md](./.docs/README.md) | **Índice** de toda la documentación y cambios recientes (POS, caja, personal, roles) |
 | [DEV_WORKFLOW.md](./.docs/DEV_WORKFLOW.md) | Entornos, flujo de trabajo, auth, testing manual, seed |
+| [SUPABASE_AUTH_EN_EL_PROYECTO.md](./.docs/SUPABASE_AUTH_EN_EL_PROYECTO.md) | Cómo funciona Supabase Auth en el proyecto y ventajas vs login propio |
+| [BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md](./.docs/BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md) | Primer arranque en producción (DB vacía) y cómo tener tu usuario admin |
 | [TESTING_STRATEGY.md](./.docs/TESTING_STRATEGY.md) | Estrategia de pruebas automatizadas |
 | [DATABASE_SCHEMA.md](./.docs/DATABASE_SCHEMA.md) | Modelos, relaciones y enums (incl. ExpenseType, Expense, auditoría) |
 | [API_SPEC.md](./.docs/API_SPEC.md) | Contratos de la API por sprint (POS, users, turnos, egresos, force-close) |

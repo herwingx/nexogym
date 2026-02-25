@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import {
   fetchGyms,
   fetchSaasMetrics,
+  createGym,
   type GymSummary,
   type SaasMetrics,
   updateGymTier,
@@ -16,6 +17,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { logout } from '../lib/logout'
 import { CardSkeleton, TableRowSkeleton } from '../components/ui/Skeleton'
+import { Input } from '../components/ui/Input'
 
 type Tier = GymSummary['subscription_tier']
 
@@ -47,6 +49,13 @@ export const SuperAdminDashboard = () => {
   const [editingModulesGym, setEditingModulesGym] = useState<GymSummary | null>(null)
   const [modulesDraft, setModulesDraft] = useState<Record<string, boolean>>({})
   const [savingModules, setSavingModules] = useState(false)
+  const [showCreateGymModal, setShowCreateGymModal] = useState(false)
+  const [createGymName, setCreateGymName] = useState('')
+  const [createGymTier, setCreateGymTier] = useState<Tier>('BASIC')
+  const [createAdminEmail, setCreateAdminEmail] = useState('')
+  const [createAdminPassword, setCreateAdminPassword] = useState('')
+  const [createAdminName, setCreateAdminName] = useState('')
+  const [creatingGym, setCreatingGym] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -144,6 +153,55 @@ export const SuperAdminDashboard = () => {
       })
     } finally {
       setSavingModules(false)
+    }
+  }
+
+  const handleCreateGym = async () => {
+    const name = createGymName.trim()
+    if (!name) {
+      notifyError({ title: 'Nombre requerido', description: 'Indica el nombre del gimnasio.' })
+      return
+    }
+    const hasAdmin = createAdminEmail.trim() && createAdminPassword
+    if (hasAdmin && createAdminPassword.length < 6) {
+      notifyError({
+        title: 'Contraseña del admin',
+        description: 'Mínimo 6 caracteres.',
+      })
+      return
+    }
+    setCreatingGym(true)
+    try {
+      const payload: Parameters<typeof createGym>[0] = {
+        name,
+        subscription_tier: createGymTier,
+      }
+      if (hasAdmin) {
+        payload.admin_email = createAdminEmail.trim()
+        payload.admin_password = createAdminPassword
+        if (createAdminName.trim()) payload.admin_name = createAdminName.trim()
+      }
+      const result = await createGym(payload)
+      setGyms((prev) => [...prev, result.gym])
+      setShowCreateGymModal(false)
+      setCreateGymName('')
+      setCreateGymTier('BASIC')
+      setCreateAdminEmail('')
+      setCreateAdminPassword('')
+      setCreateAdminName('')
+      notifySuccess({
+        title: 'Gimnasio creado',
+        description: result.admin
+          ? `${result.gym.name} creado. El admin ${result.admin.email} ya puede iniciar sesión.`
+          : `${result.gym.name} creado. Añade un admin con el script create-gym-admin si lo necesitas.`,
+      })
+    } catch (error: any) {
+      notifyError({
+        title: 'No pudimos crear el gimnasio',
+        description: error?.message ?? 'Revisa los datos e inténtalo de nuevo.',
+      })
+    } finally {
+      setCreatingGym(false)
     }
   }
 
@@ -251,37 +309,45 @@ export const SuperAdminDashboard = () => {
                 Cambia el tier para activar módulos según el plan contratado.
               </p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                void (async () => {
-                  try {
-                    setIsLoading(true)
-                    const [m, g] = await Promise.all([
-                      fetchSaasMetrics(),
-                      fetchGyms(),
-                    ])
-                    setMetrics(m)
-                    setGyms(g)
-                    notifySuccess({
-                      title: 'Dashboard actualizado',
-                      description: 'Se recargaron gimnasios y métricas.',
-                    })
-                  } catch (error: any) {
-                    notifyError({
-                      title: 'No pudimos refrescar',
-                      description:
-                        error?.message ?? 'Inténtalo de nuevo en unos segundos.',
-                    })
-                  } finally {
-                    setIsLoading(false)
-                  }
-                })()
-              }}
-            >
-              Refrescar datos
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                onClick={() => setShowCreateGymModal(true)}
+              >
+                Crear gimnasio
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void (async () => {
+                    try {
+                      setIsLoading(true)
+                      const [m, g] = await Promise.all([
+                        fetchSaasMetrics(),
+                        fetchGyms(),
+                      ])
+                      setMetrics(m)
+                      setGyms(g)
+                      notifySuccess({
+                        title: 'Dashboard actualizado',
+                        description: 'Se recargaron gimnasios y métricas.',
+                      })
+                    } catch (error: any) {
+                      notifyError({
+                        title: 'No pudimos refrescar',
+                        description:
+                          error?.message ?? 'Inténtalo de nuevo en unos segundos.',
+                      })
+                    } finally {
+                      setIsLoading(false)
+                    }
+                  })()
+                }}
+              >
+                Refrescar datos
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -421,6 +487,92 @@ export const SuperAdminDashboard = () => {
                 disabled={savingModules}
               >
                 {savingModules ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Modal: crear gimnasio + admin */}
+        <Modal
+          isOpen={showCreateGymModal}
+          title="Crear gimnasio"
+          description="Alta de un nuevo gimnasio. Opcionalmente crea el administrador para que pueda iniciar sesión en /admin."
+          onClose={() => !creatingGym && setShowCreateGymModal(false)}
+        >
+          <div className="space-y-4">
+            <Input
+              label="Nombre del gimnasio"
+              type="text"
+              value={createGymName}
+              onChange={(e) => setCreateGymName(e.target.value)}
+              placeholder="Ej. Mi Gym"
+              autoComplete="off"
+            />
+            <div>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
+                Plan (tier)
+              </label>
+              <select
+                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                value={createGymTier}
+                onChange={(e) => setCreateGymTier(e.target.value as Tier)}
+              >
+                {Object.entries(TIER_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="border-t border-zinc-200 dark:border-white/10 pt-4 mt-4">
+              <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-3">
+                Administrador del gym (opcional)
+              </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-500 mb-3">
+                Si rellenas email y contraseña, se creará el usuario y podrá iniciar sesión en la app como admin de este gym.
+              </p>
+              <div className="space-y-3">
+                <Input
+                  label="Email del admin"
+                  type="email"
+                  value={createAdminEmail}
+                  onChange={(e) => setCreateAdminEmail(e.target.value)}
+                  placeholder="admin@migym.com"
+                  autoComplete="off"
+                />
+                <Input
+                  label="Contraseña (mín. 6 caracteres)"
+                  type="password"
+                  value={createAdminPassword}
+                  onChange={(e) => setCreateAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+                <Input
+                  label="Nombre del admin (opcional)"
+                  type="text"
+                  value={createAdminName}
+                  onChange={(e) => setCreateAdminName(e.target.value)}
+                  placeholder="Ej. Carlos Ramírez"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateGymModal(false)}
+                disabled={creatingGym}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleCreateGym()}
+                disabled={creatingGym}
+              >
+                {creatingGym ? 'Creando...' : 'Crear gimnasio'}
               </Button>
             </div>
           </div>

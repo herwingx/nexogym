@@ -172,7 +172,7 @@ router.post('/shifts/close', closeShift);       // Cerrar turno + corte de caja
  * @swagger
  * /api/v1/pos/shifts/{id}/force-close:
  *   patch:
- *     summary: [Admin] Force-close an open shift (e.g. abandoned by receptionist)
+ *     summary: "[Admin] Force-close an open shift (e.g. abandoned by receptionist)"
  *     tags: [Shifts]
  *     parameters:
  *       - in: path
@@ -212,7 +212,7 @@ router.get('/shifts/current', getCurrentShift);
  * @swagger
  * /api/v1/pos/shifts/open:
  *   get:
- *     summary: [Admin] List all open shifts in the gym
+ *     summary: "[Admin] List all open shifts in the gym"
  *     tags: [Shifts]
  *     responses:
  *       200:

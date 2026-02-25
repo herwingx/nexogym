@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { fetchUserContext } from '../../lib/apiClient'
 import { useAuthStore } from '../../store/useAuthStore'
+import { notifyError } from '../../lib/notifications'
 
 const BOOTSTRAP_TIMEOUT_MS = 8_000
 
@@ -66,11 +67,19 @@ export const AuthRestore = ({ children }: { children: React.ReactNode }) => {
           gymLogoUrl: context.gym.logo_url ?? null,
         })
         if (!cancelled) setBootstrapped(true)
-      } catch {
+      } catch (err) {
         if (!cancelled) {
           clearTimeout(timeoutId)
           clearAuth()
           setBootstrapped(true)
+          // Cerrar sesión en Supabase para quitar token inválido/expirado y no repetir 401 en cada carga
+          await supabase.auth.signOut()
+          const message = err instanceof Error ? err.message : 'Error al restaurar sesión'
+          const isUnauthorized = message.includes('401') || /unauthorized|invalid token|user not found in database/i.test(message)
+          notifyError({
+            title: isUnauthorized ? 'Sesión expirada o inválida' : 'Sesión no restaurada',
+            description: isUnauthorized ? 'Inicia sesión de nuevo.' : message,
+          })
         }
       }
     }

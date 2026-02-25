@@ -49,7 +49,17 @@ export const LoginPage = () => {
           })
 
           if (error || !data.session) {
-            throw error ?? new Error('Credenciales inválidas')
+            const err = error ?? new Error('Credenciales inválidas')
+            // Ayuda específica para acceso SaaS: el usuario debe existir en Supabase (seed)
+            const isInvalidCredentials =
+              (err as { message?: string }).message?.includes('Invalid login credentials') ||
+              (err as { name?: string }).name === 'AuthApiError'
+            if (isInvalidCredentials) {
+              throw new Error(
+                'Credenciales inválidas. Para acceso SaaS (superadmin@nexogym.dev) ejecuta el seed del backend con SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY del mismo proyecto que usa el frontend (VITE_SUPABASE_URL).',
+              )
+            }
+            throw err
           }
 
           const context = await fetchUserContext()

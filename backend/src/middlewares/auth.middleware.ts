@@ -66,6 +66,10 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     req.log?.error({ err: error, message: error.message, stack: error.stack }, '[Auth Middleware Error]');
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.error('[Auth Middleware Error]', error.message, error.stack);
+    }
     const payload: { error: string; detail?: string } = { error: 'Internal server error during authentication' };
     if (process.env.NODE_ENV !== 'production') {
       payload.detail = error.message;

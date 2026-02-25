@@ -39,6 +39,15 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 
 ---
 
+## Auth y Supabase
+
+| Documento | Contenido |
+|-----------|-----------|
+| **SUPABASE_AUTH_EN_EL_PROYECTO.md** | Cómo interactúa Supabase Auth con el proyecto: flujo login → token → backend, enlace `auth_user_id`, ventajas frente a implementar login propio, variables de entorno. |
+| **BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md** | Primer arranque con DB vacía en producción: seed, SuperAdmin, cómo crear tu usuario admin de un gym (opciones y checklist). |
+
+---
+
 ## Roles, permisos y usuarios
 
 | Documento | Contenido |

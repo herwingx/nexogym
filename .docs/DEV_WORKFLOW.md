@@ -317,6 +317,8 @@ para obtener un JWT y vincularlo al usuario del seed.
 Los endpoints de hardware (`POST /checkin`, `POST /biometric/checkin`) no necesitan JWT,
 usan `X-Hardware-Key`. Ver tabla más abajo.
 
+**Login /saas (SUPERADMIN):** superadmin@nexogym.dev / SuperAdmin2025!. El seed crea el usuario en Supabase Auth si tienes SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY (mismo proyecto que el frontend). Invalid login credentials = ejecutar npm run db:seed. 500 en contexto = revisar en Network el body (detail).
+
 **GAP 2 — `auth_user_id` no está vinculado hasta que lo hagas manualmente**
 
 `GET /users/me/context` solo funciona una vez que hayas hecho el Paso 3 de la sección
@@ -330,6 +332,27 @@ Si al hacer login (admin o cualquier rol) obtienes **500** en `GET /api/v1/users
 2. El **frontend** (Login, AuthRestore) muestra ese `detail` en el toast de error cuando está presente (ej. "Error al cargar contexto: column \"theme_colors\" of relation \"Gym\" does not exist").
 3. Causas habituales: migraciones no aplicadas (`npm run db:push`), BD apagada o inaccesible, seed no ejecutado (usuario o gym no existen). Corrige según el mensaje en `detail` y en los logs del backend.
 
+**Reset completo: vaciar Supabase Auth y volver a llenar con el seed**
+
+Si borras todo en Supabase Auth (o usas un proyecto nuevo) y quieres dejar DB y Auth de nuevo como el seed:
+
+1. **Supabase** → Authentication → Users: borra todos los usuarios (o usa un proyecto vacío).
+2. **Base de datos**: resetea y vuelve a ejecutar el seed. En el `.env` del backend deben estar `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` del **mismo** proyecto que usa el frontend (`VITE_SUPABASE_URL`).
+   - **Si usas migraciones:** `npm run db:reset` (hace drop de la DB, reaplica migraciones y **ejecuta el seed**). Con eso basta.
+   - **Si usas solo `db:push`:** vacía la DB (truncar tablas o recrear la BD), luego `npm run db:push` y `npm run db:seed`.
+3. El seed crea en **Supabase Auth** todos los usuarios (superadmin@nexogym.dev, admin@fitzone.dev, recep@fitzone.dev, etc.) y vincula cada uno en la tabla `User` con `auth_user_id`. Al terminar, la consola imprime las credenciales por gym.
+
+No re-ejecutes solo `db:seed` sobre una DB que ya tiene datos del seed: el seed crea registros nuevos y fallaría por duplicados. Para “empezar de cero” hay que **resetear o vaciar la DB** y (si quieres que Auth coincida) **borrar los usuarios en Supabase Auth** antes de volver a correr el seed.
+
+**Por qué Supabase a veces no se actualizaba con el seed**
+
+- **Faltaba `SUPABASE_SERVICE_ROLE_KEY` en el `.env` del backend:** el seed comprueba esta variable al inicio y hace `process.exit(1)` si no está. No crea nada en la DB ni en Supabase. Solución: añadir la key en `backend/.env` (o en `backend/prisma/.env`) y volver a ejecutar el seed (con la DB vacía o reseteada).
+- **La DB ya tenía datos de un seed anterior:** el seed no es idempotente: intenta crear gyms y usuarios nuevos. Si la DB ya tenía esos registros, falla por duplicados y puede que no llegue a ejecutar todas las `linkSupabaseAuth`, o falle al principio. Supabase queda sin usuarios (o solo con algunos). Solución: resetear/vaciar la DB y luego ejecutar el seed de nuevo.
+- **Proyecto Supabase distinto al del frontend:** si `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` apuntan a otro proyecto que el que usa el frontend (`VITE_SUPABASE_URL`), el seed llena de usuarios ese otro proyecto. En el que miras o usa la app no hay nadie. Solución: usar el mismo proyecto en backend y frontend.
+- **Variables en otro archivo:** el seed carga `prisma/.env` y `.env` (desde la raíz del backend). Si las keys están solo en `.env.local` o en otro sitio, no se cargan y el seed sale por "SUPABASE_SERVICE_ROLE_KEY no está definida". Solución: poner `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en `backend/.env`.
+
+Por eso el flujo que te funcionó (resetear DB + push + seed) garantiza: DB vacía → seed corre entero → con la key configurada, crea todos los usuarios en Supabase Auth y los vincula en la DB.
+
 ---
 
 ### Qué queda fuera del repo y por qué (revisión posterior)
@@ -341,7 +364,7 @@ Todo lo que no se puede “completar” solo con código en este repo aparece aq
 | **Branch protection** (PR obligatorio, aprobaciones, checks) | GitHub → Settings → Branches | Son reglas de la plataforma; se documentan en `.docs/BRANCH_PROTECTION.md` pero se activan en la UI de GitHub. |
 | **Secrets y variables de entorno** (DB, Supabase, CORS, etc.) | GitHub Actions Secrets; panel del hosting (Railway, Render, etc.) para prod | No deben estar en el repo por seguridad; cada entorno se configura aparte. |
 | **Proyectos Supabase (dev / staging / prod)** | Dashboard Supabase: crear proyectos y copiar URLs/keys | Un proyecto por entorno; la creación y la configuración (Redirect URLs, Storage buckets) es en el dashboard. |
-| **Vincular JWT (auth_user_id) en dev** | Manual: Supabase Auth → crear usuario, luego Prisma Studio → editar `User.auth_user_id` | El seed no crea usuarios en Supabase Auth; es un paso manual de desarrollo para poder usar Swagger y el frontend con el mismo usuario. Solo afecta a dev. |
+| **Vincular JWT (auth_user_id) en dev** | Si el seed se ejecutó con `SUPABASE_SERVICE_ROLE_KEY`, ya creó los usuarios en Supabase Auth y vinculó `auth_user_id`. Si no, manual en Prisma Studio o volver a ejecutar el seed (ver “Reset completo” más abajo). |
 | **Cron para sync de suscripciones vencidas** | Scheduler del hosting, GitHub Actions scheduled workflow, o script externo que llame `POST /users/sync-expired-subscriptions` | El endpoint existe; quién lo llama y cada cuánto se configura en la infra, no en el código de la API. Ver `.docs/SUBSCRIPTION_EXPIRY_AND_RENEWAL.md`. |
 
 ---
@@ -451,7 +474,7 @@ Se usan como header: `X-Hardware-Key: <valor>`
 | Método | Endpoint | Qué probar |
 |---|---|---|
 | `GET` | `/api/v1/saas/gyms` | Lista todos los gyms de la plataforma |
-| `POST` | `/api/v1/saas/gyms` | Crear nuevo gym |
+| `POST` | `/api/v1/saas/gyms` | Crear nuevo gym (opcional: `admin_email`, `admin_password`, `admin_name` para crear el primer admin en el mismo paso; requiere `SUPABASE_SERVICE_ROLE_KEY`) |
 | `GET` | `/api/v1/saas/gyms/:id` | Detalle de un gym |
 | `PATCH` | `/api/v1/saas/gyms/:id` | Editar configuración |
 | `PATCH` | `/api/v1/saas/gyms/:id/tier` | Cambiar plan (verifica que `modules_config` cambia) |

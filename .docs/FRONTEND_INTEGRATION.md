@@ -94,6 +94,7 @@ Regla UX: si `false`, ocultar menú/acción y no renderizar CTA.
 - `modules_config` no se define manualmente desde frontend.
 - Se deriva del plan (`subscription_tier`) y está blindado también en DB.
 - Para frontend SuperAdmin, usar además:
+  - `POST /api/v1/saas/gyms` (crear gym; opcional: `admin_email`, `admin_password`, `admin_name` para crear el primer admin en el mismo paso).
   - `GET /api/v1/saas/gyms/:id/modules`
   - `PATCH /api/v1/saas/gyms/:id/tier`
 - **Foto de perfil al alta (Registrar socio):** el backend acepta `profile_picture_url` opcional en `POST /users`. En recepción el formulario permite pegar una URL o subir archivo; la subida usa Supabase Storage bucket **`profile-pictures`** (crear el bucket en el dashboard y política de escritura si aplica). Si el bucket no existe, se puede usar solo el campo URL.

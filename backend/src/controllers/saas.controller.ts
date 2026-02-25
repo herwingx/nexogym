@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
 import crypto from 'crypto';
-import { Prisma, SubscriptionTier } from '@prisma/client';
+import { createClient } from '@supabase/supabase-js';
+import { Prisma, SubscriptionTier, Role } from '@prisma/client';
+import { env } from '../config/env';
 import {
   createGymSchema,
   updateGymSchema,
@@ -25,7 +27,16 @@ export const createGym = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, theme_colors, subscription_tier, n8n_config, logo_url } = validation.data;
+    const { name, theme_colors, subscription_tier, n8n_config, logo_url, admin_email, admin_password, admin_name } =
+      validation.data;
+
+    const wantsAdmin = admin_email != null && admin_email !== '' && admin_password != null && admin_password !== '';
+    if (wantsAdmin && !env.SUPABASE_SERVICE_ROLE_KEY) {
+      res.status(503).json({
+        error: 'Crear admin al dar de alta el gym requiere configurar SUPABASE_SERVICE_ROLE_KEY en el servidor.',
+      });
+      return;
+    }
 
     // Generate a secure, unique hardware API key
     const apiKeyHardware = crypto.randomBytes(32).toString('hex');
@@ -47,9 +58,68 @@ export const createGym = async (req: Request, res: Response) => {
       },
     });
 
+    let adminCreated: { email: string } | null = null;
+    if (wantsAdmin && env.SUPABASE_SERVICE_ROLE_KEY) {
+      const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: admin_email!,
+        password: admin_password!,
+        email_confirm: true,
+      });
+
+      if (authError) {
+        if (
+          authError.message.includes('already been registered') ||
+          (authError as { code?: string }).code === 'email_exists'
+        ) {
+          const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+          const existing = list?.users.find((u) => u.email === admin_email);
+          if (existing) {
+            await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+              password: admin_password!,
+              email_confirm: true,
+            });
+            await prisma.user.create({
+              data: {
+                gym_id: gym.id,
+                auth_user_id: existing.id,
+                name: admin_name && admin_name.trim() ? admin_name.trim() : null,
+                role: Role.ADMIN,
+                phone: null,
+                pin_hash: null,
+              },
+            });
+            adminCreated = { email: admin_email };
+          }
+        }
+        if (!adminCreated) {
+          res.status(400).json({
+            error: 'No se pudo crear el administrador en Supabase.',
+            detail: authError.message,
+          });
+          return;
+        }
+      } else if (authData?.user) {
+        await prisma.user.create({
+          data: {
+            gym_id: gym.id,
+            auth_user_id: authData!.user.id,
+            name: admin_name && admin_name.trim() ? admin_name.trim() : null,
+            role: Role.ADMIN,
+            phone: null,
+            pin_hash: null,
+          },
+        });
+        adminCreated = { email: admin_email };
+      }
+    }
+
     res.status(201).json({
       message: 'Gym created successfully.',
       gym,
+      ...(adminCreated && { admin: adminCreated }),
     });
   } catch (error) {
     handleControllerError(req, res, error, '[createGym Error]', 'Failed to create Gym.');

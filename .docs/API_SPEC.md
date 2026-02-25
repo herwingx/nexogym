@@ -103,10 +103,26 @@ Reporte de ventas por staff para pago de comisiones.
 ## Sprint B13 — SaaS Feature Flags y Métricas
 
 ### `POST /api/v1/saas/gyms` (Actualizado)
-Crea gimnasio y asigna `modules_config` automáticamente según `subscription_tier` (sin override manual):
+Crea gimnasio y asigna `modules_config` automáticamente según `subscription_tier` (sin override manual). Opcionalmente crea el primer administrador del gym (usuario en Supabase Auth + User en DB con rol ADMIN).
+
+**Body (todos los campos excepto `name` son opcionales):**
+- `name` (string, requerido): nombre del gimnasio.
+- `subscription_tier` (opcional): `"BASIC"` | `"PRO_QR"` | `"PREMIUM_BIO"`.
+- `theme_colors`, `n8n_config`, `logo_url`: opcionales (igual que antes).
+- **Admin (opcional, los tres juntos):** `admin_email`, `admin_password` (mín. 6 caracteres), `admin_name`. Si se envían `admin_email` y `admin_password`, el servidor crea el usuario en Supabase Auth y el User en la DB con `role: ADMIN` y `gym_id` del gym recién creado. Requiere `SUPABASE_SERVICE_ROLE_KEY` en el backend; si no está configurado, responde `503`.
+
+**Ejemplo con admin:**
 ```json
-{ "subscription_tier": "BASIC" }
+{
+  "name": "Mi Gym",
+  "subscription_tier": "PRO_QR",
+  "admin_email": "admin@migym.com",
+  "admin_password": "contraseñaSegura",
+  "admin_name": "Carlos Admin"
+}
 ```
+
+**Respuesta 201:** `{ "message": "...", "gym": { ... }, "admin": { "email": "admin@migym.com" } }` (el campo `admin` solo aparece si se creó el administrador).
 
 Config de mensajería por gym para n8n (opcional):
 ```json
