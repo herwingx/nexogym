@@ -8,6 +8,7 @@ import {
   ShiftStatus,
   TransactionType,
   BookingStatus,
+  ExpenseType,
 } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -87,6 +88,7 @@ async function linkSupabaseAuth(
 const pin = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000);
 const randomHex = () => crypto.randomBytes(32).toString('hex');
+const qrToken = () => crypto.randomBytes(16).toString('hex'); // 32 chars, único para check-in QR
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
@@ -157,13 +159,13 @@ async function main() {
   });
   await linkSupabaseAuth(receptionistBasic.id, 'recep@fitzone.dev', 'Recep1234!');
 
-  // Miembros Básico
+  // Miembros Básico (qr_token para check-in por QR; BASIC no tiene QR pero el token permite pruebas futuras)
   const basicMembers = await Promise.all([
-    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Ana Méndez',       phone: '+529611100001', role: Role.MEMBER, current_streak: 5  } }),
-    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Roberto Soto',     phone: '+529611100002', role: Role.MEMBER, current_streak: 0  } }),
-    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Sofía Luna',       phone: '+529611100003', role: Role.MEMBER, current_streak: 12 } }),
-    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Miguel Herrera',   phone: '+529611100004', role: Role.MEMBER, current_streak: 3  } }),
-    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Valeria Castillo', phone: '+529611100005', role: Role.MEMBER, current_streak: 0  } }),
+    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Ana Méndez',       phone: '+529611100001', role: Role.MEMBER, current_streak: 5,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Roberto Soto',     phone: '+529611100002', role: Role.MEMBER, current_streak: 0,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Sofía Luna',       phone: '+529611100003', role: Role.MEMBER, current_streak: 12, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Miguel Herrera',   phone: '+529611100004', role: Role.MEMBER, current_streak: 3,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymBasic.id, name: 'Valeria Castillo', phone: '+529611100005', role: Role.MEMBER, current_streak: 0,  qr_token: qrToken() } }),
   ]);
 
   await prisma.subscription.createMany({
@@ -177,12 +179,13 @@ async function main() {
   });
   await linkSupabaseAuth(basicMembers[0].id, 'member@fitzone.dev', 'Member1234!');
 
-  // Productos Básico
+  // Productos Básico (incl. Membresía para renovaciones en caja)
   const [prodBasic1, prodBasic2, prodBasic3] = await Promise.all([
     prisma.product.create({ data: { gym_id: gymBasic.id, name: 'Agua Electrolit 600ml', price: 35,  stock: 80, barcode: '7501055300708' } }),
     prisma.product.create({ data: { gym_id: gymBasic.id, name: 'Barra Proteica 30g',    price: 45,  stock: 60, barcode: '7501234500001' } }),
     prisma.product.create({ data: { gym_id: gymBasic.id, name: 'Guantes de Gym',        price: 299, stock: 20                           } }),
   ]);
+  await prisma.product.create({ data: { gym_id: gymBasic.id, name: 'Membresía 30 días', price: 0, stock: 99999, barcode: 'MEMBERSHIP' } });
 
   // Turno de caja cerrado + ventas (Básico)
   const shiftBasic = await prisma.cashShift.create({
@@ -286,16 +289,27 @@ async function main() {
   });
   await linkSupabaseAuth(instructorPro.id, 'instructor@powerfit.dev', 'Instructor1234!');
 
-  // Miembros Pro (con streaks y variedad de suscripciones)
+  const coachPro = await prisma.user.create({
+    data: {
+      gym_id: gymPro.id,
+      name: 'Carla Díaz (Coach)',
+      phone: '+529622000004',
+      role: Role.COACH,
+      pin_hash: pin('9999'),
+    },
+  });
+  await linkSupabaseAuth(coachPro.id, 'coach@powerfit.dev', 'Coach1234!');
+
+  // Miembros Pro (con streaks, qr_token para check-in QR)
   const proMembers = await Promise.all([
-    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Claudia Vega',     phone: '+529622100001', role: Role.MEMBER, current_streak: 30 } }),
-    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Andrés Fuentes',   phone: '+529622100002', role: Role.MEMBER, current_streak: 7  } }),
-    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Paola Jiménez',    phone: '+529622100003', role: Role.MEMBER, current_streak: 14 } }),
-    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Ernesto Guzmán',   phone: '+529622100004', role: Role.MEMBER, current_streak: 0  } }),
-    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Marina Salazar',   phone: '+529622100005', role: Role.MEMBER, current_streak: 2  } }),
-    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Héctor Domínguez', phone: '+529622100006', role: Role.MEMBER, current_streak: 0  } }),
-    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Lucía Cervantes',  phone: '+529622100007', role: Role.MEMBER, current_streak: 21 } }),
-    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Omar Contreras',   phone: '+529622100008', role: Role.MEMBER, current_streak: 4  } }),
+    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Claudia Vega',     phone: '+529622100001', role: Role.MEMBER, current_streak: 30, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Andrés Fuentes',   phone: '+529622100002', role: Role.MEMBER, current_streak: 7,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Paola Jiménez',    phone: '+529622100003', role: Role.MEMBER, current_streak: 14, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Ernesto Guzmán',   phone: '+529622100004', role: Role.MEMBER, current_streak: 0,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Marina Salazar',   phone: '+529622100005', role: Role.MEMBER, current_streak: 2,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Héctor Domínguez', phone: '+529622100006', role: Role.MEMBER, current_streak: 0,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Lucía Cervantes',  phone: '+529622100007', role: Role.MEMBER, current_streak: 21, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPro.id, name: 'Omar Contreras',   phone: '+529622100008', role: Role.MEMBER, current_streak: 4,  qr_token: qrToken() } }),
   ]);
   // Socio con login para portal del socio (Claudia Vega)
   await linkSupabaseAuth(proMembers[0].id, 'socio@powerfit.dev', 'Socio1234!');
@@ -322,8 +336,8 @@ async function main() {
     prisma.product.create({ data: { gym_id: gymPro.id, name: 'Cuerda para Saltar Pro',    price: 179, stock: 12 } }),
   ]);
 
-  // Clases (módulo habilitado en PRO)
-  const [classSpin, classBox] = await Promise.all([
+  // Clases (módulo habilitado en PRO) — Instructor y Coach
+  const [classSpin, classBox, classFunc] = await Promise.all([
     prisma.gymClass.create({ data: {
       gym_id: gymPro.id, instructor_id: instructorPro.id,
       name: 'Spinning Intenso', description: 'Cardio en bici a todo ritmo',
@@ -333,6 +347,11 @@ async function main() {
       gym_id: gymPro.id, instructor_id: instructorPro.id,
       name: 'Box Fit', description: 'Cardio + fuerza con técnica de box',
       capacity: 12, day_of_week: 3, start_time: '19:00', end_time: '20:00',
+    }}),
+    prisma.gymClass.create({ data: {
+      gym_id: gymPro.id, instructor_id: coachPro.id,
+      name: 'Functional Coach', description: 'Entrenamiento funcional con coach',
+      capacity: 12, day_of_week: 2, start_time: '18:00', end_time: '19:00',
     }}),
   ]);
 
@@ -382,9 +401,13 @@ async function main() {
     ],
   });
 
-  // Gasto en turno abierto
-  await prisma.expense.create({
-    data: { gym_id: gymPro.id, cash_shift_id: shiftProOpen.id, amount: 120, description: 'Limpieza y sanitizantes' },
+  // Gastos en turno abierto (variedad de ExpenseType)
+  await prisma.expense.createMany({
+    data: [
+      { gym_id: gymPro.id, cash_shift_id: shiftProOpen.id, type: ExpenseType.OPERATIONAL_EXPENSE, amount: 120, description: 'Limpieza y sanitizantes' },
+      { gym_id: gymPro.id, cash_shift_id: shiftProOpen.id, type: ExpenseType.SUPPLIER_PAYMENT, amount: 500, description: 'Proveedor suplementos' },
+      { gym_id: gymPro.id, cash_shift_id: shiftProOpen.id, type: ExpenseType.CASH_DROP, amount: 2000, description: null },
+    ],
   });
 
   // Visitas (QR y MANUAL)
@@ -470,18 +493,18 @@ async function main() {
   ]);
   await linkSupabaseAuth(instructorPremium1.id, 'instructor@elitebody.dev', 'Instructor1234!');
 
-  // Miembros Premium (streaks altos, suscripciones activas predominantes)
+  // Miembros Premium (streaks altos, qr_token para QR/biométrico)
   const premiumMembers = await Promise.all([
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Natalia Reyes',    phone: '+529633100001', role: Role.MEMBER, current_streak: 60 } }),
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Gabriel Torres',   phone: '+529633100002', role: Role.MEMBER, current_streak: 45 } }),
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Isabella Ponce',   phone: '+529633100003', role: Role.MEMBER, current_streak: 22 } }),
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Mateo Espinoza',   phone: '+529633100004', role: Role.MEMBER, current_streak: 90 } }),
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Valeria Mendoza',  phone: '+529633100005', role: Role.MEMBER, current_streak: 8  } }),
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Daniela Aguilar',  phone: '+529633100006', role: Role.MEMBER, current_streak: 33 } }),
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Rodrigo Ibáñez',   phone: '+529633100007', role: Role.MEMBER, current_streak: 15 } }),
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Camila Guerrero',  phone: '+529633100008', role: Role.MEMBER, current_streak: 0  } }),
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Santiago Medina',  phone: '+529633100009', role: Role.MEMBER, current_streak: 5  } }),
-    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Valentina Ríos',   phone: '+529633100010', role: Role.MEMBER, current_streak: 77 } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Natalia Reyes',    phone: '+529633100001', role: Role.MEMBER, current_streak: 60, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Gabriel Torres',   phone: '+529633100002', role: Role.MEMBER, current_streak: 45, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Isabella Ponce',   phone: '+529633100003', role: Role.MEMBER, current_streak: 22, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Mateo Espinoza',   phone: '+529633100004', role: Role.MEMBER, current_streak: 90, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Valeria Mendoza',  phone: '+529633100005', role: Role.MEMBER, current_streak: 8,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Daniela Aguilar',  phone: '+529633100006', role: Role.MEMBER, current_streak: 33, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Rodrigo Ibáñez',   phone: '+529633100007', role: Role.MEMBER, current_streak: 15, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Camila Guerrero',  phone: '+529633100008', role: Role.MEMBER, current_streak: 0,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Santiago Medina',  phone: '+529633100009', role: Role.MEMBER, current_streak: 5,  qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium.id, name: 'Valentina Ríos',   phone: '+529633100010', role: Role.MEMBER, current_streak: 77, qr_token: qrToken() } }),
   ]);
 
   await prisma.subscription.createMany({
@@ -598,9 +621,13 @@ async function main() {
     ],
   });
 
-  // Gasto Premium
-  await prisma.expense.create({
-    data: { gym_id: gymPremium.id, cash_shift_id: shiftPremium.id, amount: 350, description: 'Pago servicio limpieza' },
+  // Gastos Premium (variedad de ExpenseType)
+  await prisma.expense.createMany({
+    data: [
+      { gym_id: gymPremium.id, cash_shift_id: shiftPremium.id, type: ExpenseType.OPERATIONAL_EXPENSE, amount: 350, description: 'Pago servicio limpieza' },
+      { gym_id: gymPremium.id, cash_shift_id: shiftPremium.id, type: ExpenseType.SUPPLIER_PAYMENT, amount: 1200, description: 'Proteína y suplementos' },
+      { gym_id: gymPremium.id, cash_shift_id: shiftPremium.id, type: ExpenseType.CASH_DROP, amount: 3000, description: null },
+    ],
   });
 
   // Visitas con todos los métodos de acceso (PREMIUM tiene biometría)
@@ -656,6 +683,36 @@ async function main() {
     await prisma.workoutExercise.createMany({ data: tpl.exercises.map(e => ({ ...e, routine_id: routine.id })) });
   }
 
+  // AuditLog (para AdminAudit — simular acciones típicas)
+  const auditPro = [
+    { gym_id: gymPro.id, user_id: adminPro.id, action: 'SUBSCRIPTION_RENEWED', details: { member_name: 'Claudia Vega', days: 28 } },
+    { gym_id: gymPro.id, user_id: receptionistPro.id, action: 'CHECKIN_MANUAL', details: { member_name: 'Ernesto Guzmán', reason: 'QR no disponible' } },
+    { gym_id: gymPro.id, user_id: adminPro.id, action: 'SHIFT_CLOSED', details: { shift_id: 'demo', total_sales: 4500 } },
+    { gym_id: gymPro.id, user_id: adminPro.id, action: 'COURTESY_ACCESS_GRANTED', details: { member_name: 'Marina Salazar', date: new Date().toISOString() } },
+    { gym_id: gymPro.id, user_id: receptionistPro.id, action: 'SUBSCRIPTION_FROZEN', details: { member_name: 'Omar Contreras', days_left: 14 } },
+  ];
+  const auditPremium = [
+    { gym_id: gymPremium.id, user_id: adminPremium.id, action: 'SUBSCRIPTION_RENEWED', details: { member_name: 'Natalia Reyes', days: 30 } },
+    { gym_id: gymPremium.id, user_id: receptionistPremium.id, action: 'CHECKIN_QR', details: { member_name: 'Gabriel Torres' } },
+    { gym_id: gymPremium.id, user_id: adminPremium.id, action: 'SHIFT_CLOSED', details: { shift_id: 'demo', total_sales: 8500 } },
+    { gym_id: gymPremium.id, user_id: adminPremium.id, action: 'SUBSCRIPTION_CANCELED', details: { member_name: 'Santiago Medina' } },
+  ];
+  await prisma.auditLog.createMany({ data: [...auditPro, ...auditPremium] });
+
+  // Actualizar last_visit_at y last_checkin_date para usuarios con visitas (leaderboard)
+  const visitIds = await prisma.visit.findMany({ select: { user_id: true, check_in_time: true }, orderBy: { check_in_time: 'desc' } });
+  const latestByUser = new Map<string, Date>();
+  for (const v of visitIds) {
+    if (!latestByUser.has(v.user_id)) latestByUser.set(v.user_id, v.check_in_time);
+  }
+  for (const [userId, checkIn] of latestByUser) {
+    const d = new Date(checkIn); d.setHours(0, 0, 0, 0);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { last_visit_at: checkIn, last_checkin_date: d },
+    });
+  }
+
   // =========================================================================
   // 4. GYMS EXTRA POR PLAN — Para probar aislamiento y que cada plan bloquea bien
   // =========================================================================
@@ -679,8 +736,8 @@ async function main() {
   });
   await linkSupabaseAuth(recepBasic2.id, 'recep@ironhouse.dev', 'Recep1234!');
   const [memberBasic2a, memberBasic2b] = await Promise.all([
-    prisma.user.create({ data: { gym_id: gymBasic2.id, name: 'Socio A IronHouse', phone: '+529644100001', role: Role.MEMBER } }),
-    prisma.user.create({ data: { gym_id: gymBasic2.id, name: 'Socio B IronHouse', phone: '+529644100002', role: Role.MEMBER } }),
+    prisma.user.create({ data: { gym_id: gymBasic2.id, name: 'Socio A IronHouse', phone: '+529644100001', role: Role.MEMBER, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymBasic2.id, name: 'Socio B IronHouse', phone: '+529644100002', role: Role.MEMBER, qr_token: qrToken() } }),
   ]);
   await prisma.subscription.createMany({
     data: [
@@ -716,8 +773,8 @@ async function main() {
   });
   await linkSupabaseAuth(instructorPro2.id, 'instructor@crossbox.dev', 'Instructor1234!');
   const [memberPro2a, memberPro2b] = await Promise.all([
-    prisma.user.create({ data: { gym_id: gymPro2.id, name: 'Socio A CrossBox', phone: '+529655100001', role: Role.MEMBER, current_streak: 3 } }),
-    prisma.user.create({ data: { gym_id: gymPro2.id, name: 'Socio B CrossBox', phone: '+529655100002', role: Role.MEMBER, current_streak: 0 } }),
+    prisma.user.create({ data: { gym_id: gymPro2.id, name: 'Socio A CrossBox', phone: '+529655100001', role: Role.MEMBER, current_streak: 3, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPro2.id, name: 'Socio B CrossBox', phone: '+529655100002', role: Role.MEMBER, current_streak: 0, qr_token: qrToken() } }),
   ]);
   await prisma.subscription.createMany({
     data: [
@@ -760,8 +817,8 @@ async function main() {
   });
   await linkSupabaseAuth(instructorPremium2_2.id, 'instructor@megafit.dev', 'Instructor1234!');
   const [memberPrem2a, memberPrem2b] = await Promise.all([
-    prisma.user.create({ data: { gym_id: gymPremium2.id, name: 'Socio A MegaFit', phone: '+529666100001', role: Role.MEMBER, current_streak: 7 } }),
-    prisma.user.create({ data: { gym_id: gymPremium2.id, name: 'Socio B MegaFit', phone: '+529666100002', role: Role.MEMBER, current_streak: 0 } }),
+    prisma.user.create({ data: { gym_id: gymPremium2.id, name: 'Socio A MegaFit', phone: '+529666100001', role: Role.MEMBER, current_streak: 7, qr_token: qrToken() } }),
+    prisma.user.create({ data: { gym_id: gymPremium2.id, name: 'Socio B MegaFit', phone: '+529666100002', role: Role.MEMBER, current_streak: 0, qr_token: qrToken() } }),
   ]);
   await prisma.subscription.createMany({
     data: [
@@ -811,6 +868,7 @@ async function main() {
   console.log('   Admin      : admin@powerfit.dev      /  Admin1234!');
   console.log('   Recep      : recep@powerfit.dev      /  Recep1234!');
   console.log('   Instructor : instructor@powerfit.dev /  Instructor1234!');
+  console.log('   Coach      : coach@powerfit.dev      /  Coach1234!');
   console.log('   Socio      : socio@powerfit.dev      /  Socio1234!');
   console.log('   (Biometría bloqueada)\n');
 

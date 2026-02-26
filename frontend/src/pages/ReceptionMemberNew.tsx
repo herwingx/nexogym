@@ -13,6 +13,7 @@ export const ReceptionMemberNewPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [pin, setPin] = useState('')
   const [profilePictureUrl, setProfilePictureUrl] = useState('')
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -50,14 +51,18 @@ export const ReceptionMemberNewPage = () => {
     if (!phone.trim()) return
     setSubmitting(true)
     try {
-      await createUser({
+      const res = await createUser({
         name: name.trim() || undefined,
         phone: phone.trim(),
+        email: email.trim() || undefined,
         pin: pin.trim() || undefined,
         role: 'MEMBER',
         ...(profilePictureUrl.trim() && { profile_picture_url: profilePictureUrl.trim() }),
       })
-      notifySuccess({ title: 'Socio registrado', description: 'Se enviará mensaje de bienvenida si está configurado.' })
+      const msg = (res as { member_login_enabled?: boolean }).member_login_enabled
+        ? 'Socio registrado. QR por WhatsApp y credenciales de portal por correo.'
+        : 'Socio registrado. Se enviará mensaje de bienvenida si está configurado.'
+      notifySuccess({ title: 'Socio registrado', description: msg })
       navigate('/reception', { replace: true })
     } catch (e) {
       notifyError({
@@ -71,7 +76,7 @@ export const ReceptionMemberNewPage = () => {
 
   return (
     <div className="min-h-[calc(100vh-6rem)] bg-background text-foreground flex items-center justify-center px-4 py-6">
-      <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-6 shadow-sm">
+      <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4 sm:p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <UserPlus className="h-5 w-5 text-zinc-600 dark:text-zinc-400" />
           <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
@@ -79,7 +84,7 @@ export const ReceptionMemberNewPage = () => {
           </h1>
         </div>
         <p className="text-sm text-zinc-500 mb-4">
-          Alta rápida de nuevo miembro. Teléfono obligatorio.
+          Alta rápida de nuevo miembro. Teléfono obligatorio. Email opcional para portal (gamificación) y promociones.
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -102,6 +107,20 @@ export const ReceptionMemberNewPage = () => {
               required
               placeholder="+52 55 1234 5678"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 mb-1">Email (opcional)</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100"
+              placeholder="ejemplo@correo.com"
+              autoComplete="email"
+            />
+            <p className="text-[11px] text-zinc-500 mt-0.5">
+              Para portal (gamificación) y promociones. Recibirá credenciales por correo.
+            </p>
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-500 mb-1">PIN (opcional)</label>
@@ -167,7 +186,7 @@ export const ReceptionMemberNewPage = () => {
           </div>
 
           <div className="flex gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)} className="flex-1">
+            <Button type="button" variant="outline" onClick={() => navigate('/reception/members')} className="flex-1">
               Volver
             </Button>
             <Button type="submit" disabled={submitting} className="flex-1">

@@ -27,6 +27,8 @@ const envSchema = z.object({
   METRICS_ENABLED: z.enum(['true', 'false']).default('true'),
   METRICS_TOKEN: z.string().default(''),
   N8N_BASE_URL: z.string().default('http://localhost:5678'),
+  /** URL base del frontend para enlaces de login (bienvenida admin). Ej: https://app.nexogym.com */
+  APP_LOGIN_URL: z.string().optional().default(''),
   BILLING_WEBHOOK_SECRET: z.string().optional(),
 });
 

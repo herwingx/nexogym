@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet } from 'lucide-react'
+import { Breadcrumb } from '../components/ui/Breadcrumb'
+import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet, User } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { cn } from '../lib/utils'
 import { logout } from '../lib/logout'
@@ -67,6 +68,21 @@ export const ReceptionLayout = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <NavLink
+              to="/reception/profile"
+              className={({ isActive }) =>
+                cn(
+                  'inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] transition-colors',
+                  isActive
+                    ? 'text-primary font-medium bg-primary/10'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60',
+                )
+              }
+              title="Mi perfil"
+            >
+              <User className="h-3.5 w-3.5" />
+              Perfil
+            </NavLink>
             <div className="hidden sm:inline-flex rounded-full border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-1 text-[11px] text-zinc-500">
               Sesión:{' '}
               <span className="ml-1 font-medium text-zinc-700 dark:text-zinc-300">
@@ -86,7 +102,10 @@ export const ReceptionLayout = () => {
           </div>
         </header>
 
-        {/* Tabs de navegación */}
+        {/* Breadcrumb y tabs */}
+        <div className="border-b border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95">
+          <Breadcrumb compact />
+        </div>
         <nav className="flex border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 px-2 py-1.5 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon
@@ -94,7 +113,7 @@ export const ReceptionLayout = () => {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === '/reception'}
+                end={item.to === '/reception' || item.to === '/reception/members'}
                 className={({ isActive }) =>
                   cn(
                     'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors',

@@ -40,9 +40,9 @@ router.get('/visits', requireStaff, listVisits);
  *       200:
  *         description: Check-in successful
  *       403:
- *         description: Forbidden (No active subscription)
+ *         description: Forbidden (No active subscription or not Staff)
  */
-router.post('/', processCheckin);
+router.post('/', requireStaff, processCheckin);
 
 /**
  * @swagger

@@ -88,8 +88,10 @@ export interface ProtectedRouteProps {
   redirectTo?: string
 }
 
+import { MustChangePasswordModal } from './MustChangePasswordModal'
+
 export const ProtectedRoute = ({ redirectTo = '/login' }: ProtectedRouteProps) => {
-  const { user, token, isBootstrapped } = useAuthStore()
+  const { user, token, isBootstrapped, mustChangePassword } = useAuthStore()
   // redirectTo viene solo de props (valor fijo); si en el futuro se lee de searchParams, usar getSafeRedirectTo()
   const safeRedirect = redirectTo.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : '/login'
 
@@ -101,6 +103,11 @@ export const ProtectedRoute = ({ redirectTo = '/login' }: ProtectedRouteProps) =
     return <Navigate to={safeRedirect} replace />
   }
 
-  return <Outlet />
+  return (
+    <>
+      <Outlet />
+      {mustChangePassword && <MustChangePasswordModal />}
+    </>
+  )
 }
 

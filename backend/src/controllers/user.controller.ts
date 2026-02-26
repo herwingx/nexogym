@@ -1,11 +1,16 @@
 import { Request, Response } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { prisma } from '../db';
-import { SubscriptionStatus, Role, SubscriptionTier } from '@prisma/client';
-import { sendWelcomeMessage, sendQrResend } from '../services/n8n.service';
+import { SubscriptionStatus, Role, SubscriptionTier, ShiftStatus } from '@prisma/client';
+import { sendWelcomeMessage, sendQrResend, sendStaffPasswordResetToAdmin, sendMemberWelcomeEmail } from '../services/n8n.service';
+import { env } from '../config/env';
 import { logAuditEvent } from '../utils/audit.logger';
+import { normalizeGymSlug, generateStaffEmail } from '../utils/staff-email';
 import crypto from 'crypto';
 import { handleControllerError } from '../utils/http';
 import { resolveModulesConfig } from '../utils/modules-config';
+
+const STAFF_ROLES = [Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR] as const;
 
 // GET /users/me/context
 // Tenant Guard (capa 1): al establecer sesión (login/restore), rechaza si gym no está ACTIVE. SUPERADMIN exento.
@@ -92,23 +97,48 @@ export const getUsers = async (req: Request, res: Response) => {
       return;
     }
 
-    const { page = '1', limit = '50', role_not: roleNot } = req.query;
+    const { page = '1', limit = '50', role_not: roleNot, role: roleFilter, status, order_by: orderBy } = req.query;
     const take = Math.min(Number(limit) || 50, 200);
     const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
 
-    const where: { gym_id: string; role?: { not: Role } } = { gym_id: gymId };
-    if (roleNot === 'MEMBER' || String(roleNot).toUpperCase() === 'MEMBER') {
+    const where: {
+      gym_id: string;
+      role?: Role | { not: Role };
+      deleted_at?: null | { not: null };
+    } = { gym_id: gymId };
+    const orderClause =
+      roleFilter === 'MEMBER' && String(orderBy ?? '').toLowerCase() === 'name'
+        ? { name: 'asc' as const }
+        : { created_at: 'desc' as const };
+
+    if (roleFilter === 'MEMBER' || String(roleFilter).toUpperCase() === 'MEMBER') {
+      where.role = Role.MEMBER;
+      where.deleted_at = null; // Socios: no mostrar eliminados
+    } else if (roleNot === 'MEMBER' || String(roleNot).toUpperCase() === 'MEMBER') {
       where.role = { not: Role.MEMBER };
+      // Staff: filtrar por activo/inactivo. Por defecto solo activos.
+      const raw = String(status ?? 'active').trim().toLowerCase();
+      const statusVal = raw === 'inactive' ? 'inactive' : raw === 'all' ? 'all' : 'active';
+      if (statusVal === 'active') where.deleted_at = null;
+      else if (statusVal === 'inactive') where.deleted_at = { not: null };
+      // status=all: no se añade filtro deleted_at
     }
 
-    const [users, total] = await Promise.all([
+    const isMemberList = roleFilter === 'MEMBER' || String(roleFilter).toUpperCase() === 'MEMBER';
+    const now = new Date();
+    const in7d = new Date(now);
+    in7d.setDate(in7d.getDate() + 7);
+
+    const queries: Promise<unknown>[] = [
       prisma.user.findMany({
         where,
         select: {
           id: true,
           name: true,
           phone: true,
+          profile_picture_url: true,
           role: true,
+          auth_user_id: true,
           deleted_at: true,
           current_streak: true,
           last_visit_at: true,
@@ -119,14 +149,59 @@ export const getUsers = async (req: Request, res: Response) => {
             select: { status: true, expires_at: true },
           },
         },
-        orderBy: { created_at: 'desc' },
+        orderBy: orderClause,
         take,
         skip,
       }),
       prisma.user.count({ where }),
-    ]);
+    ];
 
-    res.status(200).json({ data: users, meta: { total, page: Number(page), limit: take } });
+    if (isMemberList) {
+      queries.push(
+        prisma.user.count({
+          where: {
+            gym_id: gymId,
+            role: Role.MEMBER,
+            deleted_at: null,
+            subscriptions: {
+              some: {
+                status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.FROZEN] },
+                expires_at: { gte: now, lte: in7d },
+              },
+            },
+          },
+        }),
+      );
+      queries.push(
+        prisma.user.count({
+          where: {
+            gym_id: gymId,
+            role: Role.MEMBER,
+            deleted_at: null,
+            NOT: {
+              subscriptions: {
+                some: { status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.FROZEN] } },
+              },
+            },
+          },
+        }),
+      );
+    }
+
+    const results = await Promise.all(queries);
+    const users = results[0] as Awaited<ReturnType<typeof prisma.user.findMany>>;
+    const total = results[1] as number;
+    const meta: { total: number; page: number; limit: number; expiring_7d?: number; expired?: number } = {
+      total,
+      page: Number(page),
+      limit: take,
+    };
+    if (isMemberList && results[2] != null && results[3] != null) {
+      meta.expiring_7d = results[2] as number;
+      meta.expired = results[3] as number;
+    }
+
+    res.status(200).json({ data: users, meta });
   } catch (error) {
     handleControllerError(req, res, error, '[getUsers Error]', 'Failed to retrieve users.');
   }
@@ -186,11 +261,35 @@ export const createUser = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, phone, pin: pinFromBody, role, auth_user_id, profile_picture_url, birth_date: birthDateRaw } = req.body;
+    const { name, phone, pin: pinFromBody, role, auth_user_id, email: emailFromBody, profile_picture_url, birth_date: birthDateRaw } = req.body;
 
     if (!phone) {
       res.status(400).json({ error: 'Phone number is required' });
       return;
+    }
+
+    const isMember = !role || role === Role.MEMBER;
+    const email = emailFromBody && typeof emailFromBody === 'string' ? emailFromBody.trim() : '';
+    const hasMemberEmail = isMember && email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    let authUserId: string | null = auth_user_id ?? null;
+    let memberPassword: string | undefined;
+
+    if (hasMemberEmail && env.SUPABASE_SERVICE_ROLE_KEY) {
+      const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const generatedPassword = crypto.randomBytes(12).toString('base64url');
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: generatedPassword,
+        email_confirm: true,
+        user_metadata: { must_change_password: true },
+      });
+      if (!authError && authData?.user) {
+        authUserId = authData.user.id;
+        memberPassword = generatedPassword;
+      }
     }
 
     const birthDate = birthDateRaw != null && birthDateRaw !== ''
@@ -215,7 +314,7 @@ export const createUser = async (req: Request, res: Response) => {
       // 1. Create User
       const user = await tx.user.create({
         data: {
-          auth_user_id: auth_user_id ?? null,
+          auth_user_id: authUserId,
           gym_id: gymId,
           name: name ?? null,
           phone,
@@ -246,18 +345,35 @@ export const createUser = async (req: Request, res: Response) => {
       req.log?.error({ err }, '[createUser WelcomeWebhook Error]');
     });
 
+    if (hasMemberEmail && memberPassword && env.APP_LOGIN_URL) {
+      const loginUrl = `${env.APP_LOGIN_URL.replace(/\/$/, '')}/login`;
+      sendMemberWelcomeEmail(
+        gymId,
+        email,
+        result.user.name ?? null,
+        memberPassword,
+        loginUrl,
+        qrPayload,
+        pin,
+      ).catch((err) => {
+        req.log?.error({ err }, '[createUser MemberWelcomeEmail Error]');
+      });
+    }
+
     res.status(201).json({
       id: result.user.id,
       message: 'Usuario creado satisfactoriamente.',
       assigned_pin: pinFromBody ? undefined : pin, // Only expose auto-generated PINs
+      ...(hasMemberEmail && { member_login_enabled: true }), // Indica que se envió email con credenciales
     });
   } catch (error) {
     handleControllerError(req, res, error, '[createUser Error]', 'Failed to create user');
   }
 };
 
-// PATCH /users/:id/renew
-export const renewSubscription = async (req: Request, res: Response) => {
+// POST /users/staff — Admin crea staff (Recep, Coach, Instructor) sin correo corporativo.
+// Email generado: {gym-slug}-staff-{shortId}@internal.nexogym.com. Credenciales para entregar en persona.
+export const createStaff = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
     if (!gymId) {
@@ -265,14 +381,152 @@ export const renewSubscription = async (req: Request, res: Response) => {
       return;
     }
 
-    const id = req.params.id as string; // User ID
+    const { name, phone, role: roleBody, password: passwordFromBody } = req.body;
 
-    // Find current subscription with STRICT gym_id filter
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      res.status(400).json({ error: 'El nombre es obligatorio.' });
+      return;
+    }
+
+    const role = roleBody && STAFF_ROLES.includes(roleBody) ? roleBody : Role.RECEPTIONIST;
+    const password =
+      passwordFromBody && typeof passwordFromBody === 'string' && passwordFromBody.length >= 8
+        ? passwordFromBody
+        : crypto.randomBytes(12).toString('base64url');
+
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+      res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurado.' });
+      return;
+    }
+
+    const gym = await prisma.gym.findUnique({
+      where: { id: gymId },
+      select: { name: true },
+    });
+
+    const gymSlug = normalizeGymSlug(gym?.name);
+    let email = generateStaffEmail(gymSlug);
+    const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // Retry con otro shortId si el email ya existe (colisión rara)
+    for (let i = 0; i < 5; i++) {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        // No must_change_password: el admin entrega credenciales en persona; si forzamos cambio, la nueva no llegaría al admin
+      });
+
+      if (authError) {
+        const isEmailExists =
+          authError.message?.includes('already been registered') ||
+          (authError as { code?: string }).code === 'email_exists';
+        if (isEmailExists && i < 4) {
+          email = generateStaffEmail(gymSlug);
+          continue;
+        }
+        res.status(400).json({
+          error: 'No se pudo crear el usuario en Supabase.',
+          detail: authError.message,
+        });
+        return;
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          gym_id: gymId,
+          auth_user_id: authData!.user.id,
+          name: name.trim(),
+          phone: phone && typeof phone === 'string' ? phone.trim() || null : null,
+          role,
+          pin_hash: null,
+          qr_token: null,
+        },
+      });
+
+      await logAuditEvent(gymId, req.user?.id ?? '', 'STAFF_CREATED', {
+        target_user_id: user.id,
+        role,
+        staff_email: email,
+      });
+
+      res.status(201).json({
+        id: user.id,
+        username: email,
+        password,
+        message:
+          'Personal creado. Entrega estas credenciales en persona al staff. No se envía correo.',
+      });
+      return;
+    }
+
+    res.status(500).json({ error: 'No se pudo generar un email único. Intenta de nuevo.' });
+  } catch (error) {
+    handleControllerError(req, res, error, '[createStaff Error]', 'Failed to create staff.');
+  }
+};
+
+// PATCH /users/:id/renew
+// Usa el precio del producto "Membresía 30 días" (Admin lo configura en inventario). No acepta monto manual — evita manipulación.
+export const renewSubscription = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    const actorId = req.user?.id;
+    if (!gymId || !actorId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const id = req.params.id as string; // User ID (member)
+
+    // Producto "Membresía 30 días" — Admin debe crearlo en Inventario y asignar el precio
+    const membershipProduct = await prisma.product.findFirst({
+      where: { gym_id: gymId, barcode: 'MEMBERSHIP', deleted_at: null },
+    });
+    if (!membershipProduct) {
+      res.status(400).json({
+        error:
+          'El producto "Membresía 30 días" no está configurado en inventario. El Admin debe crearlo en Inventario (barcode MEMBERSHIP) y asignar el precio antes de renovar.',
+      });
+      return;
+    }
+
+    const price = Number(membershipProduct.price);
+    if (price > 0) {
+      const openShift = await prisma.cashShift.findFirst({
+        where: { gym_id: gymId, user_id: actorId, status: ShiftStatus.OPEN },
+      });
+      if (!openShift) {
+        res.status(400).json({
+          error: 'No hay turno de caja abierto. Abre un turno antes de registrar el pago de renovación.',
+        });
+        return;
+      }
+
+      await prisma.sale.create({
+        data: {
+          gym_id: gymId,
+          cash_shift_id: openShift.id,
+          seller_id: actorId,
+          total: price,
+          items: {
+            create: [
+              {
+                gym_id: gymId,
+                product_id: membershipProduct.id,
+                quantity: 1,
+                price: price,
+              },
+            ],
+          },
+        },
+      });
+    }
+
     const currentSub = await prisma.subscription.findFirst({
-      where: {
-        user_id: id,
-        gym_id: gymId,
-      },
+      where: { user_id: id, gym_id: gymId },
     });
 
     if (!currentSub) {
@@ -281,8 +535,6 @@ export const renewSubscription = async (req: Request, res: Response) => {
     }
 
     const now = new Date();
-    // Cuando se va y regresa (vencido o congelado): nuevo periodo desde el día que paga (hoy).
-    // Solo si sigue ACTIVO y con fecha vigente: se extiende desde su expires_at actual.
     const isStillActiveWithTimeLeft =
       currentSub.status === SubscriptionStatus.ACTIVE && currentSub.expires_at > now;
     const baseDate = isStillActiveWithTimeLeft ? currentSub.expires_at : now;
@@ -295,23 +547,22 @@ export const renewSubscription = async (req: Request, res: Response) => {
       data: {
         status: SubscriptionStatus.ACTIVE,
         expires_at: newExpiresAt,
-        // Vuelve de FROZEN/EXPIRED: limpiamos días congelados (nuevo periodo desde hoy)
         ...((currentSub.status === SubscriptionStatus.FROZEN || !isStillActiveWithTimeLeft) && {
           frozen_days_left: null,
         }),
       },
     });
 
-    // AuditLog: track every renewal for financial reconciliation
-    const actorId = req.user?.id ?? id;
     await logAuditEvent(gymId, actorId, 'SUBSCRIPTION_RENEWED', {
       target_user_id: id,
       new_expires_at: newExpiresAt.toISOString(),
+      ...(price > 0 && { amount_charged: price }),
     });
 
     res.status(200).json({
       message: 'Subscription renewed successfully.',
       subscription: updatedSub,
+      ...(price > 0 && { amount_registered_in_shift: price }),
     });
   } catch (error) {
     handleControllerError(req, res, error, '[renewSubscription Error]', 'Failed to renew subscription');
@@ -369,6 +620,144 @@ export const updateUser = async (req: Request, res: Response) => {
     res.status(200).json({ message: 'User updated.', user: updatedUser });
   } catch (error) {
     handleControllerError(req, res, error, '[updateUser Error]', 'Failed to update user.');
+  }
+};
+
+// POST /users/:id/reset-password-by-admin — Admin resetea contraseña del staff; la nueva va al correo del admin.
+export const resetPasswordByAdmin = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    const userRole = req.userRole;
+    const id = req.params.id as string;
+
+    if (!gymId && userRole !== Role.SUPERADMIN) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const target = await prisma.user.findFirst({
+      where: { id, deleted_at: null },
+      select: { id: true, gym_id: true, role: true, auth_user_id: true, name: true },
+    });
+
+    if (!target) {
+      res.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
+    if (!target.auth_user_id) {
+      res.status(400).json({ error: 'Este usuario no tiene cuenta de acceso (sin email/password).' });
+      return;
+    }
+
+    const staffRoles = [Role.ADMIN, Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR];
+    if (!staffRoles.includes(target.role)) {
+      res.status(403).json({ error: 'Solo se puede resetear contraseña de personal (Admin, Recep, Coach, Instructor).' });
+      return;
+    }
+
+    if (userRole === Role.SUPERADMIN) {
+      // SuperAdmin puede resetear cualquier staff
+    } else if (target.gym_id !== gymId) {
+      res.status(403).json({ error: 'No puedes resetear contraseña de personal de otro gym.' });
+      return;
+    }
+
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+      res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY no configurado.' });
+      return;
+    }
+
+    const newPassword = crypto.randomBytes(12).toString('base64url');
+    const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data: authUser, error } = await supabaseAdmin.auth.admin.getUserById(target.auth_user_id);
+    if (error || !authUser?.user) {
+      res.status(400).json({ error: 'No se pudo obtener el usuario en Supabase.' });
+      return;
+    }
+
+    await supabaseAdmin.auth.admin.updateUserById(target.auth_user_id, {
+      password: newPassword,
+      user_metadata: { ...(authUser.user.user_metadata as Record<string, unknown> ?? {}), must_change_password: true },
+    });
+
+    const adminEmail = (req.user as { email?: string })?.email;
+    if (!adminEmail) {
+      res.status(400).json({ error: 'No se pudo obtener el correo del admin para enviar la nueva contraseña.' });
+      return;
+    }
+
+    const gym = await prisma.gym.findUnique({
+      where: { id: target.gym_id },
+      select: { name: true },
+    });
+
+    sendStaffPasswordResetToAdmin(
+      adminEmail,
+      target.name,
+      authUser.user.email ?? '',
+      newPassword,
+      gym?.name ?? null,
+    ).catch(() => {});
+
+    await logAuditEvent(target.gym_id, req.user?.id ?? id, 'STAFF_PASSWORD_RESET', {
+      target_user_id: id,
+      staff_email: authUser.user.email,
+    });
+
+    res.status(200).json({
+      message: "Contraseña actualizada. Se envió la nueva contraseña a tu correo para que la entregues al personal.",
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[resetPasswordByAdmin Error]', 'Failed to reset staff password.');
+  }
+};
+
+// PATCH /users/:id/restore — Reactivar staff dado de baja (borrar deleted_at)
+export const restoreUser = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const id = req.params.id as string;
+
+    const existing = await prisma.user.findFirst({
+      where: { id, gym_id: gymId },
+      select: { id: true, deleted_at: true, role: true },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: 'User not found in this gym.' });
+      return;
+    }
+
+    if (existing.deleted_at == null) {
+      res.status(400).json({ error: 'El usuario ya está activo.' });
+      return;
+    }
+
+    const staffRoles = [Role.ADMIN, Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR];
+    if (!staffRoles.includes(existing.role)) {
+      res.status(400).json({ error: 'Solo se puede reactivar personal (Admin, Recep, Coach, Instructor).' });
+      return;
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: { deleted_at: null },
+    });
+
+    await logAuditEvent(gymId, req.user?.id ?? id, 'STAFF_RESTORED', { target_user_id: id });
+
+    res.status(200).json({ message: 'Usuario reactivado correctamente.' });
+  } catch (error) {
+    handleControllerError(req, res, error, '[restoreUser Error]', 'Failed to restore user.');
   }
 };
 

@@ -116,6 +116,8 @@ export const fetchGyms = async (): Promise<GymSummary[]> => {
 export type CreateGymPayload = {
   name: string
   subscription_tier?: 'BASIC' | 'PRO_QR' | 'PREMIUM_BIO'
+  theme_colors?: { primary?: string; secondary?: string }
+  logo_url?: string
   admin_email?: string
   admin_password?: string
   admin_name?: string | null
@@ -175,6 +177,39 @@ export const updateGymModules = async (
 
   const data = (await response.json()) as { modules_config: Record<string, boolean> }
   return data
+}
+
+export type GymDetail = GymSummary & {
+  status?: string
+  theme_colors?: { primary?: string; secondary?: string; [key: string]: string | undefined }
+  logo_url?: string | null
+}
+
+export const fetchGymDetail = async (gymId: string): Promise<{ gym: GymDetail }> => {
+  const response = await fetchWithAuth(`/saas/gyms/${gymId}`)
+  if (!response.ok) throw new Error(`Failed to load gym detail (${response.status})`)
+  return response.json() as Promise<{ gym: GymDetail }>
+}
+
+export type UpdateGymPayload = {
+  name?: string
+  theme_colors?: { primary?: string; secondary?: string }
+  logo_url?: string
+}
+
+export const updateGym = async (
+  gymId: string,
+  payload: UpdateGymPayload,
+): Promise<{ message: string; gym: GymDetail }> => {
+  const response = await fetchWithAuth(`/saas/gyms/${gymId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new Error((data as { error?: string })?.error ?? `Failed to update gym (${response.status})`)
+  }
+  return response.json() as Promise<{ message: string; gym: GymDetail }>
 }
 
 // ────────────────────────────────────────────────
@@ -448,6 +483,23 @@ export const fetchMemberHistory = async (params?: {
   return (await response.json()) as MemberHistoryResponse
 }
 
+export type LeaderboardEntry = {
+  rank: number
+  id: string
+  name: string
+  profile_picture_url?: string | null
+  current_streak: number
+}
+
+export const fetchMemberLeaderboard = async (params?: {
+  limit?: number
+}): Promise<{ data: LeaderboardEntry[] }> => {
+  const qs = params?.limit ? `?limit=${params.limit}` : ''
+  const response = await fetchWithAuth(`/members/leaderboard${qs}`)
+  if (!response.ok) throw new Error(`Failed to load leaderboard (${response.status})`)
+  return (await response.json()) as { data: LeaderboardEntry[] }
+}
+
 /** Reenviar mi QR de acceso por WhatsApp (mismo código estable). Portal del socio. */
 export const requestMemberQrResend = async (): Promise<{ message: string }> => {
   const response = await fetchWithAuth('/members/me/send-qr', { method: 'POST' })
@@ -593,9 +645,10 @@ export type CurrentShiftResponse = {
 
 export const fetchCurrentShift = async (): Promise<CurrentShiftResponse | null> => {
   const res = await fetchWithAuth('/pos/shifts/current')
-  if (res.status === 404) return null
   if (!res.ok) throw new Error(`Failed to load shift (${res.status})`)
-  return res.json()
+  const data = await res.json()
+  if (data?.shift == null) return null
+  return data as CurrentShiftResponse
 }
 
 export const openShift = async (opening_balance: number) => {
@@ -786,7 +839,9 @@ export type CreateUserPayload = {
   phone: string
   pin?: string
   role?: string
+  email?: string
   profile_picture_url?: string
+  birth_date?: string
 }
 
 export const createUser = async (payload: CreateUserPayload) => {
@@ -832,24 +887,68 @@ export const updateMember = async (
   return res.json()
 }
 
+export type CreateStaffPayload = {
+  name: string
+  phone?: string
+  role?: 'RECEPTIONIST' | 'COACH' | 'INSTRUCTOR'
+  password?: string
+}
+
+export type CreateStaffResponse = {
+  id: string
+  username: string
+  password: string
+  message: string
+}
+
+/** Admin crea staff; devuelve credenciales para entregar en persona. Sin correo corporativo. */
+export const createStaff = async (payload: CreateStaffPayload): Promise<CreateStaffResponse> => {
+  const res = await fetchWithAuth('/users/staff', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.detail ?? err?.message) ?? `Create staff failed (${res.status})`)
+  }
+  return res.json()
+}
+
 /** Staff list (admin): users with role_not=MEMBER, includes deleted_at for INACTIVO badge. */
 export type StaffUserRow = {
   id: string
   name: string | null
   phone: string | null
   role: string
+  auth_user_id?: string | null
   deleted_at: string | null
   created_at: string
 }
 
+export type StaffStatus = 'active' | 'inactive' | 'all'
+
 export const fetchStaffUsers = async (
   page = 1,
   limit = 50,
+  status: StaffStatus = 'active',
 ): Promise<{ data: StaffUserRow[]; meta: { total: number; page: number; limit: number } }> => {
-  const res = await fetchWithAuth(
-    `/users?page=${page}&limit=${limit}&role_not=MEMBER`,
-  )
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    role_not: 'MEMBER',
+    status,
+  })
+  const res = await fetchWithAuth(`/users?${params}`)
   if (!res.ok) throw new Error(`Failed to load staff (${res.status})`)
+  return res.json()
+}
+
+export const restoreUser = async (id: string): Promise<{ message: string }> => {
+  const res = await fetchWithAuth(`/users/${id}/restore`, { method: 'PATCH' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Restore failed (${res.status})`)
+  }
   return res.json()
 }
 
@@ -858,6 +957,113 @@ export const deleteUser = async (id: string): Promise<{ message: string }> => {
   if (!res.ok) {
     const err = await res.json().catch(() => null)
     throw new Error((err?.error ?? err?.message) ?? `Delete failed (${res.status})`)
+  }
+  return res.json()
+}
+
+/** Admin resetea contraseña del staff; la nueva se envía al correo del admin. Solo staff con login. */
+export const resetStaffPassword = async (userId: string): Promise<{ message: string }> => {
+  const res = await fetchWithAuth(`/users/${userId}/reset-password-by-admin`, { method: 'POST' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Reset failed (${res.status})`)
+  }
+  return res.json()
+}
+
+/** Meta para listado de socios con conteos de vencimientos. */
+export type MemberListMeta = {
+  total: number
+  page: number
+  limit: number
+  expiring_7d?: number
+  expired?: number
+}
+
+/** Socios (AdminMembers, ReceptionMembers): usuarios con role=MEMBER y suscripción. */
+export type MemberUserRow = {
+  id: string
+  name: string | null
+  phone: string | null
+  profile_picture_url?: string | null
+  role: string
+  deleted_at: string | null
+  current_streak?: number
+  last_visit_at?: string | null
+  created_at: string
+  subscriptions?: Array<{ status: string; expires_at: string }>
+}
+
+export const fetchMemberUsers = async (
+  page = 1,
+  limit = 50,
+  orderBy: 'name' | 'created' = 'created',
+): Promise<{ data: MemberUserRow[]; meta: MemberListMeta }> => {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), role: 'MEMBER' })
+  if (orderBy === 'name') params.set('order_by', 'name')
+  const res = await fetchWithAuth(`/users?${params}`)
+  if (!res.ok) throw new Error(`Failed to load members (${res.status})`)
+  return res.json()
+}
+
+export const renewSubscription = async (
+  userId: string,
+): Promise<{ message: string; subscription: unknown; amount_registered_in_shift?: number }> => {
+  const res = await fetchWithAuth(`/users/${userId}/renew`, {
+    method: 'PATCH',
+    body: JSON.stringify({}),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Renew failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export const freezeSubscription = async (userId: string): Promise<{ message: string; subscription: unknown }> => {
+  const res = await fetchWithAuth(`/users/${userId}/freeze`, { method: 'PATCH' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Freeze failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export const unfreezeSubscription = async (userId: string): Promise<{ message: string; subscription: unknown }> => {
+  const res = await fetchWithAuth(`/users/${userId}/unfreeze`, { method: 'PATCH' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Unfreeze failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export const cancelSubscription = async (userId: string, reason?: string): Promise<{ message: string }> => {
+  const res = await fetchWithAuth(`/users/${userId}/cancel-subscription`, {
+    method: 'PATCH',
+    body: JSON.stringify(reason ? { reason } : {}),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Cancel failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export const exportUserData = async (userId: string): Promise<unknown> => {
+  const res = await fetchWithAuth(`/users/${userId}/data-export`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Export failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export const anonymizeUserData = async (userId: string): Promise<{ message: string }> => {
+  const res = await fetchWithAuth(`/users/${userId}/anonymize`, { method: 'POST' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Anonymize failed (${res.status})`)
   }
   return res.json()
 }

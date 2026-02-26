@@ -1,78 +1,166 @@
 # Primer arranque en producción y cómo tener tu usuario admin
 
-Qué hacer cuando subes a producción con la base de datos vacía: quién puede iniciar sesión, cómo se crea el primer admin y cómo crear un admin para tu propio gym.
+Qué hacer cuando subes a producción con la base de datos vacía: quién puede iniciar sesión, cómo se crea el primer SuperAdmin y cómo crear un admin para tu propio gym.
 
 ---
 
-## 1. DB vacía en producción: el primer arranque
+## 1. Flujo recomendado: `bootstrap-superadmin` (producción con DB vacía)
 
-Cuando la base de datos está vacía (primera vez en producción o después de vaciarla), **no existe ningún usuario** ni en tu DB ni en Supabase Auth vinculado a ella. Hay que “arrancar” el sistema una vez.
+Para producción con una base de datos vacía, usa el script **bootstrap-superadmin**. Es la opción recomendada porque:
+
+- Solo crea el gym interno de plataforma + el usuario SuperAdmin (sin datos de prueba).
+- No crea gyms de demostración (FitZone, IronHouse, etc.).
+- Permite definir tu propio email y contraseña mediante variables de entorno.
+- Marca el usuario con `must_change_password: true`, obligando a cambiar la contraseña en el primer login.
 
 ### Pasos obligatorios (una sola vez)
 
-1. **Aplicar el esquema de la base de datos**  
-   En el servidor o desde tu máquina contra la DB de producción:
+1. **Aplicar el esquema de la base de datos**
    ```bash
    cd backend
    npm run db:push
    ```
    (O `prisma migrate deploy` si usas migraciones.)
 
-2. **Configurar variables de entorno de producción**  
-   En el entorno donde correrás el seed (o el script de bootstrap), con valores **de producción**:
+2. **Configurar variables de entorno de producción**
+   En `backend/.env` (o en los secrets del servidor):
    - `DATABASE_URL` o `DIRECT_URL` → base de datos de producción
    - `SUPABASE_URL` → URL del **mismo** proyecto Supabase que usará el frontend en producción
-   - `SUPABASE_SERVICE_ROLE_KEY` → Service Role Key de **ese** proyecto (Supabase → Settings → API)
+   - `SUPABASE_SERVICE_ROLE_KEY` → Service Role Key (Supabase → Settings → API)
 
-3. **Crear el primer usuario: el SuperAdmin**  
-   Ejecutar el seed con esas variables:
+3. **Ejecutar el bootstrap del SuperAdmin**
    ```bash
    cd backend
-   npm run db:seed
+   SUPERADMIN_EMAIL=ops@tudominio.com \
+   SUPERADMIN_PASSWORD="TuContraseñaSegura123" \
+   SUPERADMIN_NAME="Tu Nombre" \
+   npm run bootstrap-superadmin
    ```
-   El seed:
-   - Crea el gym interno de plataforma y el usuario **SuperAdmin** en tu DB.
-   - Crea en **Supabase Auth** el usuario `superadmin@nexogym.dev` con contraseña `SuperAdmin2025!` y vincula su ID en el campo `auth_user_id` del User en tu DB.
 
-4. **Iniciar sesión como SuperAdmin**  
-   En la app (frontend de producción):
-   - Email: **superadmin@nexogym.dev**
-   - Contraseña: **SuperAdmin2025!**  
-   Entras al panel **/saas** (gestión de gyms, tiers, módulos, etc.). Ese eres tú como “admin de la plataforma”.
+4. **Iniciar sesión como SuperAdmin**
+   - Email y contraseña: los que pasaste en las variables (o los valores por defecto).
+   - En el **primer login** aparecerá un modal obligatorio para cambiar la contraseña.
+   - Tras cambiar, accedes al panel `/saas` (gestión de gyms, tiers, módulos, etc.).
 
 ---
 
-## 2. ¿Quién es “admin” en este proyecto?
+## 2. Script `bootstrap-superadmin`: cómo funciona
 
-Hay dos niveles:
+### Descripción
+
+El script `backend/scripts/bootstrap-superadmin.ts` crea el primer usuario de la plataforma (SuperAdmin) y el gym interno necesario para su rol. Es idempotente en el sentido de que, si ya existe un SuperAdmin en la base de datos, no crea duplicados y termina con éxito.
+
+### Requisitos
+
+- Base de datos PostgreSQL vacía o sin SuperAdmin previo.
+- Variables en `backend/.env`:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `DIRECT_URL` o `DATABASE_URL`
+
+### Variables de entorno del script
+
+| Variable | Obligatoria | Default | Descripción |
+|----------|-------------|---------|-------------|
+| `SUPERADMIN_EMAIL` | No | `superadmin@nexogym.dev` | Email del SuperAdmin. En producción, usa tu propio email. |
+| `SUPERADMIN_PASSWORD` | No | `SuperAdmin2025!` | Contraseña inicial. En producción, usa una contraseña segura. |
+| `SUPERADMIN_NAME` | No | `Super Admin` | Nombre mostrado del SuperAdmin. |
+
+### Qué hace el script (orden de operaciones)
+
+1. Comprueba si ya existe un usuario con rol `SUPERADMIN` en la base de datos. Si existe, imprime un mensaje y termina (no sobrescribe nada).
+
+2. Crea el gym interno de plataforma (`GymSaaS Platform (Internal)`):
+   - Plan: `PREMIUM_BIO`
+   - Módulos: todos activos (pos, qr_access, gamification, classes, biometrics)
+   - Tema: colores por defecto (indigo)
+
+3. Crea el usuario `User` en la base de datos con `role: SUPERADMIN` asociado a ese gym.
+
+4. Crea el usuario en **Supabase Auth** con:
+   - Email y contraseña indicados (o valores por defecto)
+   - `email_confirm: true` (no requiere verificación de email)
+   - `user_metadata: { must_change_password: true }` (obliga a cambiar contraseña en el primer login)
+
+5. Vincula el `auth_user_id` de Supabase con el `User` de la base de datos.
+
+### Casos especiales
+
+- **El email ya existe en Supabase Auth:** El script actualiza la contraseña, vincula el usuario existente con el `User` de la base de datos y mantiene `must_change_password: true`.
+- **Ejecución múltiple:** Si ya hay un SuperAdmin en la DB, el script no crea nada nuevo y sugiere usar `npm run link-superadmin` si necesitas re-vincular credenciales.
+
+### Uso en producción (recomendado)
+
+```bash
+cd backend
+SUPERADMIN_EMAIL=ops@tudominio.com \
+SUPERADMIN_PASSWORD="TuContraseñaSegura123" \
+SUPERADMIN_NAME="Tu Nombre" \
+npm run bootstrap-superadmin
+```
+
+No dejes credenciales en el historial de comandos: usa variables de entorno o un gestor de secretos.
+
+### Uso en desarrollo (valores por defecto)
+
+```bash
+cd backend
+npm run bootstrap-superadmin
+```
+
+Usa `superadmin@nexogym.dev` / `SuperAdmin2025!`.
+
+---
+
+## 3. Alternativa: seed completo (desarrollo y datos de prueba)
+
+El comando `npm run db:seed` crea:
+
+- SuperAdmin + gym interno de plataforma.
+- Varios gyms de demostración (FitZone, IronHouse, PowerFit, CrossBox, EliteBody, MegaFit) con socios, ventas, clases, etc.
+
+Úsalo solo en **desarrollo** para tener datos de prueba. En producción, prefiere `bootstrap-superadmin`.
+
+### Cuándo usar el seed
+
+- Entorno local o staging con datos de ejemplo.
+- Pruebas de UI, flujos de recepción, POS, etc.
+
+### Cuándo no usar el seed
+
+- Producción: genera muchos registros de prueba innecesarios.
+
+---
+
+## 4. ¿Quién es “admin” en este proyecto?
 
 | Rol | Quién es | Para qué |
 |-----|----------|----------|
 | **SUPERADMIN** | Tú, administrador de la plataforma NexoGym | Entras a **/saas**: crear/editar/eliminar gyms, ver métricas globales, cambiar tier y módulos por gym. No “operas” un gym concreto. |
 | **ADMIN** | Dueño o gerente de un gym concreto | Entra a **/admin** de **su** gym: socios, finanzas, inventario, personal, auditoría, etc. |
 
-El **primer arranque** (seed) solo crea al **SuperAdmin**. Con ese usuario ya puedes iniciar sesión y gestionar la plataforma. Para tener un **admin de un gym** (tu gym real) hace falta un paso más.
+El bootstrap o el seed solo crean al **SuperAdmin**. Para tener un **admin de un gym** (tu negocio o un cliente), crea el gym desde `/saas` o usa el script `create-gym-admin`.
 
 ---
 
-## 3. Cómo tener “tu” usuario admin de un gym (tu negocio)
+## 5. Cómo tener “tu” usuario admin de un gym
 
-Después del arranque tienes SuperAdmin y, si quieres, gyms creados desde **/saas**. Al **crear un gym** desde **/saas** (botón “Crear gimnasio”) puedes opcionalmente indicar el **email, contraseña y nombre** del primer administrador. Si los rellenas, el backend crea el gym y además el usuario en Supabase Auth y el User en la DB con rol ADMIN para ese gym. Así das de alta el gym y al admin en un solo paso.
+Después del bootstrap tienes SuperAdmin. Para dar de alta un gym y su admin:
 
 ### Forma recomendada: Crear gym + admin desde /saas
 
-En el panel **/saas** (SuperAdmin), al pulsar **“Crear gimnasio”** puedes rellenar:
+En el panel `/saas`, botón **Crear gimnasio**. Puedes indicar:
 
-- Nombre del gimnasio y plan (tier).
+- Nombre del gimnasio, plan (tier), logo y colores.
 - **Opcional:** email, contraseña y nombre del **administrador** del gym.
 
-Si indicas email y contraseña del admin, el backend crea el gym y además el usuario en Supabase Auth y el User en la DB con rol ADMIN para ese gym. Ese admin puede iniciar sesión en la app y entrar a **/admin** de su gym.
+Si rellenas email y contraseña del admin, el backend crea el gym y el usuario en Supabase Auth + User en DB con rol ADMIN. Ese admin podrá iniciar sesión y entrar a `/admin` de su gym. En el primer login se le pedirá cambiar la contraseña (contraseñas temporales).
 
-**Requisito en el servidor:** el backend debe tener configurado `SUPABASE_SERVICE_ROLE_KEY` en el `.env` para poder crear usuarios en Supabase desde la API. Si no está configurado, el gym se crea pero no el admin (y puedes usar el script `create-gym-admin` después).
+**Requisito:** `SUPABASE_SERVICE_ROLE_KEY` en el `.env` del backend.
 
-### Alternativa: Script `create-gym-admin` (si no creaste el admin al dar de alta)
+### Alternativa: Script `create-gym-admin`
 
-Si creaste el gym **sin** rellenar el admin en el modal, o el servidor no tenía `SUPABASE_SERVICE_ROLE_KEY`, puedes crear el admin después con el script:
+Si creaste el gym sin admin en el modal:
 
 ```bash
 cd backend
@@ -83,42 +171,42 @@ GYM_ADMIN_NAME="Tu Nombre" \
 npm run create-gym-admin
 ```
 
-### Opción B: Usar el seed y “aprovechar” un admin de prueba
+El admin también tendrá `must_change_password: true` en el primer login.
 
-El seed crea varios gyms de **demostración** (FitZone, IronHouse, PowerFit, etc.) cada uno con un usuario ADMIN (admin@fitzone.dev, admin@ironhouse.dev, …). En producción puedes:
+### Vincular SuperAdmin existente (Supabase): `link-superadmin`
 
-1. Ejecutar el seed completo (además del SuperAdmin obtienes esos gyms y admins).
-2. Entrar como SuperAdmin, ir a /saas y **borrar** los gyms que no quieras (o dejarlos).
-3. Para uno de los gyms que sí quieras usar: en Supabase Auth **cambiar el email** del admin de ese gym a tu email real y **cambiar la contraseña**. En la tabla `User` de tu DB ese registro ya tiene `gym_id` y `role: ADMIN`; solo tendrías que actualizar el `auth_user_id` si Supabase te dio un nuevo ID al cambiar el email (normalmente no, si solo cambias la contraseña).
+Si tienes un SuperAdmin en la DB pero no está vinculado a Supabase Auth (por ejemplo, ejecutaste el seed sin `SUPABASE_SERVICE_ROLE_KEY`), usa:
 
-Desventaja: el seed crea muchos datos de prueba (socios, ventas, etc.). Solo compensa si quieres datos de ejemplo o no te importa borrar después.
+```bash
+cd backend
+npm run link-superadmin
+```
 
-### Opción C: Manual (Supabase + DB)
-
-1. En **Supabase** (producción): Authentication → Users → Add user → crear email + contraseña. Anotas el **User UID**.
-2. En **tu DB**: crear un registro en la tabla `User` con `role: ADMIN`, `gym_id` = el ID del gym que quieras, `auth_user_id` = ese UID, y el resto de campos (nombre, teléfono, etc.) como quieras.
-3. Inicias sesión en la app con ese email y contraseña. Entras como admin de ese gym.
+Este script crea/actualiza el usuario en Supabase Auth (`superadmin@nexogym.dev` / `SuperAdmin2025!`) y lo vincula al `User` de la DB. Requiere que el SuperAdmin ya exista en la base de datos.
 
 ---
 
-## 4. Resumen rápido
+## 6. Resumen rápido
 
 | Pregunta | Respuesta |
 |----------|-----------|
-| **¿Cómo inicio sesión la primera vez en producción con DB vacía?** | Tras `db:push` y `db:seed` con env de producción, entras con **superadmin@nexogym.dev** / **SuperAdmin2025!**. Ese es tu usuario “admin de la plataforma” (/saas). |
-| **¿Me creo yo mi usuario admin?** | El **SuperAdmin** ya está creado por el seed; ese eres tú para /saas. Para ser **admin de un gym concreto** (tu negocio): crea el gym desde /saas, luego ejecuta `npm run create-gym-admin` con `GYM_ID`, `GYM_ADMIN_EMAIL`, `GYM_ADMIN_PASSWORD` (ver sección 3). |
-| **¿Puedo no ejecutar el seed completo?** | Sí. El seed crea SuperAdmin + muchos gyms y usuarios de prueba. Si quieres solo SuperAdmin, en el futuro se puede tener un “seed mínimo” o script de bootstrap que solo cree el gym de plataforma y el SuperAdmin (y opcionalmente un gym + un admin). Mientras tanto, el seed completo es la forma oficial de tener el primer usuario (SuperAdmin). |
+| **¿Cómo inicio sesión la primera vez en producción con DB vacía?** | Ejecuta `npm run bootstrap-superadmin` con tus variables. Entra con el email y contraseña indicados (o `superadmin@nexogym.dev` / `SuperAdmin2025!` por defecto). Cambia la contraseña en el primer login. |
+| **¿Seed o bootstrap?** | **Producción (DB vacía):** `bootstrap-superadmin`. **Desarrollo con datos de prueba:** `db:seed`. |
+| **¿Me creo yo mi usuario admin de un gym?** | Crea el gym desde `/saas` (con email y contraseña del admin) o usa `npm run create-gym-admin` con `GYM_ID`, `GYM_ADMIN_EMAIL`, `GYM_ADMIN_PASSWORD`. |
+| **¿Olvidé la contraseña del SuperAdmin?** | Usa “¿Olvidaste tu contraseña?” en la pantalla de login (requiere SMTP configurado en Supabase) o ejecuta `link-superadmin` con la contraseña por defecto para resetear. |
+| **¿Cambiar email del SuperAdmin?** | Supabase Dashboard → Authentication → Users → editar el usuario. |
+| **¿Staff (recepción, instructores)?** | Admin da usuario y contraseña en persona; no se envía email al staff. Si resetea contraseña, la nueva va al correo del Admin. Ver **CANALES_COMUNICACION.md**. |
 
 ---
 
-## 5. Checklist “Primera vez en producción”
+## 7. Checklist “Primera vez en producción”
 
 1. [ ] DB de producción creada y accesible.
-2. [ ] `backend/.env` (o secrets del servidor) con `DATABASE_URL`/`DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` de **producción**.
+2. [ ] `backend/.env` con `DATABASE_URL`/`DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` de **producción**.
 3. [ ] `npm run db:push` (o `migrate deploy`) ejecutado contra la DB de producción.
-4. [ ] `npm run db:seed` ejecutado **una vez** con esas variables.
+4. [ ] `npm run bootstrap-superadmin` ejecutado **una vez** con `SUPERADMIN_EMAIL` y `SUPERADMIN_PASSWORD` de producción.
 5. [ ] Frontend de producción configurado con `VITE_SUPABASE_URL` (y anon key) del **mismo** proyecto Supabase.
-6. [ ] Probar login: **superadmin@nexogym.dev** / **SuperAdmin2025!** → acceder a **/saas**.
-7. [ ] (Opcional) Cambiar la contraseña del SuperAdmin en Supabase después del primer acceso.
-8. [ ] Crear tu gym desde /saas (nombre, tier). Anotar el **GYM_ID** (UUID) del listado o de la respuesta al crear.
-9. [ ] Ejecutar `npm run create-gym-admin` con GYM_ID, GYM_ADMIN_EMAIL, GYM_ADMIN_PASSWORD (y opcional GYM_ADMIN_NAME); comprobar login en /admin.
+6. [ ] Probar login con el email y contraseña configurados → acceder a `/saas`.
+7. [ ] Cambiar la contraseña en el primer login (modal obligatorio).
+8. [ ] Crear tu gym desde /saas (nombre, tier, logo, colores, admin opcional). Si indicas email/contraseña del admin, recibe bienvenida por correo (requiere `APP_LOGIN_URL` en `.env`).
+9. [ ] Si no creaste admin al dar de alta el gym: ejecutar `npm run create-gym-admin` con `GYM_ID`, `GYM_ADMIN_EMAIL`, `GYM_ADMIN_PASSWORD`.

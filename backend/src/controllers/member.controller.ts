@@ -182,3 +182,47 @@ export const requestQrResend = async (req: Request, res: Response) => {
     handleControllerError(req, res, error, '[requestQrResend Error]', 'Failed to send QR.');
   }
 };
+
+/**
+ * GET /members/leaderboard?limit=20
+ * Tabla de racha: socios ordenados por current_streak DESC, empate por last_visit_at DESC (más reciente primero).
+ */
+export const getLeaderboard = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const limit = Math.min(50, Math.max(5, Number(req.query.limit) || 20));
+    const users = await prisma.user.findMany({
+      where: {
+        gym_id: gymId,
+        role: 'MEMBER',
+        deleted_at: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        profile_picture_url: true,
+        current_streak: true,
+        last_visit_at: true,
+      },
+      orderBy: [{ current_streak: 'desc' }, { last_visit_at: 'desc' }],
+      take: limit,
+    });
+
+    res.status(200).json({
+      data: users.map((u, idx) => ({
+        rank: idx + 1,
+        id: u.id,
+        name: u.name ?? '—',
+        profile_picture_url: u.profile_picture_url,
+        current_streak: u.current_streak,
+      })),
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getLeaderboard Error]', 'Failed to load leaderboard.');
+  }
+};

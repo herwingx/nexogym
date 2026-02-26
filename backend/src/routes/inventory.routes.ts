@@ -10,7 +10,7 @@ import {
 } from '../controllers/inventory.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
-import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
+import { requireAdminOrSuperAdmin, requireStaff } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -21,9 +21,10 @@ const router = Router();
  *   description: Product stock and inventory management
  */
 
-// Todas las rutas de inventario requieren autenticación JWT (Multitenancy)
+// Todas las rutas de inventario requieren autenticación JWT (Multitenancy) y rol Staff
 router.use(requireAuth);
 router.use(requireModuleEnabled('pos'));
+router.use(requireStaff); // Inventario: solo Admin o Recepcionista (no Coach/Instructor)
 
 /**
  * @swagger
@@ -65,7 +66,7 @@ router.get('/products', getProducts);
  *       201:
  *         description: Product created successfully
  */
-router.post('/products', createProduct);
+router.post('/products', requireAdminOrSuperAdmin, createProduct); // Solo Admin crea productos (precios, etc.)
 
 /**
  * @swagger
@@ -176,7 +177,7 @@ router.post('/loss', requireAdminOrSuperAdmin, adjustLoss);                   //
  *       404:
  *         description: Product not found
  */
-router.patch('/products/:id', updateProduct);
+router.patch('/products/:id', requireAdminOrSuperAdmin, updateProduct); // Solo Admin edita precios (evitar manipulación)
 
 /**
  * @swagger

@@ -16,6 +16,7 @@
     "db:seed": "prisma db seed",
     "link-superadmin": "tsx scripts/link-superadmin-supabase.ts",
     "create-gym-admin": "tsx scripts/create-gym-admin.ts",
+    "bootstrap-superadmin": "tsx scripts/bootstrap-superadmin.ts",
     "db:fresh": "prisma migrate reset --force && prisma db push && tsx prisma/apply-trigger.ts",
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio"

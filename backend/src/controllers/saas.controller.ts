@@ -12,6 +12,7 @@ import {
   updateGymStatusSchema,
 } from '../schemas/saas.schema';
 import { handleControllerError } from '../utils/http';
+import { sendAdminWelcomeEmail } from '../services/n8n.service';
 import {
   DEFAULT_MODULES_CONFIG_BY_TIER,
   type ModulesConfig,
@@ -67,6 +68,7 @@ export const createGym = async (req: Request, res: Response) => {
         email: admin_email!,
         password: admin_password!,
         email_confirm: true,
+        user_metadata: { must_change_password: true },
       });
 
       if (authError) {
@@ -80,6 +82,7 @@ export const createGym = async (req: Request, res: Response) => {
             await supabaseAdmin.auth.admin.updateUserById(existing.id, {
               password: admin_password!,
               email_confirm: true,
+              user_metadata: { ...(existing.user_metadata as Record<string, unknown> ?? {}), must_change_password: true },
             });
             await prisma.user.create({
               data: {
@@ -114,6 +117,11 @@ export const createGym = async (req: Request, res: Response) => {
         });
         adminCreated = { email: admin_email };
       }
+    }
+
+    if (adminCreated && env.APP_LOGIN_URL) {
+      const loginUrl = `${env.APP_LOGIN_URL.replace(/\/$/, '')}/login`;
+      sendAdminWelcomeEmail(gym.id, admin_email!, admin_name ?? null, admin_password!, loginUrl).catch(() => {});
     }
 
     res.status(201).json({

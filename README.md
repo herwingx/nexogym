@@ -62,7 +62,8 @@ npm install
 cp .env.example .env               # rellenar con credenciales de Supabase DEV
 cp prisma/.env.example prisma/.env # rellenar DIRECT_URL
 npm run db:push                    # sincronizar schema
-npm run db:seed                    # poblar con datos de prueba
+npm run db:seed                    # poblar con datos de prueba (dev)
+# Para producción con DB vacía: npm run bootstrap-superadmin (ver .docs/BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md)
 npm run dev                        # → http://localhost:3000
 ```
 
@@ -78,7 +79,8 @@ npm run typecheck        # validación de tipos sin compilar
 
 npm run db:push          # sincronizar schema con la DB (dev)
 npm run db:migrate       # generar migration file versionado
-npm run db:seed          # poblar DB con datos de prueba realistas
+npm run db:seed          # poblar DB con datos de prueba realistas (dev)
+npm run bootstrap-superadmin  # crear solo SuperAdmin en producción (DB vacía)
 npm run db:reset         # destruir + re-crear + re-seedear
 npm run db:studio        # GUI visual de la DB (Prisma Studio)
 ```
@@ -92,7 +94,7 @@ npm run db:studio        # GUI visual de la DB (Prisma Studio)
 | [.docs/README.md](./.docs/README.md) | **Índice** de toda la documentación y cambios recientes (POS, caja, personal, roles) |
 | [DEV_WORKFLOW.md](./.docs/DEV_WORKFLOW.md) | Entornos, flujo de trabajo, auth, testing manual, seed |
 | [SUPABASE_AUTH_EN_EL_PROYECTO.md](./.docs/SUPABASE_AUTH_EN_EL_PROYECTO.md) | Cómo funciona Supabase Auth en el proyecto y ventajas vs login propio |
-| [BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md](./.docs/BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md) | Primer arranque en producción (DB vacía) y cómo tener tu usuario admin |
+| [BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md](./.docs/BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md) | Primer arranque en producción (DB vacía): **bootstrap-superadmin**, cómo funciona el script y cómo crear SuperAdmin/admin |
 | [TESTING_STRATEGY.md](./.docs/TESTING_STRATEGY.md) | Estrategia de pruebas automatizadas |
 | [DATABASE_SCHEMA.md](./.docs/DATABASE_SCHEMA.md) | Modelos, relaciones y enums (incl. ExpenseType, Expense, auditoría) |
 | [API_SPEC.md](./.docs/API_SPEC.md) | Contratos de la API por sprint (POS, users, turnos, egresos, force-close) |

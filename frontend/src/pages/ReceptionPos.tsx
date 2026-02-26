@@ -116,7 +116,7 @@ export const ReceptionPosPage = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {hasOpenShift && (
                 <>
                   <span className="text-xs text-emerald-600 dark:text-emerald-400">

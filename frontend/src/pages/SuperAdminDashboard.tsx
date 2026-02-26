@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import {
   fetchGyms,
   fetchSaasMetrics,
   createGym,
+  fetchGymDetail,
+  updateGym,
   type GymSummary,
+  type GymDetail,
   type SaasMetrics,
   updateGymTier,
   updateGymModules,
   type GymModulesPatch,
 } from '../lib/apiClient'
 import { notifyError, notifyPromise, notifySuccess } from '../lib/notifications'
+import { supabase } from '../lib/supabaseClient'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { logout } from '../lib/logout'
@@ -26,6 +31,16 @@ const TIER_LABELS: Record<Tier, string> = {
   PRO_QR: 'Pro · QR',
   PREMIUM_BIO: 'Premium · Biométrico',
 }
+
+const GYM_LOGOS_BUCKET = 'gym-logos'
+const PRESET_COLORS = [
+  { value: '#2563eb', label: 'Azul' },
+  { value: '#dc2626', label: 'Rojo' },
+  { value: '#059669', label: 'Verde' },
+  { value: '#7c3aed', label: 'Violeta' },
+  { value: '#f97316', label: 'Naranja' },
+  { value: '#6366f1', label: 'Indigo' },
+]
 
 const MODULE_KEYS = [
   { key: 'pos' as const, label: 'POS / Caja' },
@@ -52,10 +67,22 @@ export const SuperAdminDashboard = () => {
   const [showCreateGymModal, setShowCreateGymModal] = useState(false)
   const [createGymName, setCreateGymName] = useState('')
   const [createGymTier, setCreateGymTier] = useState<Tier>('BASIC')
+  const [createGymLogoUrl, setCreateGymLogoUrl] = useState('')
+  const [createGymPrimaryColor, setCreateGymPrimaryColor] = useState('#2563eb')
+  const [createGymSecondaryColor, setCreateGymSecondaryColor] = useState('')
   const [createAdminEmail, setCreateAdminEmail] = useState('')
   const [createAdminPassword, setCreateAdminPassword] = useState('')
   const [createAdminName, setCreateAdminName] = useState('')
   const [creatingGym, setCreatingGym] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+
+  const [editingGym, setEditingGym] = useState<GymDetail | null>(null)
+  const [editGymName, setEditGymName] = useState('')
+  const [editGymLogoUrl, setEditGymLogoUrl] = useState('')
+  const [editGymPrimaryColor, setEditGymPrimaryColor] = useState('#2563eb')
+  const [editGymSecondaryColor, setEditGymSecondaryColor] = useState('')
+  const [savingEditGym, setSavingEditGym] = useState(false)
+  const [uploadingEditLogo, setUploadingEditLogo] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -156,6 +183,111 @@ export const SuperAdminDashboard = () => {
     }
   }
 
+  const handleCreateGymLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file?.type.startsWith('image/')) return
+    setUploadingLogo(true)
+    setCreateGymLogoUrl('')
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `${crypto.randomUUID()}.${ext}`
+      const { error } = await supabase.storage.from(GYM_LOGOS_BUCKET).upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+      })
+      if (error) throw error
+      const { data } = supabase.storage.from(GYM_LOGOS_BUCKET).getPublicUrl(path)
+      setCreateGymLogoUrl(data.publicUrl)
+      notifySuccess({ title: 'Logo listo', description: 'Se usará como logo del gimnasio.' })
+    } catch (err) {
+      notifyError({
+        title: 'No se pudo subir el logo',
+        description: (err as Error)?.message ?? `Crea el bucket "${GYM_LOGOS_BUCKET}" en Supabase Storage si no existe.`,
+      })
+    } finally {
+      setUploadingLogo(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleEditGymLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file?.type.startsWith('image/')) return
+    setUploadingEditLogo(true)
+    setEditGymLogoUrl('')
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `${crypto.randomUUID()}.${ext}`
+      const { error } = await supabase.storage.from(GYM_LOGOS_BUCKET).upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+      })
+      if (error) throw error
+      const { data } = supabase.storage.from(GYM_LOGOS_BUCKET).getPublicUrl(path)
+      setEditGymLogoUrl(data.publicUrl)
+      notifySuccess({ title: 'Logo listo', description: 'Se usará como logo del gimnasio.' })
+    } catch (err) {
+      notifyError({
+        title: 'No se pudo subir el logo',
+        description: (err as Error)?.message ?? `Crea el bucket "${GYM_LOGOS_BUCKET}" en Supabase Storage si no existe.`,
+      })
+    } finally {
+      setUploadingEditLogo(false)
+      e.target.value = ''
+    }
+  }
+
+  const openEditGymModal = async (gym: GymSummary) => {
+    try {
+      const { gym: detail } = await fetchGymDetail(gym.id)
+      setEditingGym(detail)
+      setEditGymName(detail.name)
+      setEditGymLogoUrl(detail.logo_url ?? '')
+      setEditGymPrimaryColor((detail.theme_colors as { primary?: string })?.primary ?? '#2563eb')
+      setEditGymSecondaryColor((detail.theme_colors as { secondary?: string })?.secondary ?? '')
+    } catch (err) {
+      notifyError({
+        title: 'No se pudo cargar',
+        description: (err as Error)?.message ?? 'Inténtalo de nuevo.',
+      })
+    }
+  }
+
+  const handleSaveEditGym = async () => {
+    if (!editingGym) return
+    const name = editGymName.trim()
+    if (!name) {
+      notifyError({ title: 'Nombre requerido', description: 'Indica el nombre del gimnasio.' })
+      return
+    }
+    setSavingEditGym(true)
+    try {
+      const result = await updateGym(editingGym.id, {
+        name,
+        logo_url: editGymLogoUrl.trim() || undefined,
+        theme_colors: {
+          primary: editGymPrimaryColor,
+          ...(editGymSecondaryColor.trim() && { secondary: editGymSecondaryColor }),
+        },
+      })
+      setGyms((prev) =>
+        prev.map((g) => (g.id === editingGym.id ? { ...g, name: result.gym.name } : g)),
+      )
+      setEditingGym(null)
+      notifySuccess({
+        title: 'Gimnasio actualizado',
+        description: 'Los cambios se aplicaron correctamente.',
+      })
+    } catch (err) {
+      notifyError({
+        title: 'No se pudo guardar',
+        description: (err as Error)?.message ?? 'Inténtalo de nuevo.',
+      })
+    } finally {
+      setSavingEditGym(false)
+    }
+  }
+
   const handleCreateGym = async () => {
     const name = createGymName.trim()
     if (!name) {
@@ -175,7 +307,12 @@ export const SuperAdminDashboard = () => {
       const payload: Parameters<typeof createGym>[0] = {
         name,
         subscription_tier: createGymTier,
+        theme_colors: {
+          primary: createGymPrimaryColor,
+          ...(createGymSecondaryColor.trim() && { secondary: createGymSecondaryColor }),
+        },
       }
+      if (createGymLogoUrl.trim()) payload.logo_url = createGymLogoUrl.trim()
       if (hasAdmin) {
         payload.admin_email = createAdminEmail.trim()
         payload.admin_password = createAdminPassword
@@ -186,6 +323,9 @@ export const SuperAdminDashboard = () => {
       setShowCreateGymModal(false)
       setCreateGymName('')
       setCreateGymTier('BASIC')
+      setCreateGymLogoUrl('')
+      setCreateGymPrimaryColor('#2563eb')
+      setCreateGymSecondaryColor('')
       setCreateAdminEmail('')
       setCreateAdminPassword('')
       setCreateAdminName('')
@@ -223,7 +363,7 @@ export const SuperAdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-start justify-center p-8">
+    <div className="min-h-screen bg-background text-foreground flex items-start justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-5xl space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -235,6 +375,14 @@ export const SuperAdminDashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              to="/saas/profile"
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors"
+              title="Mi perfil"
+            >
+              <User className="h-3.5 w-3.5" />
+              Perfil
+            </Link>
             <div className="rounded-full border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 shadow-sm">
               Sesión como <span className="font-semibold">{user.name}</span>
             </div>
@@ -423,10 +571,19 @@ export const SuperAdminDashboard = () => {
                             type="button"
                             size="sm"
                             variant="outline"
+                            onClick={() => openEditGymModal(gym)}
+                            disabled={updatingGymId === gym.id || savingEditGym}
+                          >
+                            Editar gym
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
                             onClick={() => openModulesModal(gym)}
                             disabled={updatingGymId === gym.id}
                           >
-                            Editar módulos
+                            Módulos
                           </Button>
                           <span className="text-[11px] text-zinc-500">
                             {updatingGymId === gym.id
@@ -492,6 +649,130 @@ export const SuperAdminDashboard = () => {
           </div>
         </Modal>
 
+        {/* Modal: editar gym (nombre, logo, colores) */}
+        <Modal
+          isOpen={!!editingGym}
+          title="Editar gimnasio"
+          description={
+            editingGym
+              ? `Actualiza nombre, logo y colores de ${editingGym.name}.`
+              : undefined
+          }
+          onClose={() => !savingEditGym && setEditingGym(null)}
+        >
+          <div className="space-y-4">
+            <Input
+              label="Nombre del gimnasio"
+              type="text"
+              value={editGymName}
+              onChange={(e) => setEditGymName(e.target.value)}
+              placeholder="Ej. Mi Gym"
+              autoComplete="off"
+            />
+            <div>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
+                Logo (opcional)
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  type="url"
+                  value={editGymLogoUrl}
+                  onChange={(e) => setEditGymLogoUrl(e.target.value)}
+                  placeholder="URL del logo"
+                  autoComplete="off"
+                  className="flex-1"
+                />
+                <label className="inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 cursor-pointer disabled:opacity-50">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={handleEditGymLogoUpload}
+                    disabled={uploadingEditLogo}
+                  />
+                  {uploadingEditLogo ? 'Subiendo...' : 'Subir'}
+                </label>
+              </div>
+              {editGymLogoUrl && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img
+                    src={editGymLogoUrl}
+                    alt="Logo"
+                    className="h-10 w-auto object-contain rounded border border-zinc-200 dark:border-white/10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEditGymLogoUrl('')}
+                    className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
+                Colores
+              </label>
+              <div className="flex flex-wrap gap-3">
+                <div>
+                  <span className="text-[11px] text-zinc-500 block mb-1">Principal</span>
+                  <div className="flex gap-1">
+                    <input
+                      type="color"
+                      value={editGymPrimaryColor}
+                      onChange={(e) => setEditGymPrimaryColor(e.target.value)}
+                      className="h-8 w-12 rounded border border-zinc-200 dark:border-white/10 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={editGymPrimaryColor}
+                      onChange={(e) => setEditGymPrimaryColor(e.target.value)}
+                      className="w-24 text-xs"
+                      placeholder="#2563eb"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[11px] text-zinc-500 block mb-1">Secundario (opc.)</span>
+                  <div className="flex gap-1">
+                    <input
+                      type="color"
+                      value={editGymSecondaryColor || '#3b82f6'}
+                      onChange={(e) => setEditGymSecondaryColor(e.target.value)}
+                      className="h-8 w-12 rounded border border-zinc-200 dark:border-white/10 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={editGymSecondaryColor}
+                      onChange={(e) => setEditGymSecondaryColor(e.target.value)}
+                      className="w-24 text-xs"
+                      placeholder="#3b82f6"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingGym(null)}
+                disabled={savingEditGym}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleSaveEditGym()}
+                disabled={savingEditGym}
+              >
+                {savingEditGym ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
         {/* Modal: crear gimnasio + admin */}
         <Modal
           isOpen={showCreateGymModal}
@@ -523,6 +804,102 @@ export const SuperAdminDashboard = () => {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
+                Logo del gimnasio (opcional)
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  type="url"
+                  value={createGymLogoUrl}
+                  onChange={(e) => setCreateGymLogoUrl(e.target.value)}
+                  placeholder="URL del logo"
+                  autoComplete="off"
+                  className="flex-1"
+                />
+                <label className="inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 cursor-pointer disabled:opacity-50">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={handleCreateGymLogoUpload}
+                    disabled={uploadingLogo}
+                  />
+                  {uploadingLogo ? 'Subiendo...' : 'Subir'}
+                </label>
+              </div>
+              {createGymLogoUrl && (
+                <div className="mt-2 flex items-center gap-2">
+                  <img
+                    src={createGymLogoUrl}
+                    alt="Logo"
+                    className="h-10 w-auto object-contain rounded border border-zinc-200 dark:border-white/10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCreateGymLogoUrl('')}
+                    className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
+                Colores (white-label)
+              </label>
+              <div className="flex flex-wrap gap-3">
+                <div>
+                  <span className="text-[11px] text-zinc-500 block mb-1">Principal</span>
+                  <div className="flex gap-1">
+                    <input
+                      type="color"
+                      value={createGymPrimaryColor}
+                      onChange={(e) => setCreateGymPrimaryColor(e.target.value)}
+                      className="h-8 w-12 rounded border border-zinc-200 dark:border-white/10 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={createGymPrimaryColor}
+                      onChange={(e) => setCreateGymPrimaryColor(e.target.value)}
+                      className="w-24 text-xs"
+                      placeholder="#2563eb"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[11px] text-zinc-500 block mb-1">Secundario (opc.)</span>
+                  <div className="flex gap-1">
+                    <input
+                      type="color"
+                      value={createGymSecondaryColor || '#3b82f6'}
+                      onChange={(e) => setCreateGymSecondaryColor(e.target.value)}
+                      className="h-8 w-12 rounded border border-zinc-200 dark:border-white/10 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={createGymSecondaryColor}
+                      onChange={(e) => setCreateGymSecondaryColor(e.target.value)}
+                      className="w-24 text-xs"
+                      placeholder="#3b82f6"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1 items-end">
+                  {PRESET_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setCreateGymPrimaryColor(c.value)}
+                      className="h-6 w-6 rounded border border-zinc-200 dark:border-white/10 hover:ring-2 hover:ring-primary/50"
+                      style={{ backgroundColor: c.value }}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="border-t border-zinc-200 dark:border-white/10 pt-4 mt-4">
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-3">

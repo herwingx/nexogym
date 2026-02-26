@@ -21,6 +21,14 @@ No hay congelación automática por fecha: cuando pasa `expires_at`, el **acceso
 
 Regla: **si el socio se fue y regresa a pagar, el nuevo periodo empieza el día que paga (hoy).** Solo si sigue activo y con días restantes se extiende desde su fecha actual.
 
+### 2.1 Precio y caja
+
+- **Precio:** El monto se toma del producto **"Membresía 30 días"** (barcode `MEMBERSHIP`) en Inventario. **Admin** debe crearlo y asignar el precio. Reception/Coach **no pueden ingresar monto manual** (evita manipulación).
+- **Producto no existe:** Si el producto no está en inventario, el backend devuelve 400 con mensaje: *"El Admin debe crearlo en Inventario (barcode MEMBERSHIP) y asignar el precio antes de renovar."*
+- **Registro en caja:** Si el producto tiene precio > 0 y hay turno abierto, se crea una `Sale` con ese precio y se suma al turno del usuario que renueva.
+
+### 2.2 Lógica de extensión
+
 - **ACTIVE y `expires_at` > hoy**  
   → Se extiende: nueva fecha = `expires_at` + 30 días.
 

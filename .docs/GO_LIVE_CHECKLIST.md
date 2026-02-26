@@ -64,6 +64,21 @@ Para evitar drift de `modules_config` y asegurar que el plan gobierna features:
 - `METRICS_TOKEN` (si `/metrics` será accesible fuera de red interna)
 - `SUPABASE_SERVICE_ROLE_KEY` (opcional; necesario para crear el primer admin al dar de alta un gym desde /saas; si no está, el gym se crea pero el admin debe darse con el script `create-gym-admin`)
 
+## 3.1) Primer arranque en producción (DB vacía)
+
+Antes de los smoke tests, si la base de datos está vacía:
+
+1. Ejecutar `npm run db:push` (o `prisma migrate deploy`).
+2. Ejecutar `npm run bootstrap-superadmin` con variables de producción:
+   ```bash
+   SUPERADMIN_EMAIL=ops@tudominio.com SUPERADMIN_PASSWORD=... npm run bootstrap-superadmin
+   ```
+3. Probar login en el frontend → acceder a `/saas` y cambiar contraseña en el primer login.
+
+Documentación completa: `.docs/BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md`.
+
+---
+
 ## 4) Smoke tests de salida
 
 Tras cada deploy, validar:

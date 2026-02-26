@@ -128,7 +128,7 @@ export const AdminShifts = () => {
               {openShifts.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center justify-between gap-2 text-zinc-700 dark:text-zinc-300"
+                  className="flex flex-wrap items-center justify-between gap-2 text-zinc-700 dark:text-zinc-300"
                 >
                   <div className="flex items-center gap-2">
                     <Wallet className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />

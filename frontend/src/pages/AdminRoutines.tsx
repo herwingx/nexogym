@@ -1,5 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { Plus, ChevronDown, ChevronUp, Dumbbell } from 'lucide-react'
+import { useAuthStore } from '../store/useAuthStore'
 import {
   fetchRoutines,
   createRoutine,
@@ -22,7 +24,10 @@ const emptyExercise = (): NewExercise => ({
 })
 
 export const AdminRoutines = () => {
+  const modules = useAuthStore((s) => s.modulesConfig)
   const [routines, setRoutines] = useState<Routine[]>([])
+
+  if (!modules.classes) return <Navigate to="/admin" replace />
   const [isLoading, setIsLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 

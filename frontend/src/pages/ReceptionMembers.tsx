@@ -1,34 +1,94 @@
 import { useState, useRef, useEffect } from 'react'
-import { Search, User, Camera } from 'lucide-react'
+import { Search, User, Camera, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { searchMembers, updateMember, sendQrToMember, regenerateQr, type MemberSummary } from '../lib/apiClient'
+import {
+  searchMembers,
+  fetchMemberUsers,
+  updateMember,
+  sendQrToMember,
+  regenerateQr,
+  renewSubscription,
+  freezeSubscription,
+  unfreezeSubscription,
+  type MemberSummary,
+  type MemberUserRow,
+} from '../lib/apiClient'
 import { notifyError, notifySuccess } from '../lib/notifications'
 import { supabase } from '../lib/supabaseClient'
 import { useAuthStore } from '../store/useAuthStore'
+import { cn } from '../lib/utils'
+import { TableRowSkeleton } from '../components/ui/Skeleton'
 
 const PROFILE_BUCKET = 'profile-pictures'
+const PAGE_SIZE = 20
+
+const STATUS_BADGE: Record<string, string> = {
+  ACTIVE: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+  FROZEN: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+  EXPIRED: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+  CANCELED: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20',
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: 'Activo',
+  FROZEN: 'Congelado',
+  EXPIRED: 'Vencido',
+  CANCELED: 'Cancelado',
+}
+
+function getMemberStatus(row: MemberUserRow): string {
+  const sub = row.subscriptions?.[0]
+  if (!sub) return 'EXPIRED'
+  const s = sub.status as string
+  if (s === 'ACTIVE') return 'ACTIVE'
+  if (s === 'FROZEN') return 'FROZEN'
+  if (s === 'CANCELED') return 'CANCELED'
+  return 'EXPIRED'
+}
 
 export const ReceptionMembersPage = () => {
   const userRole = useAuthStore((s) => s.user?.role)
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<MemberSummary[]>([])
+  const [searchResults, setSearchResults] = useState<MemberSummary[]>([])
   const [searching, setSearching] = useState(false)
+  const [members, setMembers] = useState<MemberUserRow[]>([])
+  const [meta, setMeta] = useState<{ total: number; page: number; limit: number; expiring_7d?: number; expired?: number }>({ total: 0, page: 1, limit: PAGE_SIZE })
+  const [loading, setLoading] = useState(true)
   const [editMember, setEditMember] = useState<MemberSummary | null>(null)
+  const [actionTarget, setActionTarget] = useState<{ user: MemberUserRow; action: 'renew' | 'freeze' | 'unfreeze' } | null>(null)
+  const [actionSubmitting, setActionSubmitting] = useState(false)
   const canRegenerateQr = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
+
+  const loadList = async (page = 1) => {
+    try {
+      setLoading(true)
+      const res = await fetchMemberUsers(page, PAGE_SIZE, 'name')
+      setMembers(res.data)
+      setMeta(res.meta)
+    } catch (e) {
+      notifyError({ title: 'Error al cargar socios', description: (e as Error)?.message ?? '' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadList()
+  }, [])
 
   useEffect(() => {
     if (query.trim().length < 2) {
-      setResults([])
+      setSearchResults([])
       return
     }
     const t = setTimeout(async () => {
       setSearching(true)
       try {
         const data = await searchMembers(query)
-        setResults(data)
+        setSearchResults(data)
       } catch {
-        setResults([])
+        setSearchResults([])
       } finally {
         setSearching(false)
       }
@@ -36,17 +96,69 @@ export const ReceptionMembersPage = () => {
     return () => clearTimeout(t)
   }, [query])
 
+  const showSearch = query.trim().length >= 2
+
+  const handleAction = async () => {
+    if (!actionTarget) return
+    const { user, action } = actionTarget
+    setActionSubmitting(true)
+    try {
+      if (action === 'renew') {
+        const res = await renewSubscription(user.id)
+        const amt = res.amount_registered_in_shift
+        notifySuccess({
+          title: 'Renovado',
+          description:
+            typeof amt === 'number' && amt > 0
+              ? `Suscripción renovada. $${amt.toFixed(2)} registrado en caja (precio del Admin).`
+              : 'Suscripción renovada.',
+        })
+      } else if (action === 'freeze') {
+        await freezeSubscription(user.id)
+        notifySuccess({ title: 'Congelado', description: 'Suscripción congelada.' })
+      } else if (action === 'unfreeze') {
+        await unfreezeSubscription(user.id)
+        notifySuccess({ title: 'Descongelado', description: 'Suscripción descongelada.' })
+      }
+      setActionTarget(null)
+      void loadList(meta.page)
+      if (editMember?.id === user.id) setEditMember(null)
+    } catch (e) {
+      notifyError({ title: 'Error', description: (e as Error)?.message ?? '' })
+    } finally {
+      setActionSubmitting(false)
+    }
+  }
+
   return (
     <div className="min-h-[calc(100vh-6rem)] bg-background text-foreground px-4 py-6">
-      <div className="mx-auto max-w-xl space-y-4">
+      <div className="mx-auto max-w-4xl space-y-4">
         <div>
           <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            Buscar socio
+            Socios
           </h1>
           <p className="text-sm text-zinc-500">
-            Editar nombre, teléfono o foto. Útil para agregar foto desde el celular si el alta se hizo en PC sin cámara.
+            Buscar o listar socios. Editar nombre, teléfono o foto.
           </p>
         </div>
+
+        {/* Resumen: próximos a vencer y vencidos */}
+        {(meta.expiring_7d != null || meta.expired != null) && (
+          <div className="flex flex-wrap gap-3 text-sm">
+            {meta.expiring_7d != null && meta.expiring_7d > 0 && (
+              <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-amber-700 dark:text-amber-400">
+                {meta.expiring_7d} por vencer (7 días)
+              </span>
+            )}
+            {meta.expired != null && meta.expired > 0 && (
+              <span className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-rose-600 dark:text-rose-400">
+                {meta.expired} vencidos
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Búsqueda */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
@@ -57,48 +169,246 @@ export const ReceptionMembersPage = () => {
             className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 py-2.5 pl-10 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
           />
         </div>
-        {searching && <p className="text-xs text-zinc-500">Buscando...</p>}
-        {!searching && query.trim().length >= 2 && (
-          <ul className="space-y-1 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 overflow-hidden">
-            {results.length === 0 ? (
-              <li className="px-4 py-3 text-sm text-zinc-500">Sin resultados</li>
+
+        {/* Resultados de búsqueda */}
+        {showSearch && (
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 overflow-hidden">
+            {searching ? (
+              <p className="px-4 py-3 text-sm text-zinc-500">Buscando...</p>
+            ) : searchResults.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-zinc-500">Sin resultados</p>
             ) : (
-              results.map((m) => (
-                <li key={m.id}>
-                  <button
-                    type="button"
-                    onClick={() => setEditMember(m)}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
-                  >
-                    {m.profile_picture_url ? (
-                      <img
-                        src={m.profile_picture_url}
-                        alt=""
-                        className="h-10 w-10 rounded-full object-cover border border-zinc-200 dark:border-white/10"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
-                        <User className="h-5 w-5 text-zinc-500" />
+              <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {searchResults.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => setEditMember(m)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                    >
+                      {m.profile_picture_url ? (
+                        <img
+                          src={m.profile_picture_url}
+                          alt=""
+                          className="h-10 w-10 rounded-full object-cover border border-zinc-200 dark:border-white/10"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                          <User className="h-5 w-5 text-zinc-500" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                          {m.name || 'Sin nombre'}
+                        </p>
+                        <p className="text-xs text-zinc-500 truncate">{m.phone}</p>
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                        {m.name || 'Sin nombre'}
-                      </p>
-                      <p className="text-xs text-zinc-500 truncate">{m.phone}</p>
-                    </div>
-                  </button>
-                </li>
-              ))
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
-          </ul>
+          </div>
+        )}
+
+        {/* Listado paginado (cuando no hay búsqueda activa) */}
+        {!showSearch && (
+          <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
+                  <th className="py-3 px-4 text-left font-medium">Nombre</th>
+                  <th className="py-3 px-4 text-left font-medium">Teléfono</th>
+                  <th className="py-3 px-4 text-left font-medium">Estado</th>
+                  <th className="py-3 px-4 text-left font-medium">Vence</th>
+                  <th className="py-3 px-4 text-right font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <TableRowSkeleton columns={5} rows={8} />
+                ) : members.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-zinc-500">
+                      No hay socios registrados.
+                    </td>
+                  </tr>
+                ) : (
+                  members.map((m) => {
+                    const status = getMemberStatus(m)
+                    const sub = m.subscriptions?.[0]
+                    const expiresAt = sub?.expires_at ? new Date(sub.expires_at) : null
+                    return (
+                      <tr
+                        key={m.id}
+                        className="border-t border-zinc-200 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      >
+                        <td className="py-2.5 px-4">
+                          <button
+                            type="button"
+                            onClick={() => setEditMember({ id: m.id, name: m.name, phone: m.phone ?? '', profile_picture_url: m.profile_picture_url ?? null, role: m.role })}
+                            className="text-left font-medium text-zinc-900 dark:text-zinc-100 hover:underline truncate block max-w-[180px]"
+                          >
+                            {m.name ?? '—'}
+                          </button>
+                        </td>
+                        <td className="py-2.5 px-4 text-zinc-700 dark:text-zinc-300 truncate max-w-[120px]">
+                          {m.phone ?? '—'}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span
+                            className={cn(
+                              'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
+                              STATUS_BADGE[status] ?? STATUS_BADGE.CANCELED,
+                            )}
+                          >
+                            {STATUS_LABELS[status] ?? status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-zinc-600 dark:text-zinc-400 text-xs">
+                          {expiresAt ? expiresAt.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="flex flex-wrap justify-end gap-1">
+                            {(status === 'EXPIRED' || status === 'CANCELED' || status === 'ACTIVE') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setActionTarget({ user: m, action: 'renew' })}
+                              >
+                                {status === 'ACTIVE' ? 'Pagar / Renovar' : 'Renovar'}
+                              </Button>
+                            )}
+                            {status === 'ACTIVE' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setActionTarget({ user: m, action: 'freeze' })}
+                              >
+                                Congelar
+                              </Button>
+                            )}
+                            {status === 'FROZEN' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setActionTarget({ user: m, action: 'renew' })}
+                                >
+                                  Pagar / Renovar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setActionTarget({ user: m, action: 'unfreeze' })}
+                                >
+                                  Descongelar
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+            {meta.total > PAGE_SIZE && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
+                <span>
+                  {members.length} de {meta.total}
+                </span>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadList(meta.page - 1)}
+                    disabled={meta.page <= 1 || loading}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadList(meta.page + 1)}
+                    disabled={meta.page * meta.limit >= meta.total || loading}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
         )}
       </div>
+
+      {actionTarget && (
+        <Modal
+          isOpen
+          title={
+            actionTarget.action === 'renew'
+              ? 'Renovar suscripción'
+              : actionTarget.action === 'freeze'
+                ? 'Congelar suscripción'
+                : 'Descongelar suscripción'
+          }
+          onClose={() => !actionSubmitting && setActionTarget(null)}
+        >
+          {actionTarget.action === 'renew' ? (
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Renovar a <strong>{actionTarget.user.name ?? actionTarget.user.phone ?? 'este socio'}</strong>. Se cobra al precio configurado por el Admin en inventario (producto Membresía 30 días). Requiere turno abierto para registrar el pago.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActionTarget(null)}
+                  disabled={actionSubmitting}
+                >
+                  Cancelar
+                </Button>
+                <Button onClick={handleAction} disabled={actionSubmitting}>
+                  {actionSubmitting ? 'Procesando...' : 'Renovar'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {actionTarget.action === 'freeze'
+                  ? `¿Congelar la suscripción de ${actionTarget.user.name ?? actionTarget.user.phone ?? 'este socio'}?`
+                  : `¿Descongelar la suscripción de ${actionTarget.user.name ?? actionTarget.user.phone ?? 'este socio'}?`}
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActionTarget(null)}
+                  disabled={actionSubmitting}
+                >
+                  Cancelar
+                </Button>
+                <Button onClick={handleAction} disabled={actionSubmitting}>
+                  {actionSubmitting ? 'Procesando...' : actionTarget.action === 'freeze' ? 'Congelar' : 'Descongelar'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
       {editMember && (
         <Modal isOpen title="Editar socio" onClose={() => setEditMember(null)}>
           <EditMemberForm
             member={editMember}
-            onSuccess={() => setEditMember(null)}
+            onSuccess={() => {
+              setEditMember(null)
+              void loadList(meta.page)
+            }}
             onCancel={() => setEditMember(null)}
             canRegenerateQr={canRegenerateQr}
           />
@@ -167,7 +477,7 @@ function EditMemberForm({
       notifySuccess({ title: 'Socio actualizado' })
       onSuccess()
     } catch (e) {
-      notifyError({ title: 'Error', description: (e as Error)?.message })
+      notifyError({ title: 'Error', description: (e as Error)?.message ?? '' })
     } finally {
       setSubmitting(false)
     }
@@ -212,7 +522,7 @@ function EditMemberForm({
             size="sm"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadingPhoto}
-            className="inline-flex items-center gap-1.5"
+            className="inline-flex gap-1.5"
           >
             <Camera className="h-3.5 w-3.5" />
             {uploadingPhoto ? 'Subiendo...' : 'Cámara o archivo'}

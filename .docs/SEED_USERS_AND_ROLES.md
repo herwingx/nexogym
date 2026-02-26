@@ -11,9 +11,9 @@ Documento de referencia para saber **quién puede hacer qué** en cada gym segú
 | **SUPERADMIN** | Administrador de la plataforma | `/saas` (dashboard SaaS) | Ver todos los gyms, métricas, cambiar tier y módulos por gym, crear/editar/eliminar gyms. No opera un gym concreto. |
 | **ADMIN**      | Dueño/gerente del gym          | `/admin`               | Dashboard, Socios, Finanzas, Auditoría, **Personal** (staff, dar de baja); **Inventario y Cortes** (y Forzar Cierre) solo si el plan tiene POS; **Clases y Rutinas** solo si el plan tiene Clases. |
 | **RECEPTIONIST** | Recepcionista                | `/reception`           | Check-in, POS (si plan tiene POS), cierre ciego de turno, egresos tipados, ver/alta socios. Check-in por QR solo si el plan tiene `qr_access`. Regenerar QR solo Admin. |
-| **COACH**      | Entrenador / rutinas           | `/admin` (menú limitado) | Solo **Clases** y **Rutinas**; no ve Dashboard, Socios, Finanzas, Personal, Cortes ni Auditoría. Default al entrar: `/admin/routines`. |
+| **COACH**      | Entrenador / rutinas           | `/admin` (menú limitado) | Solo **Clases** y **Rutinas**; no ve Dashboard, Socios, Finanzas, Personal, Inventario, Cortes ni Auditoría. Default al entrar: `/admin/routines`. Marcar asistencia y gestionar rutinas de socios. |
 | **INSTRUCTOR** | Instructor de clases           | `/admin` (menú limitado) | Misma UI que COACH (Clases y Rutinas). Si el backend no incluye INSTRUCTOR en permisos de rutinas/asistencia, esas llamadas devolverán 403 hasta que se actualice. |
-| **MEMBER**     | Socio del gym                  | `/member` (portal socio) | Ver su perfil, historial de visitas, premios (si plan tiene gamificación), reservar clases (si plan tiene clases). |
+| **MEMBER**     | Socio del gym                  | `/member` (portal socio) | Ver su perfil, historial, premios (si plan tiene gamificación), reservar clases (si plan tiene clases). **Plan BASIC:** sin acceso al portal (pantalla de bloqueo + Cerrar sesión). |
 
 ---
 
@@ -29,7 +29,7 @@ El **plan del gym** define qué funcionalidades están habilitadas. Lo que no es
 
 **Qué comprobar por plan:**
 
-- **BASIC:** Solo debe verse/operar POS (inventario, cortes, ventas). Sin menú Clases, Rutinas, Premios; check-in solo manual (sin QR). Sin biometría.
+- **BASIC:** Solo debe verse/operar POS (inventario, cortes, ventas). Sin menú Clases, Rutinas, Premios; check-in solo manual (sin QR). **Socios sin acceso al portal** (QR, premios, historial); ven pantalla de bloqueo y pueden cerrar sesión. Sin biometría.
 - **PRO_QR:** Todo lo de BASIC + QR, Clases, Rutinas, Gamificación (rachas, premios). Sin biometría.
 - **PREMIUM_BIO:** Todo lo de PRO_QR + check-in biométrico.
 
@@ -42,6 +42,7 @@ Contraseñas usadas en el seed (mismo patrón para recordar):
 - Admins: **Admin1234!**
 - Recepcionistas: **Recep1234!**
 - Instructores: **Instructor1234!**
+- Coach: **Coach1234!**
 - Socios (members): **Member1234!** (en PowerFit también existe **Socio1234!** para el socio con login)
 
 ---
@@ -64,7 +65,7 @@ Contraseñas usadas en el seed (mismo patrón para recordar):
 |------------|---------------------|--------------|----------------|-------------------|
 | Admin      | admin@fitzone.dev   | Admin1234!   | Dashboard, Socios, Finanzas, Auditoría, **Inventario, Cortes de caja** | Clases, Rutinas (menú no debe aparecer; API 403) |
 | Recep      | recep@fitzone.dev   | Recep1234!   | Check-in **manual**, POS, Socios, Alta socios | Check-in por QR, Premios/Gamificación, Clases |
-| Socio      | member@fitzone.dev  | Member1234!  | Portal socio, historial visitas (si aplica) | Premios, reservar clases (plan sin clases) |
+| Socio      | member@fitzone.dev  | Member1234!  | **Nada.** Pantalla de bloqueo: "Tu gimnasio está en plan Basic..."; solo Cerrar sesión | Portal (QR, premios, historial, clases); plan Basic no incluye portal socio |
 
 **Nota:** En BASIC no hay usuarios con rol INSTRUCTOR en el seed.
 
@@ -82,7 +83,7 @@ Contraseñas usadas en el seed (mismo patrón para recordar):
 |-------|------------------------|--------------|----------------|-------------------|
 | Admin | admin@ironhouse.dev   | Admin1234!   | Igual que FitZone BASIC: POS, Socios, Finanzas, Auditoría | Clases, Rutinas |
 | Recep | recep@ironhouse.dev   | Recep1234!   | Check-in manual, POS, Socios | QR, Clases, Premios |
-| Socio | member@ironhouse.dev | Member1234!  | Portal socio básico | Premios, Clases |
+| Socio | member@ironhouse.dev | Member1234!  | **Nada.** Pantalla de bloqueo (plan Basic) | Portal (QR, premios, historial, clases) |
 
 **Comprobar:** Los datos (socios, ventas, visitas) son **solo de IronHouse**; no deben verse datos de FitZone ni de otros gyms.
 
@@ -94,12 +95,13 @@ Contraseñas usadas en el seed (mismo patrón para recordar):
 
 | Rol        | Email                    | Contraseña     | Qué debe poder | Qué NO debe poder |
 |------------|--------------------------|----------------|----------------|-------------------|
-| Admin      | admin@powerfit.dev      | Admin1234!     | Todo lo de BASIC + **Clases, Rutinas**, Inventario, Cortes | Biometría (check-in huella) |
-| Recep      | recep@powerfit.dev      | Recep1234!     | Check-in **manual y QR**, POS, Socios, Clases (según permisos) | Biometría |
-| Instructor | instructor@powerfit.dev | Instructor1234! | Ver/gestionar clases del gym | Lo que no sea clases/instructor |
+| Admin      | admin@powerfit.dev      | Admin1234!     | Todo lo de BASIC + **Clases, Rutinas**, Inventario, Cortes, Auditoría, Personal | Biometría (check-in huella) |
+| Recep      | recep@powerfit.dev      | Recep1234!     | Check-in **manual y QR**, POS, Socios, alta socios | Biometría, Forzar cierre, Personal |
+| Instructor | instructor@powerfit.dev | Instructor1234! | **Clases, Rutinas**: ver clases, marcar asistencia, gestionar rutinas de socios | Dashboard, Socios, Finanzas, Inventario, Cortes, Auditoría |
+| Coach      | coach@powerfit.dev      | Coach1234!     | **Clases, Rutinas**: igual que Instructor | Dashboard, Socios, Finanzas, Inventario, Cortes, Auditoría, check-in, POS |
 | Socio      | socio@powerfit.dev      | Socio1234!     | Portal: inicio, **premios**, historial, **reservar clases** | Nada de biometría en app (solo backend/hardware) |
 
-**Socios en este gym:** Varios con ACTIVE, EXPIRED, CANCELED, FROZEN; algunos con rachas (streaks) y restricción horaria. El socio con login es el que usa `socio@powerfit.dev`.
+**Socios en este gym:** Varios con ACTIVE, EXPIRED, CANCELED, FROZEN; algunos con rachas (streaks) y restricción horaria. Todos tienen `qr_token` para probar check-in por QR. El socio con login es el que usa `socio@powerfit.dev`.
 
 ---
 
@@ -190,12 +192,12 @@ Usa esta sección **tras ejecutar el seed** o tras cambios en permisos/planes pa
 |---|-----|--------|--------------------|---|
 | 1 | Admin | Login y revisar menú lateral/navegación | **Visible:** Dashboard, Socios, Finanzas, Auditoría, Inventario, Cortes. **No visible:** Clases, Rutinas, Premios/Gamificación |
 | 2 | Admin | Abrir Inventario / Cortes de caja | Página carga y permite operar (listar, crear según permisos) |
-| 3 | Admin | Si existe enlace o ruta a Clases/Rutinas | Menú no muestra opción; acceso directo por URL debe dar 403 o redirección |
+| 3 | Admin | Si existe enlace o ruta a Clases/Rutinas | Menú no muestra opción; acceso directo por URL redirige a `/admin` |
 | 4 | Recep | Login y revisar recepción (check-in, POS) | Check-in **solo manual** (por DNI/búsqueda). **No** opción de escanear QR para check-in |
 | 5 | Recep | Abrir POS / ventas | Funciona; puede vender y ver productos del gym |
 | 6 | Recep | Buscar “QR” o “código” en pantalla de check-in | No hay flujo de check-in por QR habilitado (botón oculto o deshabilitado / 403) |
-| 7 | Socio | Login en portal socio (`member@fitzone.dev`) | Acceso a portal; ve su perfil e historial de visitas |
-| 8 | Socio | Buscar premios, rachas o reserva de clases | No visible o bloqueado (mensaje/403); plan BASIC no incluye gamificación ni clases |
+| 7 | Socio | Login en portal socio (`member@fitzone.dev`) | **Acceso bloqueado.** Pantalla: "Tu gimnasio está en plan Basic. El portal de socios (QR, premios, historial) no está disponible." Solo botón Cerrar sesión |
+| 8 | Socio | Buscar premios, rachas o reserva de clases | N/A — no puede entrar al portal; pantalla de bloqueo con Cerrar sesión |
 | 9 | — | Aislamiento: como Admin o Recep, listar socios/ventas | Solo datos de **este gym** (FitZone o IronHouse); ningún dato de PowerFit/CrossBox/EliteBody/MegaFit |
 
 **Repetir los mismos criterios con IronHouse** (`admin@ironhouse.dev`, `recep@ironhouse.dev`, `member@ironhouse.dev`) y confirmar que los datos mostrados son solo de IronHouse.
@@ -204,21 +206,24 @@ Usa esta sección **tras ejecutar el seed** o tras cambios en permisos/planes pa
 
 ### 6.3 Plan PRO_QR (PowerFit Pro o CrossBox PRO)
 
-**Gym de prueba:** PowerFit — `admin@powerfit.dev`, `recep@powerfit.dev`, `instructor@powerfit.dev`, `socio@powerfit.dev`
+**Gym de prueba:** PowerFit — `admin@powerfit.dev`, `recep@powerfit.dev`, `instructor@powerfit.dev`, `coach@powerfit.dev`, `socio@powerfit.dev`
 
 | # | Rol | Acción | Resultado esperado | ✓ |
 |---|-----|--------|--------------------|---|
-| 1 | Admin | Login y revisar menú | **Visible:** Dashboard, Socios, Finanzas, Auditoría, Inventario, Cortes, **Clases, Rutinas**. **No visible:** Biometría (si se muestra en otros planes) |
-| 2 | Admin | Abrir Clases / Rutinas | Páginas cargan y permiten gestionar (según permisos) |
+| 1 | Admin | Login y revisar menú | **Visible:** Dashboard, Socios, Finanzas, Auditoría, Inventario, Cortes, **Clases, Rutinas**, Personal. **No visible:** Biometría (si se muestra en otros planes) |
+| 2 | Admin | Abrir Clases / Rutinas / Auditoría | Páginas cargan y permiten gestionar; AuditLog tiene registros de ejemplo |
 | 3 | Recep | Pantalla de check-in | Opción de check-in **manual** y **por QR** (escanear código). Ambas funcionan |
 | 4 | Recep | Buscar opción de check-in biométrico (huella) | No disponible o deshabilitado; plan PRO_QR no incluye biometría |
-| 5 | Instructor | Login (`instructor@powerfit.dev`) | Acceso a área de instructor / clases del gym |
-| 6 | Instructor | Ver y gestionar clases | Solo clases del gym PowerFit; no ve datos de otros gyms |
-| 7 | Socio | Login en portal (`socio@powerfit.dev`) | Ve **premios/gamificación** (rachas, etc.) y **reserva de clases** |
-| 8 | Socio | Reservar una clase (si hay clases en el seed) | Flujo funciona o muestra mensaje coherente (ej. sin clases disponibles) |
-| 9 | — | Aislamiento: como Recep/Admin, listar socios y ventas | Solo datos de PowerFit (o CrossBox si pruebas CrossBox); ningún dato de FitZone/EliteBody/etc. |
+| 5 | Instructor | Login (`instructor@powerfit.dev`) | Redirige a `/admin` → Dashboard redirige a Clases; menú muestra **solo Clases y Rutinas** |
+| 6 | Instructor | Ver clases, marcar asistencia, gestionar rutinas | Funciona; solo datos del gym PowerFit; no ve Socios, Finanzas, Inventario, Cortes, Auditoría |
+| 7 | Coach | Login (`coach@powerfit.dev`) | Redirige a `/admin/routines`; menú muestra **solo Clases y Rutinas** |
+| 8 | Coach | Marcar asistencia en clase, crear/editar rutina de socio | Funciona (requireCoachOrAdmin en backend); no ve Dashboard, Socios, Finanzas, Inventario, Cortes, Auditoría |
+| 9 | Coach | Intentar acceder a `/admin/members` o `/reception` por URL | 403 o redirección; Coach no es staff para check-in ni POS |
+| 10 | Socio | Login en portal (`socio@powerfit.dev`) | Ve **premios/gamificación** (rachas, leaderboard), historial, **reserva de clases** |
+| 11 | Socio | Reservar una clase (hay clases en seed) | Flujo funciona; seed tiene Clases (Spinning, Box Fit, Functional Coach) |
+| 12 | — | Aislamiento: como Recep/Admin, listar socios y ventas | Solo datos de PowerFit; ningún dato de FitZone/EliteBody/etc. |
 
-**Repetir con CrossBox** (`admin@crossbox.dev`, etc.) y comprobar mismo comportamiento y aislamiento de datos.
+**Repetir con CrossBox** (`admin@crossbox.dev`, etc.) y comprobar mismo comportamiento y aislamiento de datos. CrossBox no tiene usuario COACH en seed; se puede crear desde Admin > Personal.
 
 ---
 
@@ -245,11 +250,27 @@ Usa esta sección **tras ejecutar el seed** o tras cambios en permisos/planes pa
 - **Por plan:** Lo que no está en el plan (tabla de §2) debe estar **oculto en UI** o devolver **403** en API.
 - **Por rol:** Cada rol solo ve y hace lo indicado en la tabla de §1; el plan del gym recorta aún más (ej. Recep en BASIC no tiene QR).
 - **Aislamiento:** Un usuario de un gym **nunca** ve socios, ventas, visitas o clases de otro gym.
-- **Login:** Todas las credenciales de §7 deben permitir login correcto; contraseña errónea debe rechazarse con mensaje claro.
+- **Login:** Todas las credenciales de §8 deben permitir login correcto; contraseña errónea debe rechazarse con mensaje claro.
 
 ---
 
-## 7. Contraseñas en un solo bloque (copiar/pegar)
+## 7. Tabla rápida: qué SÍ y qué NO por rol (referencia backend)
+
+| Acción / Recurso | ADMIN | RECEP | COACH | INSTRUCTOR | MEMBER |
+|------------------|:-----:|:-----:|:-----:|:----------:|:------:|
+| Check-in (manual/QR) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| POS, Inventario, Cortes | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Socios (listar, editar) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Clases, Rutinas, marcar asistencia | ✅ | — | ✅ | ✅ | ❌ |
+| Crear/editar rutinas de socios | ✅ | — | ✅ | ✅ | ❌ |
+| Auditoría, Finanzas, Personal | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Portal socio (premios, historial, reservas) | ❌ | ❌ | ❌ | ❌ | ✅ (solo si plan tiene qr_access; BASIC: bloqueado) |
+
+> COACH e INSTRUCTOR: mismo acceso en backend (`requireCoachOrAdmin`). Solo Clases y Rutinas; no son staff para check-in, POS ni socios.
+
+---
+
+## 8. Contraseñas en un solo bloque (copiar/pegar)
 
 ```
 SuperAdmin : superadmin@nexogym.dev   / SuperAdmin2025!
@@ -268,12 +289,13 @@ PowerFit (PRO_QR):
   admin@powerfit.dev      / Admin1234!
   recep@powerfit.dev      / Recep1234!
   instructor@powerfit.dev / Instructor1234!
-  socio@powerfit.dev       / Socio1234!
+  coach@powerfit.dev      / Coach1234!
+  socio@powerfit.dev      / Socio1234!
 
 CrossBox (PRO_QR):
   admin@crossbox.dev      / Admin1234!
   recep@crossbox.dev      / Recep1234!
-  instructor@crossbox.dev  / Instructor1234!
+  instructor@crossbox.dev / Instructor1234!
   member@crossbox.dev     / Member1234!
 
 EliteBody (PREMIUM_BIO):
@@ -290,5 +312,17 @@ MegaFit (PREMIUM_BIO):
 ```
 
 ---
+
+---
+
+## 9. Datos de seed para flujos específicos
+
+| Flujo | Qué hay en seed | Cómo probar |
+|-------|-----------------|-------------|
+| **Check-in QR** | Todos los socios tienen `qr_token`. PowerFit, EliteBody, CrossBox, MegaFit tienen `qr_access`. | Recep escanea QR del socio (payload `GYM_QR_<token>`) o simula POST /checkin con qr_payload. |
+| **Leaderboard racha** | Socios con `current_streak`, `last_visit_at`, `last_checkin_date` actualizados. | Socio en PowerFit o EliteBody → `/member/rewards` → ver ranking. |
+| **Auditoría** | AuditLog con entradas en PowerFit y EliteBody (SUBSCRIPTION_RENEWED, CHECKIN_QR, SHIFT_CLOSED, etc.). | Admin → `/admin/audit` → ver registros. |
+| **COACH/INSTRUCTOR** | PowerFit tiene Instructor y **Coach** (`coach@powerfit.dev`). CrossBox/EliteBody/MegaFit solo Instructor. | Login como Coach → solo Clases y Rutinas; marcar asistencia, crear rutina. |
+| **Tipos de egreso** | Gastos con OPERATIONAL_EXPENSE, SUPPLIER_PAYMENT, CASH_DROP en PowerFit y EliteBody. | Admin → Finanzas / Cortes → ver variedad de tipos. |
 
 *Documento generado para el seed de Prisma. Tras ejecutar `npx prisma db seed` en el backend, estos usuarios y gyms están disponibles para comprobar permisos y restricciones por plan.*

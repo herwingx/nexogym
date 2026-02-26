@@ -4,8 +4,10 @@ import {
   getUsers,
   searchUsers,
   createUser,
+  createStaff,
   updateUser,
   deleteUser,
+  restoreUser,
   sendQrToMember,
   regenerateQr,
   renewSubscription,
@@ -15,6 +17,7 @@ import {
   cancelSubscription,
   exportUserData,
   anonymizeUserData,
+  resetPasswordByAdmin,
 } from '../controllers/user.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireAdminOrSuperAdmin, requireStaff } from '../middlewares/admin.middleware';
@@ -120,6 +123,9 @@ router.get('/search', requireStaff, searchUsers);
  *                 type: string
  *               phone:
  *                 type: string
+ *               email:
+ *                 type: string
+ *                 description: Opcional. Si se indica para role=MEMBER, crea login y envía credenciales de portal por correo
  *               role:
  *                 type: string
  *                 enum: [ADMIN, RECEPTIONIST, MEMBER]
@@ -129,6 +135,38 @@ router.get('/search', requireStaff, searchUsers);
  *       403:
  *         description: Forbidden (Staff required)
  */
+/**
+ * @swagger
+ * /api/v1/users/staff:
+ *   post:
+ *     summary: Admin crea personal (Recep, Coach, Instructor) sin correo corporativo
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [RECEPTIONIST, COACH, INSTRUCTOR]
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       201:
+ *         description: Staff creado; devuelve username y password para entregar en persona
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
+ */
+router.post('/staff', requireAdminOrSuperAdmin, createStaff);
+
 router.post('/', requireStaff, createUser);
 
 /**
@@ -216,6 +254,28 @@ router.post('/:id/regenerate-qr', requireAdminOrSuperAdmin, regenerateQr);
 
 /**
  * @swagger
+ * /api/v1/users/{id}/reset-password-by-admin:
+ *   post:
+ *     summary: Admin resetea contraseña del staff; la nueva contraseña se envía al correo del admin.
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Contraseña actualizada; se envió al correo del admin.
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
+ *       404:
+ *         description: User not found
+ */
+router.post('/:id/reset-password-by-admin', requireAdminOrSuperAdmin, resetPasswordByAdmin);
+
+/**
+ * @swagger
  * /api/v1/users/{id}:
  *   delete:
  *     summary: Soft-delete a member
@@ -236,9 +296,9 @@ router.delete('/:id', requireAdminOrSuperAdmin, deleteUser);           // Soft d
 
 /**
  * @swagger
- * /api/v1/users/{id}/renew:
+ * /api/v1/users/{id}/restore:
  *   patch:
- *     summary: Renew or update member subscription
+ *     summary: Reactivar staff dado de baja
  *     tags: [Users]
  *     parameters:
  *       - in: path
@@ -248,11 +308,42 @@ router.delete('/:id', requireAdminOrSuperAdmin, deleteUser);           // Soft d
  *           type: string
  *     responses:
  *       200:
- *         description: Subscription renewed successfully
- *       403:
- *         description: Forbidden (Admin or SuperAdmin required)
+ *         description: Usuario reactivado
+ *       400:
+ *         description: Usuario ya activo o no es staff
+ *       404:
+ *         description: User not found
  */
-router.patch('/:id/renew', requireAdminOrSuperAdmin, renewSubscription);
+router.patch('/:id/restore', requireAdminOrSuperAdmin, restoreUser);
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/renew:
+ *   patch:
+ *     summary: Renew or update member subscription (Staff: Reception/Admin)
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Monto cobrado. Si > 0 y hay turno abierto, registra venta en caja.
+ *     responses:
+ *       200:
+ *         description: Subscription renewed successfully
+ *       400:
+ *         description: No turno abierto (si amount > 0)
+ */
+router.patch('/:id/renew', requireStaff, renewSubscription);
 
 /**
  * @swagger
@@ -272,7 +363,7 @@ router.patch('/:id/renew', requireAdminOrSuperAdmin, renewSubscription);
  *       403:
  *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.patch('/:id/freeze', requireAdminOrSuperAdmin, freezeSubscription);
+router.patch('/:id/freeze', requireStaff, freezeSubscription);
 
 /**
  * @swagger
@@ -292,7 +383,7 @@ router.patch('/:id/freeze', requireAdminOrSuperAdmin, freezeSubscription);
  *       403:
  *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.patch('/:id/unfreeze', requireAdminOrSuperAdmin, unfreezeSubscription);
+router.patch('/:id/unfreeze', requireStaff, unfreezeSubscription);
 
 /**
  * @swagger

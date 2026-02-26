@@ -1,6 +1,6 @@
 # QR de acceso del socio (único y estable)
 
-El QR que identifica al socio es **único y estable**. Se envía por WhatsApp (n8n) y evita tener que mandar un QR nuevo a cada rato; ese código es como su "huella" de acceso. Si borró el chat o lo perdió, se puede **reenviar** el mismo QR por WhatsApp. Solo Admin puede **regenerar** un QR nuevo (invalida el anterior), por ejemplo si hubo fraude o cambio de teléfono.
+El QR que identifica al socio es **único y estable**. Se envía por **WhatsApp** (n8n). El canal de email se reserva para bienvenida (credenciales) y recuperación de contraseña. Ver **CANALES_COMUNICACION.md**. Si borró el chat o lo perdió, se puede **reenviar** el mismo QR por WhatsApp. Solo Admin puede **regenerar** un QR nuevo (invalida el anterior), por ejemplo si hubo fraude o cambio de teléfono.
 
 ---
 
@@ -18,7 +18,7 @@ El backend resuelve `code` → `userId` por `qr_token` y hace el check-in con `a
 
 ## 2. Flujo completo
 
-1. **Alta del socio:** el backend (createUser) genera `qr_token`, crea el usuario y envía a n8n `event: 'welcome'` con `qrData: GYM_QR_<qr_token>`, PIN, etc. n8n envía el mensaje de bienvenida por WhatsApp.
+1. **Alta del socio:** el backend (createUser) genera `qr_token`, crea el usuario y envía a n8n `event: 'welcome'` con `qrData: GYM_QR_<qr_token>`, PIN, etc. n8n envía el mensaje de bienvenida por WhatsApp. Si se indica **email opcional** (para portal/gamificación), el socio recibe además por correo: credenciales de portal + QR y PIN como backup (ver CANALES_COMUNICACION.md).
 2. **Socio recibe por WhatsApp** su QR. Ese mismo código es estable y no cambia.
 3. **En el gym:** recepción escanea el QR → lector envía código + Enter → frontend `POST /checkin` con `{ code, accessMethod: 'QR' }` → backend registra llegada y actualiza racha.
 4. **Reenviar el mismo QR** (borró el chat, lo perdió, etc.):

@@ -247,7 +247,7 @@ export const getCurrentShift = async (req: Request, res: Response) => {
     });
 
     if (!shift) {
-      res.status(404).json({ error: 'No open shift found for this user.' });
+      res.status(200).json({ shift: null, running_totals: null });
       return;
     }
 

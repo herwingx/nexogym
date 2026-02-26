@@ -27,6 +27,7 @@ import { MemberHome } from './pages/MemberHome'
 import { MemberRewards } from './pages/MemberRewards'
 import { MemberHistory } from './pages/MemberHistory'
 import { MemberRoute } from './components/auth/MemberRoute'
+import { ProfileSettings } from './pages/ProfileSettings'
 
 type ThemeMode = 'light' | 'dark'
 
@@ -76,6 +77,7 @@ function App() {
     <>
       <Routes>
         <Route path="/saas" element={<SuperAdminDashboard />} />
+        <Route path="/saas/profile" element={<ProfileSettings />} />
 
         <Route element={<AdminRoute />}>
           <Route element={<AdminLayout />}>
@@ -88,6 +90,7 @@ function App() {
             <Route path="/admin/shifts" element={<AdminShifts />} />
             <Route path="/admin/staff" element={<AdminStaffView />} />
             <Route path="/admin/audit" element={<AdminAudit />} />
+            <Route path="/admin/profile" element={<ProfileSettings />} />
           </Route>
         </Route>
 
@@ -97,6 +100,7 @@ function App() {
             <Route path="/reception/pos" element={<ReceptionPosPage />} />
             <Route path="/reception/members" element={<ReceptionMembersPage />} />
             <Route path="/reception/members/new" element={<ReceptionMemberNewPage />} />
+            <Route path="/reception/profile" element={<ProfileSettings />} />
           </Route>
         </Route>
 
@@ -105,6 +109,7 @@ function App() {
             <Route path="/member" element={<MemberHome />} />
             <Route path="/member/rewards" element={<MemberRewards />} />
             <Route path="/member/history" element={<MemberHistory />} />
+            <Route path="/member/profile" element={<ProfileSettings />} />
           </Route>
         </Route>
 

@@ -67,6 +67,8 @@ El socio consulta sus rutinas asignadas.
 Reporte de ventas por staff para pago de comisiones.
 
 ### `POST /api/v1/checkin` (Actualizado)
+**RBAC:** Requiere rol Staff (Admin, Recepcionista o SuperAdmin). Socios (MEMBER), Coach e Instructor no pueden hacer check-in de otros socios.
+
 **Nueva Validación:** Si la suscripción tiene `allowed_start_time` y `allowed_end_time`, el sistema deniega el acceso fuera de ese rango aunque la membresía esté "ACTIVA".
 ```json
 // Response 403 (Fuera de horario)

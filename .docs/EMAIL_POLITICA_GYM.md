@@ -2,20 +2,22 @@
 
 Recomendación para que el correo de acceso sea de la **empresa (gym)** y no del individuo, de modo que al dar de baja a alguien el gym conserve el control del correo.
 
+> Ver **CANALES_COMUNICACION.md** para la estrategia completa: Email solo para bienvenida y reset contraseña; WhatsApp para QR y cumpleaños. **Staff:** Admin entrega credenciales en persona, reset al correo del Admin.
+
 ---
 
 ## 1. Recomendación: correos corporativos del gym
 
 - **Ideal:** Que staff (admin, recepcionistas, instructores) usen **correos con dominio del gym**, por ejemplo:
   - `admin@migym.com`
-  - `recep@migym.com` o `recepcion@migym.com`
-  - `recep1@migym.com`, `recep2@migym.com` si hay varios
+  - `recep@migym.com` o `recep1@migym.com`, `recep2@migym.com` si hay varios
   - `instructor@migym.com`
+
+- **Para staff (Recep, Coach, Instructor):** El Admin **no les envía correo**. Les da usuario y contraseña en persona. Si olvidan contraseña, el Admin resetea y la **nueva contraseña llega al correo del Admin** (no al staff). Ver CANALES_COMUNICACION.md.
 
 - **Ventajas:**
   - El correo **pertenece al gym**, no a la persona.
-  - Si despiden a alguien: dan de baja el usuario en la app (soft delete) y el gym **conserva el correo**. Pueden cambiar la contraseña y asignar ese mismo correo a otra persona (nuevo usuario en la app) o dejarlo inactivo.
-  - Evita que se lleven el acceso con un correo personal (Gmail, etc.) y da imagen más profesional.
+  - Si despiden a alguien: dan de baja el usuario en la app (soft delete) y el gym **conserva el correo**. Pueden reasignar ese mismo correo a otra persona.
 
 ---
 
@@ -34,9 +36,9 @@ Para poder “reasignar” el mismo correo a otro User en nuestra app, en el fut
 
 ## 3. Qué hacer a nivel del gym
 
-- **Configurar dominio de correo** (ej. Google Workspace, Microsoft 365, o correo corporativo del propio dominio) para tener `@migym.com`.
-- **Dar de alta al staff** con esos correos en la app (registro en Supabase con email corporativo + creación/link del User en el backend).
-- **Política interna:** Comunicar que las cuentas de recepción/admin son corporativas; al desvincular a alguien, el gym se queda con el correo y puede restablecer contraseña y reasignarlo.
+- **Configurar dominio de correo** (ej. Google Workspace, Microsoft 365) para tener `@migym.com`.
+- **Dar de alta al staff:** Crear cuenta en la app con correo corporativo (ej. `recep1@migym.com`). El Admin entrega usuario y contraseña en persona; no se envía bienvenida por correo al staff.
+- **Política interna:** Comunicar que las cuentas son corporativas; al desvincular a alguien, el gym se queda con el correo. Si resetean contraseña de staff, la nueva llega al correo del Admin (no al staff).
 
 ---
 

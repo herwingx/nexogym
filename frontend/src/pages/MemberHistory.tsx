@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Flame, QrCode, Fingerprint, UserCheck, ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchMemberHistory, type VisitEntry } from '../lib/apiClient'
+import { notifyError } from '../lib/notifications'
 import { cn } from '../lib/utils'
 import { ListSkeleton } from '../components/ui/Skeleton'
 
@@ -25,15 +26,6 @@ const METHOD_CONFIG: Record<
   },
 }
 
-const MOCK_VISITS: VisitEntry[] = Array.from({ length: 14 }, (_, i) => ({
-  id: `visit-${i}`,
-  checked_in_at: new Date(
-    Date.now() - i * 24 * 60 * 60 * 1000,
-  ).toISOString(),
-  access_method: i % 3 === 0 ? 'MANUAL' : 'QR',
-  streak_at_checkin: 14 - i,
-}))
-
 const PAGE_SIZE = 10
 
 export const MemberHistory = () => {
@@ -50,9 +42,13 @@ export const MemberHistory = () => {
           setVisits(res.data)
           setTotal(res.total)
         })
-        .catch(() => {
-          setVisits(MOCK_VISITS)
-          setTotal(MOCK_VISITS.length)
+        .catch((err) => {
+          setVisits([])
+          setTotal(0)
+          notifyError({
+            title: 'Error al cargar visitas',
+            description: (err as Error)?.message ?? 'Intenta de nuevo.',
+          })
         })
         .finally(() => setLoading(false))
     },

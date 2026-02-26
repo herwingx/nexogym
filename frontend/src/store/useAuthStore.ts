@@ -8,6 +8,8 @@ export type ModulesConfig = {
   analytics: boolean
   crm: boolean
   portal: boolean
+  /** Portal de socios (QR, premios, historial). En BASIC es false; miembros no tienen acceso. */
+  qr_access: boolean
 }
 
 export type TenantTheme = {
@@ -34,6 +36,8 @@ export type AuthState = {
   gymName: string | null
   /** White-label: logo URL del gym (users/me/context). */
   gymLogoUrl: string | null
+  /** Si el usuario debe cambiar contraseña en primer login. */
+  mustChangePassword: boolean
   isBootstrapped: boolean
   setAuthContext: (payload: {
     user: AuthUser
@@ -42,7 +46,9 @@ export type AuthState = {
     tenantTheme: TenantTheme
     gymName?: string | null
     gymLogoUrl?: string | null
+    mustChangePassword?: boolean
   }) => void
+  setMustChangePassword: (value: boolean) => void
   clearAuth: () => void
   setBootstrapped: (value: boolean) => void
 }
@@ -53,6 +59,7 @@ const defaultModulesConfig: ModulesConfig = {
   analytics: false,
   crm: false,
   portal: false,
+  qr_access: false,
 }
 
 const defaultTenantTheme: TenantTheme = {
@@ -66,8 +73,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   tenantTheme: defaultTenantTheme,
   gymName: null,
   gymLogoUrl: null,
+  mustChangePassword: false,
   isBootstrapped: false,
-  setAuthContext: ({ user, token, modulesConfig, tenantTheme, gymName, gymLogoUrl }) =>
+  setAuthContext: ({ user, token, modulesConfig, tenantTheme, gymName, gymLogoUrl, mustChangePassword }) =>
     set({
       user,
       token,
@@ -75,8 +83,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       tenantTheme,
       gymName: gymName ?? null,
       gymLogoUrl: gymLogoUrl ?? null,
+      mustChangePassword: mustChangePassword ?? false,
       isBootstrapped: true,
     }),
+  setMustChangePassword: (value) => set({ mustChangePassword: value }),
   clearAuth: () =>
     set({
       user: null,
@@ -85,6 +95,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       tenantTheme: defaultTenantTheme,
       gymName: null,
       gymLogoUrl: null,
+      mustChangePassword: false,
       isBootstrapped: false,
     }),
   setBootstrapped: (value) => set({ isBootstrapped: value }),

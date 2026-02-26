@@ -37,7 +37,7 @@ export const Modal = ({
     >
       <div
         className={cn(
-          'w-full max-w-lg rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950 p-6 shadow-xl transform transition-transform duration-150 ease-out',
+          'w-full max-w-lg mx-4 sm:mx-6 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950 p-4 sm:p-6 shadow-xl transform transition-transform duration-150 ease-out max-h-[90vh] overflow-y-auto',
           'scale-100',
           className,
         )}

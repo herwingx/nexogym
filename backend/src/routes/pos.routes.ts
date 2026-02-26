@@ -3,7 +3,7 @@ import { getProducts, createSale, registerExpense, getSales, getCurrentShift, ge
 import { openShift, closeShift, forceCloseShift } from '../controllers/shift.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
-import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
+import { requireAdminOrSuperAdmin, requireStaff } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -18,6 +18,7 @@ const router = Router();
 
 router.use(requireAuth);
 router.use(requireModuleEnabled('pos'));
+router.use(requireStaff); // POS: solo Admin o Recepcionista (no Coach/Instructor)
 
 /**
  * @swagger

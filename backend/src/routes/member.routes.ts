@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Role } from '@prisma/client';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { getMemberProfile, getMemberHistory, requestQrResend } from '../controllers/member.controller';
+import { getMemberProfile, getMemberHistory, requestQrResend, getLeaderboard } from '../controllers/member.controller';
 
 const router = Router();
 
@@ -30,6 +30,26 @@ router.use(requireMember);
  *         description: Member profile with membership, streak, next reward
  */
 router.get('/me', getMemberProfile);
+
+/**
+ * @swagger
+ * /api/v1/members/leaderboard:
+ *   get:
+ *     summary: Get streak leaderboard (top N by streak, tiebreaker most recent check-in)
+ *     tags: [Members]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Leaderboard data
+ */
+router.get('/leaderboard', getLeaderboard);
 
 /**
  * @swagger

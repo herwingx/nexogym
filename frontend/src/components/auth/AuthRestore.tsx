@@ -45,6 +45,7 @@ export const AuthRestore = ({ children }: { children: React.ReactNode }) => {
         if (cancelled) return
 
         clearTimeout(timeoutId)
+        const mustChange = (session.user?.user_metadata as { must_change_password?: boolean } | undefined)?.must_change_password === true
         setAuthContext({
           user: {
             id: context.user.id,
@@ -53,12 +54,14 @@ export const AuthRestore = ({ children }: { children: React.ReactNode }) => {
             role: context.user.role as import('../../store/useAuthStore').Role,
           },
           token: session.access_token,
+          mustChangePassword: mustChange,
           modulesConfig: {
             pos: context.gym.modules_config?.pos ?? false,
             classes: context.gym.modules_config?.classes ?? false,
             analytics: context.gym.modules_config?.analytics ?? false,
             crm: context.gym.modules_config?.crm ?? false,
             portal: context.gym.modules_config?.portal ?? false,
+            qr_access: context.gym.modules_config?.qr_access ?? false,
           },
           tenantTheme: {
             primaryHex: context.gym.theme_colors?.primary ?? '#2563eb',

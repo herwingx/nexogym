@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Flame, Trophy, Crown, Star } from 'lucide-react'
-import { fetchMemberProfile, type MemberProfile } from '../lib/apiClient'
+import { Flame, Trophy, Crown, Star, Medal } from 'lucide-react'
+import { notifyError } from '../lib/notifications'
+import { fetchMemberProfile, fetchMemberLeaderboard, type MemberProfile, type LeaderboardEntry } from '../lib/apiClient'
 import { cn } from '../lib/utils'
 import { CardSkeleton, Skeleton } from '../components/ui/Skeleton'
 
@@ -10,32 +11,22 @@ function getNextMilestone(streak: number) {
   return STREAK_MILESTONES.find((m) => m > streak) ?? null
 }
 
-const MOCK_PROFILE: MemberProfile = {
-  id: 'demo-id',
-  name: 'Demo User',
-  email: 'demo@nexogym.com',
-  membership_status: 'ACTIVE',
-  membership_type: 'Mensual Ilimitado',
-  expiry_date: '2026-03-31',
-  current_streak: 12,
-  best_streak: 21,
-  total_visits: 47,
-  next_reward: {
-    label: 'Botella de agua gratis',
-    visits_required: 14,
-    visits_progress: 12,
-  },
-}
-
 export const MemberRewards = () => {
   const [profile, setProfile] = useState<MemberProfile | null>(null)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchMemberProfile()
-      .then(setProfile)
-      .catch(() => setProfile(MOCK_PROFILE))
-      .finally(() => setLoading(false))
+    Promise.all([
+      fetchMemberProfile().catch((err) => {
+        notifyError({ title: 'Error al cargar perfil', description: (err as Error)?.message ?? 'Intenta de nuevo.' })
+        return null
+      }),
+      fetchMemberLeaderboard({ limit: 20 }).catch(() => ({ data: [] })),
+    ]).then(([p, lb]) => {
+      setProfile(p ?? null)
+      setLeaderboard(lb.data)
+    }).finally(() => setLoading(false))
   }, [])
 
   if (loading) {
@@ -52,7 +43,15 @@ export const MemberRewards = () => {
     )
   }
 
-  const data = profile ?? MOCK_PROFILE
+  if (!profile) {
+    return (
+      <div className="px-4 pt-10 pb-6 max-w-md mx-auto text-center text-zinc-500 text-sm">
+        No se pudo cargar tu perfil. Revisa tu conexión e intenta de nuevo.
+      </div>
+    )
+  }
+
+  const data = profile
   const nextMilestone = getNextMilestone(data.current_streak)
   const streakProgress = nextMilestone
     ? (data.current_streak / nextMilestone) * 100
@@ -196,6 +195,46 @@ export const MemberRewards = () => {
           ))}
         </div>
       </div>
+
+      {/* Leaderboard de racha */}
+      {leaderboard.length > 0 && (
+        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4 shadow-sm">
+          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+            <Medal className="h-4 w-4" />
+            Ranking de racha
+          </p>
+          <div className="space-y-2">
+            {leaderboard.map((entry) => (
+              <div
+                key={entry.id}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2',
+                  entry.rank <= 3 && 'bg-primary/5 dark:bg-primary/5 border border-primary/20',
+                )}
+              >
+                <span
+                  className={cn(
+                    'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
+                    entry.rank === 1 && 'bg-amber-500/20 text-amber-600 dark:text-amber-400',
+                    entry.rank === 2 && 'bg-zinc-300/80 text-zinc-600 dark:bg-zinc-400 dark:text-zinc-800',
+                    entry.rank === 3 && 'bg-amber-700/30 text-amber-800 dark:text-amber-600',
+                    entry.rank > 3 && 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300',
+                  )}
+                >
+                  {entry.rank}
+                </span>
+                <span className="flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {entry.name}
+                </span>
+                <span className="flex items-center gap-1 text-sm font-semibold text-primary shrink-0">
+                  <Flame className="h-4 w-4 text-primary" />
+                  {entry.current_streak}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Hitos de racha */}
       <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4 shadow-sm">

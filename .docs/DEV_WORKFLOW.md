@@ -32,6 +32,7 @@ Respetarlas evita corromper datos reales o exponer configuraciones sensibles.
 | **Variables** | `backend/.env` + `backend/prisma/.env` | GitHub Actions Secrets | Panel de hosting (Railway / Render) |
 | **Schema** | `db:push` ✅ | `prisma migrate deploy` ✅ | `prisma migrate deploy` ✅ |
 | **Seed** | `db:seed` ✅ | ❌ nunca | ❌ nunca |
+| **Bootstrap SuperAdmin** | — | — | `bootstrap-superadmin` ✅ (una vez, DB vacía). Ver `BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md`. |
 | **Reset** | `db:reset` ✅ | ❌ nunca | ❌ nunca |
 
 > **Un proyecto Supabase por entorno.** Dev, staging y prod deben ser proyectos
@@ -99,7 +100,8 @@ git push
 
 | Situación | Comando |
 |---|---|
-| Primer setup del proyecto | `db:push` → `db:seed` |
+| Primer setup del proyecto (desarrollo) | `db:push` → `db:seed` |
+| Primer arranque en producción (DB vacía) | `db:push` → `bootstrap-superadmin`. Ver `BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md`. |
 | Iterando cambios en `schema.prisma` durante desarrollo | `db:push` |
 | Listo para hacer PR con cambio de schema | `db:migrate --name descripcion-del-cambio` |
 | La DB quedó sucia con datos inventados en Swagger | `db:reset` |
@@ -269,8 +271,9 @@ curl -s -X GET 'http://localhost:3000/api/v1/users/me/context' \
   -H "Authorization: Bearer $TOKEN" \
   | jq .
 
-# 4. Hacer check-in de un miembro (no requiere JWT, solo userId)
+# 4. Hacer check-in de un miembro (requiere JWT con rol Staff: Admin o Recepcionista)
 curl -s -X POST 'http://localhost:3000/api/v1/checkin' \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"userId":"ID_DEL_MIEMBRO","accessMethod":"MANUAL"}' \
   | jq .
@@ -294,7 +297,8 @@ curl -s -X POST 'http://localhost:3000/api/v1/biometric/checkin' \
 | `SUPERADMIN` | Todo el módulo `/saas/*`, métricas globales, gestión de todos los gyms |
 | `ADMIN` | Todo dentro de su gym: usuarios, POS, inventario, clases, analytics |
 | `RECEPTIONIST` | Check-in, POS (abrir/cerrar turno, ventas), consulta de miembros |
-| `INSTRUCTOR` | Sus propias clases, rutinas de sus miembros |
+| `INSTRUCTOR` | Clases, Rutinas, marcar asistencia — no check-in, POS, socios |
+| `COACH` | Igual que Instructor: Clases y Rutinas |
 | `MEMBER` | Sus propias reservas (`/booking/me`), su contexto (`/users/me/context`) |
 
 El rol se resuelve desde el campo `role` de la tabla `User` en tu DB, **no** desde Supabase.
@@ -314,8 +318,8 @@ El seed crea usuarios en la DB pero **sin** `auth_user_id` ni cuenta en Supabase
 Sigue los 4 pasos de la sección [Autenticación](#autenticaci%C3%B3n--c%C3%B3mo-funciona-y-qui%C3%A9n-hace-qu%C3%A9)
 para obtener un JWT y vincularlo al usuario del seed.
 
-Los endpoints de hardware (`POST /checkin`, `POST /biometric/checkin`) no necesitan JWT,
-usan `X-Hardware-Key`. Ver tabla más abajo.
+El endpoint biométrico (`POST /biometric/checkin`) usa `X-Hardware-Key` en vez de JWT. Ver tabla más abajo.
+El endpoint JWT `POST /api/v1/checkin` requiere rol Staff (Admin o Recepcionista) — no puede usarlo un socio (MEMBER).
 
 **Login /saas (SUPERADMIN):** superadmin@nexogym.dev / SuperAdmin2025!. El seed crea el usuario en Supabase Auth si tienes SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY (mismo proyecto que el frontend). Invalid login credentials = ejecutar npm run db:seed. 500 en contexto = revisar en Network el body (detail).
 
@@ -500,18 +504,18 @@ con tres gimnasios (uno por tier) listos para probar todos los módulos de la AP
 
 | Entidad | FitZone Básico (`BASIC`) | PowerFit Pro (`PRO_QR`) | EliteBody Premium (`PREMIUM_BIO`) |
 |---|---|---|---|
-| **Staff** | Admin + Recepcionista | Admin + Recep. + Instructor | Admin + Recep. + 2 Instructores |
-| **Miembros** | 5 (mix de estados) | 8 (con streaks y horarios restringidos) | 10 (streaks altos, VIP) |
+| **Staff** | Admin + Recepcionista | Admin + Recep. + Instructor + **Coach** | Admin + Recep. + 2 Instructores |
+| **Miembros** | 5 (mix de estados, qr_token) | 8 (streaks, qr_token) | 10 (streaks altos, qr_token) |
 | **Estados suscripción** | ACTIVE / EXPIRED / CANCELED / FROZEN | ídem | ídem |
 | **Productos** | 3 | 5 | 8 |
-| **Clases** | — | 2 (Spinning, Box Fit) | 3 (Yoga, CrossFit, Pilates) |
+| **Clases** | — | 3 (Spinning, Box Fit, Functional Coach) | 3 (Yoga, CrossFit, Pilates) |
 | **Reservas** | — | 5 bookings | 7 bookings |
-| **Turnos de Caja** | 1 cerrado con ventas | 1 abierto + venta + gasto | 1 abierto + 2 ventas + gasto |
+| **Turnos de Caja** | 1 cerrado con ventas | 1 abierto + venta + gastos tipados | 1 abierto + 2 ventas + gastos tipados |
 | **Transacciones inventario** | SALE + RESTOCK | SALE + RESTOCK | SALE + RESTOCK + LOSS |
 | **Visitas** | MANUAL | QR + MANUAL | QR + BIOMETRIC + MANUAL |
 | **Rutinas** | — | 2 miembros | 3 miembros (5 ejercicios c/u) |
 
-Adicionalmente se crea un **SUPERADMIN** en un gym interno de plataforma (`GymSaaS Platform (Internal)`).
+Adicionalmente: **AuditLog** (PowerFit y EliteBody), **last_visit_at** para leaderboard, **qr_token** en todos los socios. Credenciales completas: **SEED_USERS_AND_ROLES.md**.
 
 ### PINs de acceso (solo dev)
 
@@ -521,6 +525,7 @@ Adicionalmente se crea un **SUPERADMIN** en un gym interno de plataforma (`GymSa
 | ADMIN | `1234` |
 | RECEPTIONIST | `4321` |
 | INSTRUCTOR | `5678` / `8765` |
+| COACH (PowerFit) | `9999` |
 
 ### Ejecutar el seed
 
@@ -581,6 +586,7 @@ Respetarlas evita corromper datos reales o exponer configuraciones sensibles.
 | **Variables** | `backend/.env` + `backend/prisma/.env` | GitHub Actions Secrets | Panel de hosting (Railway / Render) |
 | **Schema** | `db:push` ✅ | `prisma migrate deploy` ✅ | `prisma migrate deploy` ✅ |
 | **Seed** | `db:seed` ✅ | ❌ nunca | ❌ nunca |
+| **Bootstrap SuperAdmin** | — | — | `bootstrap-superadmin` ✅ (una vez, DB vacía). Ver `BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md`. |
 | **Reset** | `db:reset` ✅ | ❌ nunca | ❌ nunca |
 
 > **Un proyecto Supabase por entorno.** Dev, staging y prod deben ser proyectos
@@ -648,7 +654,8 @@ git push
 
 | Situación | Comando |
 |---|---|
-| Primer setup del proyecto | `db:push` → `db:seed` |
+| Primer setup del proyecto (desarrollo) | `db:push` → `db:seed` |
+| Primer arranque en producción (DB vacía) | `db:push` → `bootstrap-superadmin`. Ver `BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md`. |
 | Iterando cambios en `schema.prisma` durante desarrollo | `db:push` |
 | Listo para hacer PR con cambio de schema | `db:migrate --name descripcion-del-cambio` |
 | La DB quedó sucia con datos inventados en Swagger | `db:reset` |
@@ -675,18 +682,18 @@ con tres gimnasios (uno por tier) listos para probar todos los módulos de la AP
 
 | Entidad | FitZone Básico (`BASIC`) | PowerFit Pro (`PRO_QR`) | EliteBody Premium (`PREMIUM_BIO`) |
 |---|---|---|---|
-| **Staff** | Admin + Recepcionista | Admin + Recep. + Instructor | Admin + Recep. + 2 Instructores |
-| **Miembros** | 5 (mix de estados) | 8 (con streaks y horarios restringidos) | 10 (streaks altos, VIP) |
+| **Staff** | Admin + Recepcionista | Admin + Recep. + Instructor + **Coach** | Admin + Recep. + 2 Instructores |
+| **Miembros** | 5 (mix de estados, qr_token) | 8 (streaks, qr_token) | 10 (streaks altos, qr_token) |
 | **Estados suscripción** | ACTIVE / EXPIRED / CANCELED / FROZEN | ídem | ídem |
 | **Productos** | 3 | 5 | 8 |
-| **Clases** | — | 2 (Spinning, Box Fit) | 3 (Yoga, CrossFit, Pilates) |
+| **Clases** | — | 3 (Spinning, Box Fit, Functional Coach) | 3 (Yoga, CrossFit, Pilates) |
 | **Reservas** | — | 5 bookings | 7 bookings |
-| **Turnos de Caja** | 1 cerrado con ventas | 1 abierto + venta + gasto | 1 abierto + 2 ventas + gasto |
+| **Turnos de Caja** | 1 cerrado con ventas | 1 abierto + venta + gastos tipados | 1 abierto + 2 ventas + gastos tipados |
 | **Transacciones inventario** | SALE + RESTOCK | SALE + RESTOCK | SALE + RESTOCK + LOSS |
 | **Visitas** | MANUAL | QR + MANUAL | QR + BIOMETRIC + MANUAL |
 | **Rutinas** | — | 2 miembros | 3 miembros (5 ejercicios c/u) |
 
-Adicionalmente se crea un **SUPERADMIN** en un gym interno de plataforma (`GymSaaS Platform (Internal)`).
+Adicionalmente: **AuditLog** (PowerFit y EliteBody), **last_visit_at** para leaderboard, **qr_token** en todos los socios. Credenciales completas: **SEED_USERS_AND_ROLES.md**.
 
 ### PINs de acceso (solo dev)
 
@@ -696,6 +703,7 @@ Adicionalmente se crea un **SUPERADMIN** en un gym interno de plataforma (`GymSa
 | ADMIN | `1234` |
 | RECEPTIONIST | `4321` |
 | INSTRUCTOR | `5678` / `8765` |
+| COACH (PowerFit) | `9999` |
 
 ### Ejecutar el seed
 

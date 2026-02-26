@@ -153,7 +153,7 @@ Es decir: **menos código nuestro, menos superficie de error y menos responsabil
 | `VITE_SUPABASE_ANON_KEY` | Frontend | Clave pública (anon) para el cliente en el navegador. Login y `getUser(token)` desde el cliente. |
 | `SUPABASE_URL` | Backend | La misma URL del proyecto. |
 | `SUPABASE_ANON_KEY` | Backend | Se usa para **verificar** el token con `supabase.auth.getUser(token)` (no para crear usuarios). |
-| `SUPABASE_SERVICE_ROLE_KEY` | Backend | Crear/actualizar usuarios en Auth desde el servidor: **scripts** (seed, `link-superadmin`, `create-gym-admin`) y **POST /saas/gyms** cuando se envían `admin_email` y `admin_password`. No exponer en el frontend. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Backend | Crear/actualizar usuarios en Auth desde el servidor: **scripts** (seed, `bootstrap-superadmin`, `link-superadmin`, `create-gym-admin`) y **POST /saas/gyms** cuando se envían `admin_email` y `admin_password`. No exponer en el frontend. |
 
 Frontend y backend deben apuntar al **mismo proyecto** (misma URL). Si el frontend usa un proyecto y el backend otro, el token de uno no será válido en el otro.
 
@@ -168,4 +168,4 @@ Frontend y backend deben apuntar al **mismo proyecto** (misma URL). Si el fronte
 ## 8. Referencias en el código
 
 - **Frontend**: `frontend/src/lib/supabaseClient.ts` (cliente Supabase), `frontend/src/pages/Login.tsx` (`signInWithPassword`), `frontend/src/components/auth/AuthRestore.tsx` (restaurar sesión y llamar a `/users/me/context`).
-- **Backend**: `backend/src/lib/supabase.ts` (cliente para verificar token), `backend/src/middlewares/auth.middleware.ts` (`getUser(token)` + búsqueda por `auth_user_id`), `backend/src/controllers/saas.controller.ts` (createGym: crear admin en Auth + User en DB al dar de alta un gym), `backend/prisma/seed.ts`, `backend/scripts/link-superadmin-supabase.ts` y `backend/scripts/create-gym-admin.ts` (crear/actualizar usuario en Auth y vincular `auth_user_id`).
+- **Backend**: `backend/src/lib/supabase.ts` (cliente para verificar token), `backend/src/middlewares/auth.middleware.ts` (`getUser(token)` + búsqueda por `auth_user_id`), `backend/src/controllers/saas.controller.ts` (createGym: crear admin en Auth + User en DB al dar de alta un gym), `backend/prisma/seed.ts`, `backend/scripts/bootstrap-superadmin.ts` (producción: solo SuperAdmin), `backend/scripts/link-superadmin-supabase.ts` y `backend/scripts/create-gym-admin.ts` (crear/actualizar usuario en Auth y vincular `auth_user_id`).

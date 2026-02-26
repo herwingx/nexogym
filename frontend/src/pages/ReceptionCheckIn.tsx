@@ -166,7 +166,7 @@ export const ReceptionCheckInPage = () => {
     }
   }, [])
 
-  const modalOpen = modal !== null
+  const modalOpen = modal !== null || openShiftModal || closeShiftModal
 
   if (isLoading) {
     return (

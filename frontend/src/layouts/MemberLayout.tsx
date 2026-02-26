@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Home, Trophy, History, LogOut } from 'lucide-react'
+import { Breadcrumb } from '../components/ui/Breadcrumb'
+import { Home, Trophy, History, LogOut, User } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { logout } from '../lib/logout'
 
@@ -7,6 +8,7 @@ const navItems = [
   { label: 'Inicio', to: '/member', icon: Home },
   { label: 'Premios', to: '/member/rewards', icon: Trophy },
   { label: 'Historial', to: '/member/history', icon: History },
+  { label: 'Perfil', to: '/member/profile', icon: User },
 ]
 
 export const MemberLayout = () => {
@@ -33,7 +35,10 @@ export const MemberLayout = () => {
           Salir
         </button>
       </header>
-      <main className="flex-1 overflow-y-auto pb-24">
+      <main className="flex-1 overflow-y-auto pb-24 flex flex-col">
+        <div className="border-b border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 shrink-0">
+          <Breadcrumb compact />
+        </div>
         <Outlet />
       </main>
 

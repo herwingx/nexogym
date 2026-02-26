@@ -47,11 +47,17 @@ export function FormOpenShift({
           Fondo inicial ($)
         </label>
         <Input
-          type="number"
-          step="0.01"
-          min="0"
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
           value={balance}
-          onChange={(e) => setBalance(e.target.value)}
+          onChange={(e) => {
+            let raw = e.target.value.replace(/,/g, '.').replace(/[^\d.]/g, '')
+            const parts = raw.split('.')
+            if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('')
+            if (parts.length === 2 && (parts[1]?.length ?? 0) > 2) raw = parts[0] + '.' + parts[1].slice(0, 2)
+            setBalance(raw)
+          }}
           placeholder="0.00"
           required
         />
@@ -66,13 +72,6 @@ export function FormOpenShift({
       </div>
     </form>
   )
-}
-
-/** Formatea valor a moneda en display (sin símbolo). */
-function formatCurrencyDisplay(value: string): string {
-  const num = parseFloat(value.replace(/,/g, '.').replace(/[^\d.-]/g, ''))
-  if (Number.isNaN(num) || value === '' || value === '.') return value
-  return num.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export function FormCloseShift({
@@ -92,17 +91,16 @@ export function FormCloseShift({
   const [submitting, setSubmitting] = useState(false)
 
   const handleActualChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Comma = thousands (strip). Dot = decimal. Only digits and one dot.
-    let raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '')
+    let raw = e.target.value.replace(/,/g, '.').replace(/[^\d.]/g, '')
     const parts = raw.split('.')
-    if (parts.length > 2) raw = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1]
-    if (parts.length === 2 && parts[1].length > 2) return
-    setActual(raw === '' ? '' : formatCurrencyDisplay(raw))
+    if (parts.length > 2) raw = parts[0] + '.' + parts.slice(1).join('')
+    if (parts.length === 2 && (parts[1]?.length ?? 0) > 2) raw = parts[0] + '.' + parts[1].slice(0, 2)
+    setActual(raw)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const n = parseFloat(actual.replace(/,/g, ''))
+    const n = parseFloat(actual.replace(/,/g, '.'))
     if (Number.isNaN(n) || n < 0) return
     setSubmitting(true)
     try {
@@ -133,6 +131,7 @@ export function FormCloseShift({
         <Input
           type="text"
           inputMode="decimal"
+          autoComplete="off"
           value={actual}
           onChange={handleActualChange}
           placeholder="0.00"

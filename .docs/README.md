@@ -36,7 +36,6 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 | Documento | Contenido |
 |-----------|-----------|
 | **CORTES_CAJA_Y_STOCK.md** | Flujo de turnos, stock al vender, **cierre ciego** (recepcionista no ve saldo esperado), **tipos de egreso** (SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP), **Forzar Cierre** y **Personal** (/admin/staff). Secciones 4–9: cierre ciego, tipos de egreso, controles admin, cerrar sesión, resumen, referencia técnica. |
-
 ---
 
 ## Auth y Supabase
@@ -44,7 +43,8 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 | Documento | Contenido |
 |-----------|-----------|
 | **SUPABASE_AUTH_EN_EL_PROYECTO.md** | Cómo interactúa Supabase Auth con el proyecto: flujo login → token → backend, enlace `auth_user_id`, ventajas frente a implementar login propio, variables de entorno. |
-| **BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md** | Primer arranque con DB vacía en producción: seed, SuperAdmin, cómo crear tu usuario admin de un gym (opciones y checklist). |
+| **BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md** | Primer arranque con DB vacía en producción: **bootstrap-superadmin** (recomendado), seed para desarrollo, cómo crear SuperAdmin y admin de un gym. Incluye funcionamiento del script y checklist. |
+| **CANALES_COMUNICACION.md** | Email vs WhatsApp: bienvenida (credenciales), reset contraseña, QR, cumpleaños. Staff: admin resetea, nueva contraseña al correo del admin. |
 
 ---
 
@@ -52,9 +52,10 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 
 | Documento | Contenido |
 |-----------|-----------|
-| **SEED_USERS_AND_ROLES.md** | Roles (SUPERADMIN, ADMIN, RECEPTIONIST, **COACH**, **INSTRUCTOR**, MEMBER), planes, credenciales de seed. Incluye acceso **COACH/INSTRUCTOR** a /admin con menú limitado (Clases, Rutinas) y vista **Personal** para admin. |
+| **SEED_USERS_AND_ROLES.md** | Roles (SUPERADMIN, ADMIN, RECEPTIONIST, **COACH**, **INSTRUCTOR**, MEMBER), planes, credenciales de seed, **tabla qué SÍ/NO por rol**, checklist de verificación y datos para flujos (QR, leaderboard, auditoría, COACH). |
 | **RECEPTIONIST_PERMISSIONS_ANALYSIS.md** | Matriz Recepcionista vs Admin: check-in, caja (cierre ciego, egresos tipados, forzar cierre), socios, inventario. |
-| **REVISION_ROLES_FRONTEND_BACKEND.md** | Revisión por rol: qué puede hacer cada uno en frontend y backend, gaps (Admin Members mock, INSTRUCTOR en backend), checklist. |
+| **REVISION_ROLES_FRONTEND_BACKEND.md** | Revisión por rol: qué puede hacer cada uno en frontend y backend, gaps (Admin Members mock), checklist. INSTRUCTOR incluido en requireCoachOrAdmin (2025-02). |
+| **REVISION_ROLES_FINAL.md** | Matriz RBAC completa, gaps de seguridad resueltos (check-in requireStaff, POS/Inventory requireStaff), changelog de seguridad. |
 
 ---
 
@@ -85,6 +86,7 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 
 | Documento | Contenido |
 |-----------|-----------|
+| **DOCUMENTACION_USUARIO_BASE.md** | Base para manual de usuario: funcionalidades por rol, planes, flujos clave (renovación, turnos, inventario). Punto de partida para documentación de usuario. |
 | **MEMBER_QR_ACCESS.md** | Acceso del socio por QR. |
 | **EMAIL_POLITICA_GYM.md** | Política de email del gym. |
 | **TESTING_STRATEGY.md** | Estrategia de pruebas. |
@@ -95,12 +97,18 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 
 ---
 
-## Cambios recientes (POS, caja, personal, roles)
+## Cambios recientes (POS, caja, personal, roles, renovación, Basic)
 
+- **Renovación con precio del producto:** Admin configura el producto "Membresía 30 días" (barcode MEMBERSHIP) en Inventario; Reception/Coach solo renuevan sin input manual de monto (evita manipulación). Si el producto no existe, error claro pidiendo al Admin crearlo.
+- **Inventario:** Crear/editar productos (incl. precios) solo Admin; Reception/Coach solo venden al precio del catálogo.
+- **Plan BASIC — Socios sin portal:** Miembros en plan Basic no tienen acceso al portal (QR, premios, historial); ven pantalla de bloqueo y pueden cerrar sesión.
+- **Inputs turno:** Corregida la edición en Abrir turno (fondo inicial) y Cerrar turno (efectivo contado); HardwareScanner no roba foco cuando modales de turno están abiertos.
 - **Cierre ciego:** Recepcionista no ve saldo esperado; solo envía efectivo contado; backend no devuelve reconciliación si rol RECEPTIONIST.
 - **Tipos de egreso:** SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP; descripción obligatoria para los dos primeros.
 - **Forzar cierre:** Admin puede cerrar un turno abierto desde Cortes de caja (PATCH /pos/shifts/:id/force-close).
 - **Personal (/admin/staff):** Listado de staff (role_not=MEMBER), dar de baja (soft delete), badge INACTIVO.
 - **COACH / INSTRUCTOR:** Acceso a /admin con menú limitado (solo Clases y Rutinas); defaultPath /admin/routines; AdminDashboard redirige a rutinas si el rol es COACH o INSTRUCTOR.
+- **Menú por módulo:** Clases y Rutinas solo se muestran si `modules_config.classes === true`; acceso directo por URL redirige a `/admin` si el módulo está deshabilitado. Breadcrumbs y botón "Volver" en layouts.
+- **Admin móvil:** Menú hamburguesa y drawer en pantallas pequeñas.
 
-Para más detalle técnico: **CORTES_CAJA_Y_STOCK.md**, **API_SPEC.md**, **REVISION_ROLES_FRONTEND_BACKEND.md**, **REVISION_FRONTEND_POS_Y_STAFF.md**.
+Para más detalle técnico: **CORTES_CAJA_Y_STOCK.md**, **API_SPEC.md**, **REVISION_ROLES_FRONTEND_BACKEND.md**, **REVISION_FRONTEND_POS_Y_STAFF.md**, **SUBSCRIPTION_EXPIRY_AND_RENEWAL.md**.

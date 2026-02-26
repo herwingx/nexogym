@@ -78,6 +78,7 @@ async function main() {
     email: GYM_ADMIN_EMAIL,
     password: GYM_ADMIN_PASSWORD,
     email_confirm: true,
+    user_metadata: { must_change_password: true },
   });
 
   let authUserId: string;
@@ -97,6 +98,7 @@ async function main() {
       await supabaseAdmin.auth.admin.updateUserById(existing.id, {
         password: GYM_ADMIN_PASSWORD,
         email_confirm: true,
+        user_metadata: { ...(existing.user_metadata as Record<string, unknown> ?? {}), must_change_password: true },
       });
     } else {
       console.error('❌ Error de Supabase Auth:', authError.message);

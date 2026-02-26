@@ -176,7 +176,7 @@ export const AdminAudit = () => {
 
         {/* Paginación */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between gap-3 text-xs text-zinc-400">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400">
             <button
               type="button"
               className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 disabled:opacity-40 text-zinc-700 dark:text-zinc-300"

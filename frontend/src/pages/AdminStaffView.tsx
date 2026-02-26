@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { fetchStaffUsers, deleteUser, type StaffUserRow } from '../lib/apiClient'
+import { useEffect, useState, type FormEvent } from 'react'
+import { fetchStaffUsers, deleteUser, restoreUser, resetStaffPassword, createStaff, type StaffUserRow, type CreateStaffResponse, type StaffStatus } from '../lib/apiClient'
 import { notifyError, notifySuccess } from '../lib/notifications'
 import { TableRowSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { cn } from '../lib/utils'
 
@@ -19,13 +20,23 @@ export const AdminStaffView = () => {
   const [users, setUsers] = useState<StaffUserRow[]>([])
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 50 })
   const [loading, setLoading] = useState(true)
+  const [statusTab, setStatusTab] = useState<StaffStatus>('active')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [restoringId, setRestoringId] = useState<string | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<StaffUserRow | null>(null)
+  const [resettingId, setResettingId] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createName, setCreateName] = useState('')
+  const [createPhone, setCreatePhone] = useState('')
+  const [createRole, setCreateRole] = useState<'RECEPTIONIST' | 'COACH' | 'INSTRUCTOR'>('RECEPTIONIST')
+  const [createPassword, setCreatePassword] = useState('')
+  const [createSubmitting, setCreateSubmitting] = useState(false)
+  const [credentialsResult, setCredentialsResult] = useState<CreateStaffResponse | null>(null)
 
   const load = async (page = 1) => {
     try {
       setLoading(true)
-      const res = await fetchStaffUsers(page, 50)
+      const res = await fetchStaffUsers(page, 50, statusTab)
       setUsers(res.data)
       setMeta(res.meta)
     } catch (e) {
@@ -40,7 +51,83 @@ export const AdminStaffView = () => {
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [statusTab])
+
+  const handleResetPassword = async (u: StaffUserRow) => {
+    if (!u.auth_user_id) return
+    setResettingId(u.id)
+    try {
+      await resetStaffPassword(u.id)
+      notifySuccess({
+        title: 'Contraseña reseteada',
+        description: 'La nueva contraseña se envió a tu correo. Entrégasela al personal en persona.',
+      })
+    } catch (e) {
+      notifyError({
+        title: 'Error al resetear',
+        description: (e as Error)?.message ?? '',
+      })
+    } finally {
+      setResettingId(null)
+    }
+  }
+
+  const handleCreateStaff = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!createName.trim()) {
+      notifyError({ title: 'Nombre requerido', description: 'El nombre es obligatorio.' })
+      return
+    }
+    if (createPassword && createPassword.length < 8) {
+      notifyError({ title: 'Contraseña corta', description: 'Usa al menos 8 caracteres si defines una.' })
+      return
+    }
+    setCreateSubmitting(true)
+    try {
+      const res = await createStaff({
+        name: createName.trim(),
+        phone: createPhone.trim() || undefined,
+        role: createRole,
+        password: createPassword.trim() || undefined,
+      })
+      setCredentialsResult(res)
+      notifySuccess({ title: 'Personal creado', description: 'Entrega las credenciales en persona.' })
+    } catch (e) {
+      notifyError({
+        title: 'Error al crear',
+        description: (e as Error)?.message ?? 'Intenta de nuevo.',
+      })
+    } finally {
+      setCreateSubmitting(false)
+    }
+  }
+
+  const closeCreateFlow = () => {
+    setShowCreateModal(false)
+    setCredentialsResult(null)
+    setCreateName('')
+    setCreatePhone('')
+    setCreateRole('RECEPTIONIST')
+    setCreatePassword('')
+    void load()
+  }
+
+  const handleRestore = async (u: StaffUserRow) => {
+    if (!u.deleted_at) return
+    setRestoringId(u.id)
+    try {
+      await restoreUser(u.id)
+      notifySuccess({ title: 'Usuario reactivado', description: 'El personal ya puede volver a acceder.' })
+      void load()
+    } catch (e) {
+      notifyError({
+        title: 'Error al reactivar',
+        description: (e as Error)?.message ?? '',
+      })
+    } finally {
+      setRestoringId(null)
+    }
+  }
 
   const handleDeactivateConfirm = async () => {
     if (!deactivateTarget?.id || deactivateTarget.deleted_at) return
@@ -63,13 +150,46 @@ export const AdminStaffView = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-4 py-6 space-y-5">
-        <header>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Gestión de personal
-          </h1>
-          <p className="text-sm text-zinc-500">
-            Usuarios del gimnasio (staff). Dar de baja realiza un soft delete; el usuario queda inactivo.
-          </p>
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">
+              Gestión de personal
+            </h1>
+            <p className="text-sm text-zinc-500">
+              Usuarios del gimnasio (staff). Entrega credenciales en persona. Dar de baja realiza un soft delete.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="inline-flex rounded-lg border border-zinc-200 dark:border-zinc-700 p-1">
+              <button
+                type="button"
+                onClick={() => setStatusTab('active')}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium rounded-md',
+                  statusTab === 'active'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100',
+                )}
+              >
+                Activos
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusTab('inactive')}
+                className={cn(
+                  'px-3 py-1.5 text-sm font-medium rounded-md',
+                  statusTab === 'inactive'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100',
+                )}
+              >
+                Inactivos
+              </button>
+            </div>
+            <Button onClick={() => setShowCreateModal(true)}>
+              Agregar personal
+            </Button>
+          </div>
         </header>
 
         <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm overflow-x-auto">
@@ -89,7 +209,7 @@ export const AdminStaffView = () => {
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-zinc-500">
-                    No hay personal registrado.
+                    {statusTab === 'active' ? 'No hay personal activo.' : 'No hay personal inactivo.'}
                   </td>
                 </tr>
               ) : (
@@ -121,20 +241,44 @@ export const AdminStaffView = () => {
                         <span className="text-zinc-400 text-xs">Activo</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-4 text-right">
+                    <td className="py-2.5 px-4">
                       {u.deleted_at ? (
-                        '—'
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                            onClick={() => handleRestore(u)}
+                            disabled={restoringId === u.id}
+                          >
+                            {restoringId === u.id ? '...' : 'Reactivar'}
+                          </Button>
+                        </div>
                       ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="border-rose-500/50 text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
-                          onClick={() => setDeactivateTarget(u)}
-                          disabled={deletingId === u.id}
-                        >
-                          {deletingId === u.id ? '...' : 'Dar de baja'}
-                        </Button>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {u.auth_user_id && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResetPassword(u)}
+                              disabled={resettingId === u.id}
+                            >
+                              {resettingId === u.id ? '...' : 'Resetear contraseña'}
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="border-rose-500/50 text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
+                            onClick={() => setDeactivateTarget(u)}
+                            disabled={deletingId === u.id}
+                          >
+                            {deletingId === u.id ? '...' : 'Dar de baja'}
+                          </Button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -172,6 +316,91 @@ export const AdminStaffView = () => {
                 {deletingId ? '...' : 'Dar de baja'}
               </Button>
             </div>
+          </Modal>
+        )}
+
+        {showCreateModal && (
+          <Modal
+            isOpen
+            title={credentialsResult ? 'Credenciales para entregar' : 'Agregar personal'}
+            description={
+              credentialsResult
+                ? 'Entrega estas credenciales al staff en persona. No se envía correo.'
+                : 'Nombre, teléfono y rol. Contraseña opcional (se genera si no defines).'
+            }
+            onClose={() => !createSubmitting && closeCreateFlow()}
+          >
+            {credentialsResult ? (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900/50 p-4 space-y-2 font-mono text-sm">
+                  <p>
+                    <span className="text-zinc-500">Usuario:</span>{' '}
+                    <span className="text-zinc-900 dark:text-zinc-100 break-all">{credentialsResult.username}</span>
+                  </p>
+                  <p>
+                    <span className="text-zinc-500">Contraseña:</span>{' '}
+                    <span className="text-zinc-900 dark:text-zinc-100">{credentialsResult.password}</span>
+                  </p>
+                </div>
+                <p className="text-xs text-zinc-500">
+                  El staff usará estas credenciales para iniciar sesión. En el primer login deberá cambiar la contraseña.
+                </p>
+                <div className="flex justify-end">
+                  <Button onClick={closeCreateFlow}>Cerrar</Button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleCreateStaff} className="space-y-4">
+                <Input
+                  label="Nombre"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  placeholder="Juan Pérez"
+                  required
+                />
+                <Input
+                  label="Teléfono"
+                  type="tel"
+                  value={createPhone}
+                  onChange={(e) => setCreatePhone(e.target.value)}
+                  placeholder="+52 961 123 4567"
+                />
+                <div>
+                  <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Rol</label>
+                  <select
+                    value={createRole}
+                    onChange={(e) => setCreateRole(e.target.value as typeof createRole)}
+                    className="mt-1.5 w-full rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value="RECEPTIONIST">Recepcionista</option>
+                    <option value="COACH">Coach</option>
+                    <option value="INSTRUCTOR">Instructor</option>
+                  </select>
+                </div>
+                <Input
+                  label="Contraseña (opcional)"
+                  type="password"
+                  value={createPassword}
+                  onChange={(e) => setCreatePassword(e.target.value)}
+                  placeholder="Mín. 8 caracteres. Si no defines, se genera automática."
+                  minLength={8}
+                  helperText="Si no defines, se genera una contraseña temporal."
+                />
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeCreateFlow}
+                    disabled={createSubmitting}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" isLoading={createSubmitting}>
+                    Crear y ver credenciales
+                  </Button>
+                </div>
+              </form>
+            )}
           </Modal>
         )}
 

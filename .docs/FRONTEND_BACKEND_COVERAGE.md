@@ -37,7 +37,7 @@ El backend **no** envía `analytics`, `crm` ni `portal` en `modules_config`. El 
   - **Inventario** y **Cortes de caja** → solo si `modules_config.pos === true`.
   - **Clases** y **Rutinas** → solo si `modules_config.classes === true`.
 
-Si el plan no tiene `pos` o `classes`, esas opciones se ocultan; si el usuario intenta llamar la API igual, el backend responde 403.
+Si el plan no tiene `pos` o `classes`, esas opciones se ocultan. Si el usuario accede por URL directa a `/admin/classes` o `/admin/routines` sin el módulo habilitado, el frontend redirige a `/admin` antes de llamar la API (evita 403 visible).
 
 ### 2.2 Recepción (`ReceptionLayout`)
 
@@ -46,8 +46,8 @@ Si el plan no tiene `pos` o `classes`, esas opciones se ocultan; si el usuario i
 
 ### 2.3 Miembro (`MemberLayout`)
 
-- Inicio, Premios, Historial siempre visibles para el socio.  
-  El backend puede condicionar premios/historial por `gamification`; si en el futuro se ocultan por plan, habría que leer `modules_config` en el frontend (hoy no se filtra).
+- **Plan PRO_QR / PREMIUM_BIO** (`qr_access === true`): Inicio, Premios, Historial, Perfil visibles para el socio.
+- **Plan BASIC** (`qr_access === false`): **Portal bloqueado.** El socio ve una pantalla: *"Tu gimnasio está en plan Basic. El portal de socios (QR, premios, historial) no está disponible."* con botón Cerrar sesión. No tiene acceso a ninguna sección del portal.
 
 ### 2.4 SuperAdmin (`/saas`)
 

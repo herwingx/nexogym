@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { Users } from 'lucide-react'
+import { useAuthStore } from '../store/useAuthStore'
 import {
   fetchClasses,
   createBooking,
@@ -21,7 +23,10 @@ const slotColor = (available: number, capacity: number) => {
 const TODAY = new Date().getDay()
 
 export const AdminClasses = () => {
+  const modules = useAuthStore((s) => s.modulesConfig)
   const [selectedDay, setSelectedDay] = useState(TODAY)
+
+  if (!modules.classes) return <Navigate to="/admin" replace />
   const [classes, setClasses] = useState<GymClass[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [bookingClassId, setBookingClassId] = useState<string | null>(null)

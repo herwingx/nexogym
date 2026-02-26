@@ -308,9 +308,10 @@ export const processCourtesyAccess = async (req: Request, res: Response) => {
       return;
     }
 
-    // Enforce: only ADMIN or SUPERADMIN can authorize courtesy access
-    if (req.userRole !== Role.ADMIN && req.userRole !== Role.SUPERADMIN) {
-      res.status(403).json({ error: 'Forbidden: Only admins can authorize courtesy access.' });
+    // Enforce: ADMIN, SUPERADMIN o RECEPTIONIST pueden dar cortesía (vencido que llega a pagar, no pierde racha)
+    const canGrant = req.userRole === Role.ADMIN || req.userRole === Role.SUPERADMIN || req.userRole === Role.RECEPTIONIST;
+    if (!canGrant) {
+      res.status(403).json({ error: 'Forbidden: Solo Admin o Recepción pueden autorizar acceso de cortesía.' });
       return;
     }
 

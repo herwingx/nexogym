@@ -8,7 +8,7 @@
 | **ADMIN**     | requireAdminOrSuperAdmin + requireStaff | AdminRoute → /admin/* | ✅ |
 | **RECEPTIONIST** | requireStaff (users, checkin); POS con cierre ciego | ReceptionRoute → /reception/* | ✅ |
 | **COACH**      | requireCoachOrAdmin (rutinas, markAttendance) | **Antes:** sin ruta (caía en /admin y bloqueado). **Ahora:** AdminRoute con menú limitado (Clases, Rutinas) | ✅ (corregido) |
-| **INSTRUCTOR** | No está en requireCoachOrAdmin; solo existe en modelo GymClass | Sin ruta dedicada; defaultPath → /admin → bloqueado | ⚠️ Gap documentado |
+| **INSTRUCTOR** | requireCoachOrAdmin (rutinas, markAttendance) — incluido desde 2025-02-25 | AdminRoute con menú limitado (Clases, Rutinas) | ✅ |
 | **MEMBER**     | Solo `/members/*` | MemberRoute → /member/* | ✅ |
 
 ---
@@ -24,9 +24,9 @@
 | DELETE /users/:id | requireAdminOrSuperAdmin | AdminStaffView → deleteUser | ✅ |
 | renew, freeze, unfreeze, cancel-subscription | requireAdminOrSuperAdmin | **No existen en apiClient** | ❌ Falta implementar en cliente y en vista Socios |
 | GET /users/:id/data-export, POST anonymize | requireAdminOrSuperAdmin | No en apiClient ni en UI | ❌ Falta |
-| Cortes de caja, Force close | requireAdminOrSuperAdmin / requireAuth | AdminShifts | ✅ |
-| POS (productos, ventas, egresos, turnos) | requireAuth + módulo pos | ReceptionPos (recepción o admin) | ✅ |
-| Inventario | requireAdminOrSuperAdmin (delete, loss) | AdminInventory | ✅ |
+| Cortes de caja, Force close | requireAdminOrSuperAdmin / requireStaff | AdminShifts | ✅ |
+| POS (productos, ventas, egresos, turnos) | requireAuth + requireStaff + módulo pos | ReceptionPos (recepción o admin) | ✅ |
+| Inventario | requireAuth + requireStaff + módulo pos; delete/loss = requireAdminOrSuperAdmin | AdminInventory | ✅ |
 | Finanzas, Auditoría | requireAdminOrSuperAdmin | AdminFinance, AdminAudit | ✅ |
 | Clases (listar, crear reserva) | requireAuth / requireAdminOrSuperAdmin (crear clase) | AdminClasses | ✅ |
 | Rutinas | requireCoachOrAdmin | AdminRoutines | ✅ |
@@ -35,8 +35,8 @@
 
 | Vista / API | Backend | Frontend | Notas |
 |-------------|---------|----------|--------|
-| Check-in, cortesía | requireAuth, courtesy = ADMIN only | ReceptionCheckIn | ✅ Regenerate QR solo si canRegenerateQr (ADMIN/SUPERADMIN) |
-| POS, egresos, cierre ciego | requireAuth | ReceptionPos, ShiftForms | ✅ |
+| Check-in, cortesía | requireStaff + requireAuth; courtesy = ADMIN only (controller) | ReceptionCheckIn | ✅ Regenerate QR solo si canRegenerateQr (ADMIN/SUPERADMIN) |
+| POS, egresos, cierre ciego | requireAuth + requireStaff + módulo pos | ReceptionPos, ShiftForms | ✅ |
 | Buscar/editar socios, enviar QR | requireStaff | ReceptionMembers | ✅ |
 | Regenerar QR | requireAdminOrSuperAdmin | Solo visible si canRegenerateQr | ✅ |
 
@@ -53,8 +53,8 @@
 
 ### 5. INSTRUCTOR
 
-- Backend: **no** está en requireCoachOrAdmin; solo aparece como `instructor_id` en GymClass. Las llamadas a rutinas o markAttendance devolverán 403.
-- Frontend (tras corrección): puede entrar a /admin con el mismo menú limitado que COACH (Clases, Rutinas) y defaultPath → `/admin/routines`. Si el producto quiere que INSTRUCTOR use rutinas/asistencia, hay que añadir INSTRUCTOR a requireCoachOrAdmin en el backend.
+- Backend: **incluido** en requireCoachOrAdmin (2025-02-25). Puede usar rutinas (list, create, update, delete, exercises) y PATCH booking attend.
+- Frontend: puede entrar a /admin con el mismo menú limitado que COACH (Clases, Rutinas) y defaultPath → `/admin/routines`.
 
 ---
 
@@ -69,8 +69,7 @@
    - **Corregido:** Ahora puede acceder a /admin con menú limitado (Clases, Rutinas) y defaultPath → /admin/routines.
 
 3. **INSTRUCTOR**  
-   - Sin UI y sin permisos en backend para rutinas/asistencia.  
-   - Decisión de producto: darle rol similar a COACH en backend y mismo menú limitado en front, o dejarlo sin panel.
+   - **Resuelto (2025-02-25):** Incluido en requireCoachOrAdmin. Mismo menú limitado que COACH en front.
 
 4. **apiClient**  
    - Faltan: renewSubscription, freezeSubscription, unfreezeSubscription, cancelSubscription, exportUserData, anonymizeUserData (todas requieren requireAdminOrSuperAdmin).
@@ -83,5 +82,5 @@
 - **ADMIN:** Dashboard, Socios (mock), Finanzas, Inventario, Cortes, Personal, Clases, Rutinas, Auditoría. ✅ (Socios pendiente de conectar API y acciones de suscripción).  
 - **RECEPTIONIST:** Check-in, POS, Cierre ciego, Egresos tipados, Buscar/editar socios, Enviar QR. ✅ Regenerar QR oculto.  
 - **COACH:** Solo Clases y Rutinas en /admin. ✅  
-- **INSTRUCTOR:** Sin acceso útil. ⚠️  
+- **INSTRUCTOR:** Solo Clases y Rutinas en /admin (igual que COACH). ✅  
 - **MEMBER:** Portal socio (perfil, historial, recompensas, QR). ✅  

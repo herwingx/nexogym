@@ -37,23 +37,6 @@ const STATUS_CONFIG = {
 /** QR único y estable por socio: no rota. Se envía por WhatsApp/n8n; al escanear en recepción = llegada, racha se actualiza sin abrir la web. */
 const STABLE_QR_PREFIX = 'GYM_QR_'
 
-const MOCK_PROFILE: MemberProfile = {
-  id: 'demo-id',
-  name: 'Demo User',
-  email: 'demo@nexogym.com',
-  membership_status: 'ACTIVE',
-  membership_type: 'Mensual Ilimitado',
-  expiry_date: '2026-03-31',
-  current_streak: 12,
-  best_streak: 21,
-  total_visits: 47,
-  next_reward: {
-    label: 'Botella de agua gratis',
-    visits_required: 14,
-    visits_progress: 12,
-  },
-}
-
 export const MemberHome = () => {
   const user = useAuthStore((s) => s.user)
   const [profile, setProfile] = useState<MemberProfile | null>(null)
@@ -63,7 +46,12 @@ export const MemberHome = () => {
   useEffect(() => {
     fetchMemberProfile()
       .then(setProfile)
-      .catch(() => setProfile(MOCK_PROFILE))
+      .catch((err) => {
+        notifyError({
+          title: 'Error al cargar perfil',
+          description: (err as Error)?.message ?? 'Intenta de nuevo.',
+        })
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -87,7 +75,15 @@ export const MemberHome = () => {
     )
   }
 
-  const data = profile ?? MOCK_PROFILE
+  if (!profile) {
+    return (
+      <div className="px-4 pt-10 pb-6 max-w-md mx-auto text-center text-zinc-500 text-sm">
+        No se pudo cargar tu perfil. Revisa tu conexión e intenta de nuevo.
+      </div>
+    )
+  }
+
+  const data = profile
   const statusKey = (data.membership_status as keyof typeof STATUS_CONFIG) in STATUS_CONFIG
     ? (data.membership_status as keyof typeof STATUS_CONFIG)
     : 'SUSPENDED'

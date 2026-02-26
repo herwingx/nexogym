@@ -64,6 +64,7 @@ export const LoginPage = () => {
 
           const context = await fetchUserContext()
 
+          const mustChange = (data.session.user?.user_metadata as { must_change_password?: boolean } | undefined)?.must_change_password === true
           setAuthContext({
             user: {
               id: context.user.id,
@@ -72,12 +73,14 @@ export const LoginPage = () => {
               role: context.user.role as any,
             },
             token: data.session.access_token,
+            mustChangePassword: mustChange,
             modulesConfig: {
               pos: context.gym.modules_config.pos ?? false,
               classes: context.gym.modules_config.classes ?? false,
               analytics: context.gym.modules_config.analytics ?? false,
               crm: context.gym.modules_config.crm ?? false,
               portal: context.gym.modules_config.portal ?? false,
+              qr_access: context.gym.modules_config.qr_access ?? false,
             },
             tenantTheme: {
               primaryHex: context.gym.theme_colors?.primary ?? '#2563eb',
@@ -161,8 +164,8 @@ export const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
-      <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-6 shadow-soft space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-4 sm:p-6">
+      <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4 sm:p-6 shadow-soft space-y-6">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">NexoGym</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
