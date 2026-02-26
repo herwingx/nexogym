@@ -32,6 +32,8 @@ export const getLiveOccupancy = async (req: Request, res: Response) => {
 
     res.status(200).json({
       activeUsers: activeVisitsCount,
+      current_count: activeVisitsCount,
+      capacity: 0, // 0 = sin límite (el front muestra ∞)
       status,
     });
   } catch (error) {

@@ -1,26 +1,23 @@
-import { useState, useRef, useEffect } from 'react'
-import { Search, User, Camera, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { EditMemberForm } from '../components/members/EditMemberForm'
 import {
   searchMembers,
   fetchMemberUsers,
-  updateMember,
-  sendQrToMember,
-  regenerateQr,
   renewSubscription,
   freezeSubscription,
   unfreezeSubscription,
+  PLAN_BARCODE_LABELS,
   type MemberSummary,
   type MemberUserRow,
 } from '../lib/apiClient'
 import { notifyError, notifySuccess } from '../lib/notifications'
-import { supabase } from '../lib/supabaseClient'
 import { useAuthStore } from '../store/useAuthStore'
 import { cn } from '../lib/utils'
 import { TableRowSkeleton } from '../components/ui/Skeleton'
 
-const PROFILE_BUCKET = 'profile-pictures'
 const PAGE_SIZE = 20
 
 const STATUS_BADGE: Record<string, string> = {
@@ -57,8 +54,17 @@ export const ReceptionMembersPage = () => {
   const [loading, setLoading] = useState(true)
   const [editMember, setEditMember] = useState<MemberSummary | null>(null)
   const [actionTarget, setActionTarget] = useState<{ user: MemberUserRow; action: 'renew' | 'freeze' | 'unfreeze' } | null>(null)
+  const [renewPlanBarcode, setRenewPlanBarcode] = useState<string>('MEMBERSHIP')
   const [actionSubmitting, setActionSubmitting] = useState(false)
   const canRegenerateQr = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
+
+  useEffect(() => {
+    if (actionTarget?.action === 'renew' && actionTarget.user?.subscriptions?.[0]?.plan_barcode && actionTarget.user.subscriptions[0].plan_barcode in PLAN_BARCODE_LABELS) {
+      setRenewPlanBarcode(actionTarget.user.subscriptions[0].plan_barcode)
+    } else if (actionTarget?.action === 'renew') {
+      setRenewPlanBarcode('MEMBERSHIP')
+    }
+  }, [actionTarget?.action, actionTarget?.user?.id, actionTarget?.user?.subscriptions?.[0]?.plan_barcode])
 
   const loadList = async (page = 1) => {
     try {
@@ -104,15 +110,20 @@ export const ReceptionMembersPage = () => {
     setActionSubmitting(true)
     try {
       if (action === 'renew') {
-        const res = await renewSubscription(user.id)
+        const res = await renewSubscription(user.id, { barcode: renewPlanBarcode })
         const amt = res.amount_registered_in_shift
-        notifySuccess({
-          title: 'Renovado',
-          description:
-            typeof amt === 'number' && amt > 0
-              ? `Suscripción renovada. $${amt.toFixed(2)} registrado en caja (precio del Admin).`
-              : 'Suscripción renovada.',
-        })
+        if (typeof amt === 'number' && amt > 0) {
+          notifySuccess({
+            title: 'Renovado',
+            description: `Suscripción renovada. $${amt.toFixed(2)} registrado en caja.`,
+          })
+        } else {
+          notifySuccess({
+            title: 'Renovado',
+            description:
+              'Suscripción renovada. El precio está en $0; no se registró cobro en caja. Si quieres registrar el pago, configura el precio en Inventario (Membresía 30 días).',
+          })
+        }
       } else if (action === 'freeze') {
         await freezeSubscription(user.id)
         notifySuccess({ title: 'Congelado', description: 'Suscripción congelada.' })
@@ -220,16 +231,17 @@ export const ReceptionMembersPage = () => {
                   <th className="py-3 px-4 text-left font-medium">Nombre</th>
                   <th className="py-3 px-4 text-left font-medium">Teléfono</th>
                   <th className="py-3 px-4 text-left font-medium">Estado</th>
+                  <th className="py-3 px-4 text-left font-medium">Plan</th>
                   <th className="py-3 px-4 text-left font-medium">Vence</th>
                   <th className="py-3 px-4 text-right font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <TableRowSkeleton columns={5} rows={8} />
+                  <TableRowSkeleton columns={6} rows={8} />
                 ) : members.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-zinc-500">
+                    <td colSpan={6} className="py-8 text-center text-zinc-500">
                       No hay socios registrados.
                     </td>
                   </tr>
@@ -246,7 +258,7 @@ export const ReceptionMembersPage = () => {
                         <td className="py-2.5 px-4">
                           <button
                             type="button"
-                            onClick={() => setEditMember({ id: m.id, name: m.name, phone: m.phone ?? '', profile_picture_url: m.profile_picture_url ?? null, role: m.role })}
+                            onClick={() => setEditMember({ id: m.id, name: m.name, phone: m.phone ?? '', profile_picture_url: m.profile_picture_url ?? null, role: m.role, auth_user_id: m.auth_user_id ?? null })}
                             className="text-left font-medium text-zinc-900 dark:text-zinc-100 hover:underline truncate block max-w-[180px]"
                           >
                             {m.name ?? '—'}
@@ -263,6 +275,11 @@ export const ReceptionMembersPage = () => {
                             )}
                           >
                             {STATUS_LABELS[status] ?? status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className="inline-flex rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                            {sub?.plan_barcode ? (PLAN_BARCODE_LABELS[sub.plan_barcode] ?? sub.plan_barcode) : 'Mensual'}
                           </span>
                         </td>
                         <td className="py-2.5 px-4 text-zinc-600 dark:text-zinc-400 text-xs">
@@ -348,6 +365,12 @@ export const ReceptionMembersPage = () => {
       {actionTarget && (
         <Modal
           isOpen
+          onClose={() => {
+            if (!actionSubmitting) {
+              setActionTarget(null)
+              setRenewPlanBarcode('MEMBERSHIP')
+            }
+          }}
           title={
             actionTarget.action === 'renew'
               ? 'Renovar suscripción'
@@ -355,13 +378,24 @@ export const ReceptionMembersPage = () => {
                 ? 'Congelar suscripción'
                 : 'Descongelar suscripción'
           }
-          onClose={() => !actionSubmitting && setActionTarget(null)}
         >
           {actionTarget.action === 'renew' ? (
             <div className="space-y-4">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Renovar a <strong>{actionTarget.user.name ?? actionTarget.user.phone ?? 'este socio'}</strong>. Se cobra al precio configurado por el Admin en inventario (producto Membresía 30 días). Requiere turno abierto para registrar el pago.
+                Renovar a <strong>{actionTarget.user.name ?? actionTarget.user.phone ?? 'este socio'}</strong>. El cobro usa el precio del plan elegido en Inventario. Requiere turno abierto para registrar el pago.
               </p>
+              <div>
+                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5">Plan</label>
+                <select
+                  value={renewPlanBarcode}
+                  onChange={(e) => setRenewPlanBarcode(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-zinc-100 py-2 px-3"
+                >
+                  {Object.entries(PLAN_BARCODE_LABELS).map(([barcode, label]) => (
+                    <option key={barcode} value={barcode}>{label}</option>
+                  ))}
+                </select>
+              </div>
               <div className="flex gap-2 justify-end">
                 <Button
                   type="button"
@@ -415,198 +449,5 @@ export const ReceptionMembersPage = () => {
         </Modal>
       )}
     </div>
-  )
-}
-
-function EditMemberForm({
-  member,
-  onSuccess,
-  onCancel,
-  canRegenerateQr = false,
-}: {
-  member: MemberSummary
-  onSuccess: () => void
-  onCancel: () => void
-  canRegenerateQr?: boolean
-}) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [name, setName] = useState(member.name ?? '')
-  const [phone, setPhone] = useState(member.phone)
-  const [profilePictureUrl, setProfilePictureUrl] = useState(member.profile_picture_url ?? '')
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [sendingQr, setSendingQr] = useState(false)
-  const [regeneratingQr, setRegeneratingQr] = useState(false)
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !file.type.startsWith('image/')) return
-    setUploadingPhoto(true)
-    setProfilePictureUrl('')
-    try {
-      const ext = file.name.split('.').pop() || 'jpg'
-      const path = `${crypto.randomUUID()}.${ext}`
-      const { error } = await supabase.storage.from(PROFILE_BUCKET).upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-      })
-      if (error) throw error
-      const { data } = supabase.storage.from(PROFILE_BUCKET).getPublicUrl(path)
-      setProfilePictureUrl(data.publicUrl)
-      notifySuccess({ title: 'Foto lista' })
-    } catch (err) {
-      notifyError({
-        title: 'No se pudo subir la foto',
-        description: (err as Error)?.message ?? '',
-      })
-    } finally {
-      setUploadingPhoto(false)
-      e.target.value = ''
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSubmitting(true)
-    try {
-      await updateMember(member.id, {
-        name: name.trim() || undefined,
-        phone: phone.trim(),
-        ...(profilePictureUrl.trim() && { profile_picture_url: profilePictureUrl.trim() }),
-      })
-      notifySuccess({ title: 'Socio actualizado' })
-      onSuccess()
-    } catch (e) {
-      notifyError({ title: 'Error', description: (e as Error)?.message ?? '' })
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-xs font-medium text-zinc-500 mb-1">Nombre</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-zinc-500 mb-1">Teléfono</label>
-        <input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="w-full rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="block text-xs font-medium text-zinc-500">Foto de perfil</label>
-        <div className="flex flex-wrap gap-2 items-center">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="user"
-            className="hidden"
-            onChange={handleFileChange}
-            disabled={uploadingPhoto}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingPhoto}
-            className="inline-flex gap-1.5"
-          >
-            <Camera className="h-3.5 w-3.5" />
-            {uploadingPhoto ? 'Subiendo...' : 'Cámara o archivo'}
-          </Button>
-          <input
-            type="url"
-            value={profilePictureUrl}
-            onChange={(e) => setProfilePictureUrl(e.target.value)}
-            className="flex-1 min-w-0 rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-            placeholder="URL de foto"
-          />
-        </div>
-        {profilePictureUrl && (
-          <div className="flex items-center gap-2 mt-1">
-            <img
-              src={profilePictureUrl}
-              alt="Vista previa"
-              className="h-12 w-12 rounded-full object-cover border border-zinc-200 dark:border-white/10"
-            />
-            <button type="button" onClick={() => setProfilePictureUrl('')} className="text-xs text-zinc-500 hover:text-zinc-700">
-              Quitar foto
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-2 justify-between items-center border-t border-zinc-200 dark:border-white/10 mt-4 pt-4">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              if (sendingQr) return
-              setSendingQr(true)
-              try {
-                await sendQrToMember(member.id)
-                notifySuccess({
-                  title: 'QR enviado',
-                  description: 'Si el gym tiene WhatsApp configurado, el socio lo recibirá en unos segundos.',
-                })
-              } catch (e) {
-                notifyError({ title: 'No se pudo enviar', description: (e as Error)?.message ?? '' })
-              } finally {
-                setSendingQr(false)
-              }
-            }}
-            disabled={sendingQr || !phone?.trim()}
-            className="inline-flex gap-1.5"
-          >
-            {sendingQr ? 'Enviando...' : 'Reenviar QR por WhatsApp'}
-          </Button>
-          {canRegenerateQr && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                if (regeneratingQr) return
-                setRegeneratingQr(true)
-                try {
-                  await regenerateQr(member.id, !!phone?.trim())
-                  notifySuccess({
-                    title: 'QR regenerado',
-                    description: 'El código anterior ya no funciona. El socio recibirá el nuevo por WhatsApp si tiene teléfono.',
-                  })
-                  onSuccess()
-                } catch (e) {
-                  notifyError({ title: 'Error', description: (e as Error)?.message ?? '' })
-                } finally {
-                  setRegeneratingQr(false)
-                }
-              }}
-              disabled={regeneratingQr}
-              className="inline-flex gap-1.5 text-amber-600 hover:text-amber-700 border-amber-300 hover:border-amber-400"
-            >
-              {regeneratingQr ? 'Regenerando...' : 'Regenerar QR'}
-            </Button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-          <Button type="submit" disabled={submitting}>{submitting ? 'Guardando...' : 'Guardar'}</Button>
-        </div>
-      </div>
-    </form>
   )
 }

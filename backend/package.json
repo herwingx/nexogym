@@ -21,7 +21,16 @@
     "db:reset": "prisma migrate reset --force",
     "db:studio": "prisma studio"
   },
-  "keywords": ["saas", "erp", "gym", "multitenant", "nodejs", "typescript", "prisma", "supabase"],
+  "keywords": [
+    "saas",
+    "erp",
+    "gym",
+    "multitenant",
+    "nodejs",
+    "typescript",
+    "prisma",
+    "supabase"
+  ],
   "author": "herwingx",
   "license": "MIT",
   "type": "commonjs",
@@ -29,6 +38,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -50,6 +60,7 @@
     "@prisma/adapter-pg": "^7.4.1",
     "@prisma/client": "^7.4.1",
     "@supabase/supabase-js": "^2.97.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",

@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'sileo'
 import 'sileo/styles.css'
 import { useAuthStore } from './store/useAuthStore'
+import { useTheme } from './contexts/ThemeContext'
 import { deriveThemeFromHex } from './utils/colorMath'
+import { SuperAdminLayout } from './layouts/SuperAdminLayout'
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard'
 import { AdminLayout } from './layouts/AdminLayout'
 import { AdminDashboard } from './pages/AdminDashboard'
@@ -14,6 +16,7 @@ import { AdminClasses } from './pages/AdminClasses'
 import { AdminRoutines } from './pages/AdminRoutines'
 import { AdminInventory } from './pages/AdminInventory'
 import { AdminShifts } from './pages/AdminShifts'
+import { AdminRewards } from './pages/AdminRewards'
 import { AdminStaffView } from './pages/AdminStaffView'
 import { AdminRoute } from './components/auth/AdminRoute'
 import { ReceptionLayout } from './layouts/ReceptionLayout'
@@ -29,36 +32,60 @@ import { MemberHistory } from './pages/MemberHistory'
 import { MemberRoute } from './components/auth/MemberRoute'
 import { ProfileSettings } from './pages/ProfileSettings'
 
-type ThemeMode = 'light' | 'dark'
+const DEFAULT_TITLE = 'NexoGym'
+
+const NEXO_PRIMARY = '#2563eb'
 
 const useApplyTenantTheme = () => {
+  const user = useAuthStore((state) => state.user)
   const tenantTheme = useAuthStore((state) => state.tenantTheme)
-  const [mode, setMode] = useState<ThemeMode>('dark')
 
   useEffect(() => {
     const root = document.documentElement
-    const { primary, primaryForeground } = deriveThemeFromHex(
-      tenantTheme?.primaryHex ?? '#2563eb',
-    )
+    // SUPERADMIN siempre usa marca Nexo Gym (no heredar colores de ningún gym).
+    const hex = user?.role === 'SUPERADMIN' ? NEXO_PRIMARY : (tenantTheme?.primaryHex ?? NEXO_PRIMARY)
+    const { primary, primaryForeground } = deriveThemeFromHex(hex)
 
     root.style.setProperty('--theme-primary', primary)
     root.style.setProperty('--theme-primary-foreground', primaryForeground)
-  }, [tenantTheme])
+  }, [user?.role, tenantTheme])
+}
+
+/** Título de pestaña y PWA: NexoGym para SUPERADMIN; para el resto, nombre del gym (white-label). */
+const useDocumentTitle = () => {
+  const user = useAuthStore((state) => state.user)
+  const gymName = useAuthStore((state) => state.gymName)
 
   useEffect(() => {
-    const root = document.documentElement
-    if (mode === 'dark') {
-      root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
-    }
-  }, [mode])
+    const title =
+      user?.role === 'SUPERADMIN' ? DEFAULT_TITLE : (user && gymName ? gymName : DEFAULT_TITLE)
+    document.title = title
+    const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]')
+    if (appleTitle) appleTitle.setAttribute('content', title)
+  }, [user?.role, user, gymName])
+}
 
-  return { mode, setMode }
+/** Inyecta el manifest PWA tras el bootstrap; si hay sesión, usa cache-buster para que el navegador pida con la cookie y muestre el nombre del gym al instalar. */
+const useManifestLink = () => {
+  const isBootstrapped = useAuthStore((state) => state.isBootstrapped)
+  const user = useAuthStore((state) => state.user)
+
+  useEffect(() => {
+    if (!isBootstrapped) return
+    const link = document.createElement('link')
+    link.rel = 'manifest'
+    // Con sesión, cache-buster para forzar re-fetch con cookie y que "Instalar" muestre el nombre del gym
+    link.href = user ? `/api/v1/manifest?t=${Date.now()}` : '/api/v1/manifest'
+    document.head.appendChild(link)
+    return () => link.remove()
+  }, [isBootstrapped, user?.id])
 }
 
 function App() {
-  const { mode } = useApplyTenantTheme()
+  const { mode } = useTheme()
+  useApplyTenantTheme()
+  useDocumentTitle()
+  useManifestLink()
   const user = useAuthStore((state) => state.user)
 
   const defaultPath = !user
@@ -76,8 +103,10 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/saas" element={<SuperAdminDashboard />} />
-        <Route path="/saas/profile" element={<ProfileSettings />} />
+        <Route path="/saas" element={<SuperAdminLayout />}>
+          <Route index element={<SuperAdminDashboard />} />
+          <Route path="profile" element={<ProfileSettings />} />
+        </Route>
 
         <Route element={<AdminRoute />}>
           <Route element={<AdminLayout />}>
@@ -88,6 +117,7 @@ function App() {
             <Route path="/admin/routines" element={<AdminRoutines />} />
             <Route path="/admin/inventory" element={<AdminInventory />} />
             <Route path="/admin/shifts" element={<AdminShifts />} />
+            <Route path="/admin/rewards" element={<AdminRewards />} />
             <Route path="/admin/staff" element={<AdminStaffView />} />
             <Route path="/admin/audit" element={<AdminAudit />} />
             <Route path="/admin/profile" element={<ProfileSettings />} />

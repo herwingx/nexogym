@@ -1,6 +1,10 @@
 import { supabase } from './supabaseClient'
+import { getErrorFromResponse } from './apiErrors'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
+/** En dev usamos siempre el proxy (/api/v1) para que la cookie del manifest (PWA) sea same-origin y se muestre el nombre del gym al instalar. */
+const API_BASE_URL = import.meta.env.DEV
+  ? '/api/v1'
+  : (import.meta.env.VITE_API_BASE_URL ?? '/api/v1')
 
 /** Timeout por defecto para evitar colgar la UI si el backend no responde (seguridad y UX). */
 const DEFAULT_FETCH_TIMEOUT_MS = 30_000
@@ -146,7 +150,16 @@ export const createGym = async (payload: CreateGymPayload): Promise<CreateGymRes
   return response.json() as Promise<CreateGymResponse>
 }
 
-export const updateGymTier = async (gymId: string, tier: GymSummary['subscription_tier']) => {
+/** Respuesta al cambiar el plan: el backend devuelve el gym actualizado (tier + modules_config del plan). */
+export type UpdateGymTierResponse = {
+  message: string
+  gym: Pick<GymSummary, 'subscription_tier' | 'modules_config'> & { id: string }
+}
+
+export const updateGymTier = async (
+  gymId: string,
+  tier: GymSummary['subscription_tier'],
+): Promise<UpdateGymTierResponse> => {
   const response = await fetchWithAuth(`/saas/gyms/${gymId}/tier`, {
     method: 'PATCH',
     body: JSON.stringify({ subscription_tier: tier }),
@@ -156,7 +169,7 @@ export const updateGymTier = async (gymId: string, tier: GymSummary['subscriptio
     throw new Error(`Failed to update gym tier (${response.status})`)
   }
 
-  return response.json()
+  return response.json() as Promise<UpdateGymTierResponse>
 }
 
 /** Override de módulos por gym (SuperAdmin). Cada key opcional. */
@@ -177,6 +190,46 @@ export const updateGymModules = async (
 
   const data = (await response.json()) as { modules_config: Record<string, boolean> }
   return data
+}
+
+/** Super Admin: cerrar todos los turnos abiertos de un gym (ej. antes de bajar de plan / quitar POS). */
+export const closeGymOpenShifts = async (
+  gymId: string,
+): Promise<{ message: string; closed: number; shift_ids: string[] }> => {
+  const response = await fetchWithAuth(`/saas/gyms/${gymId}/close-open-shifts`, {
+    method: 'POST',
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new Error((data as { error?: string })?.error ?? `Error (${response.status})`)
+  }
+  return response.json() as Promise<{ message: string; closed: number; shift_ids: string[] }>
+}
+
+/** Premio por racha configurado por el gym (admin). */
+export type StreakRewardItem = { days: number; label: string }
+
+export type GymRewardsConfig = {
+  streak_rewards: StreakRewardItem[]
+}
+
+export const fetchGymRewardsConfig = async (): Promise<GymRewardsConfig> => {
+  const response = await fetchWithAuth('/gym/rewards-config')
+  const raw = (await response.json().catch(() => ({}))) as GymRewardsConfig & Record<string, unknown>
+  if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
+  return raw as GymRewardsConfig
+}
+
+export const updateGymRewardsConfig = async (
+  body: GymRewardsConfig,
+): Promise<GymRewardsConfig> => {
+  const response = await fetchWithAuth('/gym/rewards-config', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+  const raw = (await response.json().catch(() => ({}))) as GymRewardsConfig & Record<string, unknown>
+  if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
+  return raw as GymRewardsConfig
 }
 
 export type GymDetail = GymSummary & {
@@ -448,12 +501,15 @@ export type MemberProfile = {
     visits_required: number
     visits_progress: number
   } | null
+  /** Premios por racha configurados por el gym (para mostrar "participando por..."). */
+  streak_rewards?: StreakRewardItem[]
 }
 
 export const fetchMemberProfile = async (): Promise<MemberProfile> => {
   const response = await fetchWithAuth('/members/me')
-  if (!response.ok) throw new Error(`Failed to load member profile (${response.status})`)
-  return (await response.json()) as MemberProfile
+  const raw = (await response.json().catch(() => ({}))) as MemberProfile & Record<string, unknown>
+  if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
+  return raw as MemberProfile
 }
 
 export type VisitEntry = {
@@ -479,8 +535,9 @@ export const fetchMemberHistory = async (params?: {
   if (params?.pageSize) qs.set('pageSize', String(params.pageSize))
   const query = qs.toString() ? `?${qs.toString()}` : ''
   const response = await fetchWithAuth(`/members/me/history${query}`)
-  if (!response.ok) throw new Error(`Failed to load history (${response.status})`)
-  return (await response.json()) as MemberHistoryResponse
+  const raw = (await response.json().catch(() => ({}))) as MemberHistoryResponse & Record<string, unknown>
+  if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
+  return raw as MemberHistoryResponse
 }
 
 export type LeaderboardEntry = {
@@ -496,8 +553,9 @@ export const fetchMemberLeaderboard = async (params?: {
 }): Promise<{ data: LeaderboardEntry[] }> => {
   const qs = params?.limit ? `?limit=${params.limit}` : ''
   const response = await fetchWithAuth(`/members/leaderboard${qs}`)
-  if (!response.ok) throw new Error(`Failed to load leaderboard (${response.status})`)
-  return (await response.json()) as { data: LeaderboardEntry[] }
+  const raw = (await response.json().catch(() => ({}))) as { data: LeaderboardEntry[] } & Record<string, unknown>
+  if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
+  return raw as { data: LeaderboardEntry[] }
 }
 
 /** Reenviar mi QR de acceso por WhatsApp (mismo código estable). Portal del socio. */
@@ -513,6 +571,22 @@ export const requestMemberQrResend = async (): Promise<{ message: string }> => {
 /** Reenviar QR de acceso del socio por WhatsApp (staff). */
 export const sendQrToMember = async (userId: string): Promise<{ message: string }> => {
   const response = await fetchWithAuth(`/users/${userId}/send-qr`, { method: 'POST' })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error((data as { error?: string })?.error ?? `Error (${response.status})`)
+  }
+  return (await response.json()) as { message: string }
+}
+
+/** Enviar acceso al portal a un socio que aún no lo tiene (ej. subida de BASIC a plan con QR). Requiere email. */
+export const sendPortalAccess = async (
+  userId: string,
+  email: string,
+): Promise<{ message: string }> => {
+  const response = await fetchWithAuth(`/users/${userId}/send-portal-access`, {
+    method: 'POST',
+    body: JSON.stringify({ email: email.trim() }),
+  })
   if (!response.ok) {
     const data = await response.json().catch(() => ({}))
     throw new Error((data as { error?: string })?.error ?? `Error (${response.status})`)
@@ -616,10 +690,15 @@ export const fetchPosProducts = async (): Promise<PosProduct[]> => {
 
 export type SaleItemPayload = { productId: string; quantity: number }
 
-export const createPosSale = async (items: SaleItemPayload[]) => {
+export const createPosSale = async (
+  items: SaleItemPayload[],
+  options?: { customer_email?: string },
+) => {
+  const body: { items: SaleItemPayload[]; customer_email?: string } = { items }
+  if (options?.customer_email?.trim()) body.customer_email = options.customer_email.trim()
   const res = await fetchWithAuth('/pos/sales', {
     method: 'POST',
-    body: JSON.stringify({ items }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => null)
@@ -697,8 +776,9 @@ export type OpenShiftRow = {
 
 export const fetchShifts = async (page = 1, limit = 20): Promise<ShiftsResponse> => {
   const res = await fetchWithAuth(`/pos/shifts?page=${page}&limit=${limit}`)
-  if (!res.ok) throw new Error(`Failed to load shifts (${res.status})`)
-  return res.json()
+  const raw = (await res.json().catch(() => ({}))) as ShiftsResponse & Record<string, unknown>
+  if (!res.ok) throw getErrorFromResponse(res, raw as Record<string, unknown>)
+  return raw as ShiftsResponse
 }
 
 /** Admin: list of open shifts in the gym (receptionists who have not done corte). */
@@ -720,6 +800,30 @@ export const forceCloseShift = async (
   if (!res.ok) {
     const err = await res.json().catch(() => null)
     throw new Error((err?.error ?? err?.message) ?? `Force-close failed (${res.status})`)
+  }
+  return res.json()
+}
+
+/** Admin: ventas (transacciones) de un corte con folios para auditoría */
+export type ShiftSaleRow = {
+  id: string
+  receipt_folio: string | null
+  total: number
+  created_at: string
+  seller: { id: string; name: string | null } | null
+  items: Array<{ product_name: string; quantity: number; price: number; line_total: number }>
+}
+
+export type ShiftSalesResponse = {
+  data: ShiftSaleRow[]
+  shift: { id: string; opened_at: string; closed_at: string | null; status: string }
+}
+
+export const fetchShiftSales = async (shiftId: string): Promise<ShiftSalesResponse> => {
+  const res = await fetchWithAuth(`/pos/shifts/${shiftId}/sales`)
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    throw getErrorFromResponse(res, data)
   }
   return res.json()
 }
@@ -758,9 +862,9 @@ export type InventoryProduct = {
 
 export const fetchInventoryProducts = async (): Promise<InventoryProduct[]> => {
   const res = await fetchWithAuth('/inventory/products')
-  if (!res.ok) throw new Error(`Failed to load inventory (${res.status})`)
-  const data = (await res.json()) as { data: InventoryProduct[] }
-  return data.data ?? []
+  const raw = (await res.json().catch(() => ({}))) as { data?: InventoryProduct[] } & Record<string, unknown>
+  if (!res.ok) throw getErrorFromResponse(res, raw as Record<string, unknown>)
+  return raw.data ?? []
 }
 
 export const createInventoryProduct = async (payload: {
@@ -862,6 +966,8 @@ export type MemberSummary = {
   phone: string
   profile_picture_url: string | null
   role: string
+  /** Si tiene cuenta de acceso al portal (email/contraseña). */
+  auth_user_id?: string | null
 }
 
 export const searchMembers = async (q: string): Promise<MemberSummary[]> => {
@@ -987,11 +1093,22 @@ export type MemberUserRow = {
   phone: string | null
   profile_picture_url?: string | null
   role: string
+  auth_user_id?: string | null
   deleted_at: string | null
   current_streak?: number
   last_visit_at?: string | null
   created_at: string
-  subscriptions?: Array<{ status: string; expires_at: string }>
+  subscriptions?: Array<{ status: string; expires_at: string; plan_barcode?: string | null }>
+}
+
+/** Barcodes de planes para renovar; etiqueta para mostrar en lista y selector. */
+export const PLAN_BARCODE_LABELS: Record<string, string> = {
+  MEMBERSHIP_WEEKLY: 'Semanal',
+  MEMBERSHIP_BIWEEKLY: 'Quincenal',
+  MEMBERSHIP: 'Mensual',
+  MEMBERSHIP_BIMESTRAL: 'Bimestral',
+  MEMBERSHIP_SEMESTRAL: 'Semestral',
+  MEMBERSHIP_ANNUAL: 'Anual',
 }
 
 export const fetchMemberUsers = async (
@@ -1008,10 +1125,11 @@ export const fetchMemberUsers = async (
 
 export const renewSubscription = async (
   userId: string,
+  options?: { barcode?: string },
 ): Promise<{ message: string; subscription: unknown; amount_registered_in_shift?: number }> => {
   const res = await fetchWithAuth(`/users/${userId}/renew`, {
     method: 'PATCH',
-    body: JSON.stringify({}),
+    body: JSON.stringify(options?.barcode ? { barcode: options.barcode } : {}),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => null)

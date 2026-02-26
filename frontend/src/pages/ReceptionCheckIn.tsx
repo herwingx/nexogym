@@ -30,6 +30,7 @@ type ModalState = {
 
 export const ReceptionCheckInPage = () => {
   const user = useAuthStore((s) => s.user)
+  const qrAccess = useAuthStore((s) => s.modulesConfig.qr_access)
   const [buffer, setBuffer] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [occupancy, setOccupancy] = useState<{ current_count: number; capacity: number } | null>(null)
@@ -53,13 +54,18 @@ export const ReceptionCheckInPage = () => {
     let cancelled = false
     const load = async () => {
       try {
-        const [occ, sh] = await Promise.all([
-          fetchOccupancy().catch(() => null),
-          fetchCurrentShift().catch(() => null),
-        ])
-        if (!cancelled) {
-          setOccupancy(occ ?? null)
-          setShift(sh ?? null)
+        if (qrAccess) {
+          const [occ, sh] = await Promise.all([
+            fetchOccupancy().catch(() => null),
+            fetchCurrentShift().catch(() => null),
+          ])
+          if (!cancelled) {
+            setOccupancy(occ ?? null)
+            setShift(sh ?? null)
+          }
+        } else {
+          const sh = await fetchCurrentShift().catch(() => null)
+          if (!cancelled) setShift(sh ?? null)
         }
       } finally {
         if (!cancelled) setIsLoading(false)
@@ -69,7 +75,7 @@ export const ReceptionCheckInPage = () => {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [qrAccess])
 
   const handleSubmit = useCallback(async (qrCode: string) => {
     const code = qrCode.trim()
@@ -271,19 +277,21 @@ export const ReceptionCheckInPage = () => {
           </div>
         </section>
 
-        {/* Columna derecha ~30%: Semáforo aforo + Turno caja */}
+        {/* Columna derecha: Aforo (solo con Check-in QR) + Turno caja */}
         <aside className="space-y-4">
-          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-6 shadow-sm">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-2">
-              Aforo actual
-            </h3>
-            <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-              {occupancy?.current_count ?? 0}
-              <span className="text-sm font-normal text-zinc-500 ml-1">
-                / {occupancy?.capacity ?? 0}
-              </span>
-            </p>
-          </div>
+          {qrAccess && (
+            <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-6 shadow-sm">
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-2">
+                Aforo actual
+              </h3>
+              <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+                {occupancy?.current_count ?? 0}
+                <span className="text-sm font-normal text-zinc-500 ml-1">
+                  / {occupancy?.capacity ? occupancy.capacity : '∞'}
+                </span>
+              </p>
+            </div>
+          )}
 
           <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 mb-3">

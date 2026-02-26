@@ -36,6 +36,7 @@ const fmt = (n: number) =>
 
 export const AdminDashboard = () => {
   const user = useAuthStore((s) => s.user)
+  const qrAccess = useAuthStore((s) => s.modulesConfig.qr_access)
   const now = new Date()
   const [occupancy, setOccupancy] = useState<OccupancyResponse | null>(null)
 
@@ -49,12 +50,13 @@ export const AdminDashboard = () => {
     const load = async () => {
       try {
         setIsLoading(true)
-        const [occ, fin] = await Promise.all([
-          fetchOccupancy(),
+        const promises: [Promise<FinanceReport>, Promise<OccupancyResponse>?] = [
           fetchFinanceReport(now.getFullYear(), now.getMonth() + 1),
-        ])
-        setOccupancy(occ)
-        setFinance(fin)
+        ]
+        if (qrAccess) promises.push(fetchOccupancy())
+        const results = await Promise.all(promises)
+        setFinance(results[0])
+        if (qrAccess && results[1]) setOccupancy(results[1])
       } catch (error: unknown) {
         notifyError({
           title: 'No pudimos cargar el dashboard',
@@ -66,10 +68,11 @@ export const AdminDashboard = () => {
       }
     }
     void load()
-  }, [])
+  }, [qrAccess])
 
   const occupancyLevel = getOccupancyLevel(occupancy?.current_count ?? 0)
   const styles = OCCUPANCY_STYLES[occupancyLevel]
+  const cardCount = qrAccess ? 3 : 2
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -83,32 +86,33 @@ export const AdminDashboard = () => {
           </div>
         </header>
 
-        {/* Semáforo de ocupación + cards de métricas */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Cards: ocupación solo si tiene Check-in QR; siempre ventas y ganancia */}
+        <section className={`grid grid-cols-1 gap-4 ${qrAccess ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
           {isLoading ? (
-            <CardSkeleton count={3} lines={2} />
+            <CardSkeleton count={cardCount} lines={2} />
           ) : (
             <>
-              {/* Semáforo */}
-              <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm space-y-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-                  Ocupación actual
-                </p>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`h-3 w-3 rounded-full animate-pulse ${styles.dot}`}
-                  />
-                  <span className={`text-2xl font-semibold ${styles.text}`}>
-                    {occupancy?.current_count ?? 0}
-                    <span className="ml-1 text-sm font-normal text-zinc-400">
-                      / {occupancy?.capacity ?? '∞'} personas
+              {qrAccess && (
+                <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm space-y-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                    Ocupación actual
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`h-3 w-3 rounded-full animate-pulse ${styles.dot}`}
+                    />
+                    <span className={`text-2xl font-semibold ${styles.text}`}>
+                      {occupancy?.current_count ?? 0}
+                      <span className="ml-1 text-sm font-normal text-zinc-400">
+                        / {occupancy?.capacity ? occupancy.capacity : '∞'} personas
+                      </span>
                     </span>
-                  </span>
+                  </div>
+                  <p className={`text-xs font-medium ${styles.text}`}>
+                    {styles.label}
+                  </p>
                 </div>
-                <p className={`text-xs font-medium ${styles.text}`}>
-                  {styles.label}
-                </p>
-              </div>
+              )}
 
               {/* Ventas del mes */}
               <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm space-y-2">

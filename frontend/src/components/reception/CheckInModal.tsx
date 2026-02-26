@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { cn } from '../../lib/utils'
@@ -50,9 +51,10 @@ export function CheckInModal({
   const isError = state === 'antipassback'
   const isDebtor = state === 'debtor'
 
-  return (
+  const overlay = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/60 dark:bg-zinc-900/20"
+      className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/60 dark:bg-zinc-900/20 min-h-[100dvh]"
+      style={{ top: 0, left: 0, right: 0, bottom: 0 }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -151,4 +153,5 @@ export function CheckInModal({
       </div>
     </div>
   )
+  return createPortal(overlay, document.body)
 }

@@ -112,12 +112,13 @@ model User {
   profile_picture_url String?
   pin_hash            String? // Control de Acceso Manual / Biométrico
   role                Role      @default(MEMBER)
-  current_streak      Int       @default(0) // Gamificación (solo se incrementa 1 vez por día calendario)
-  last_visit_at       DateTime?  // Última visita (anti-passback 2h)
-  last_checkin_date   DateTime?  @db.Date // Último día calendario con check-in (para racha)
-  birth_date          DateTime?  @db.Date // Cumpleaños (n8n / retención)
-  deleted_at          DateTime?  // Soft delete
-  qr_token            String?   @unique // Token para QR; al regenerar se invalida el anterior
+  current_streak       Int       @default(0) // Gamificación (solo se incrementa 1 vez por día calendario)
+  last_visit_at        DateTime? // Última visita (anti-passback 2h)
+  last_checkin_date    DateTime? @db.Date // Último día calendario con check-in (para racha)
+  streak_freeze_until  DateTime? // Si set: al check-in, si diffDays>1 y now<=esta fecha, no se reinicia la racha (renovación 1–2 días tarde)
+  birth_date           DateTime? @db.Date // Cumpleaños (n8n / retención)
+  deleted_at           DateTime? // Soft delete
+  qr_token             String?   @unique // Token para QR; al regenerar se invalida el anterior
 
   // Relaciones
   gym                Gym            @relation(fields: [gym_id], references: [id], onDelete: Cascade)
@@ -146,6 +147,7 @@ model Subscription {
   frozen_days_left   Int?
   allowed_start_time String? // Ej: "06:00" - Restricción horaria
   allowed_end_time   String? // Ej: "12:00"
+  plan_barcode       String? // Barcode del plan al renovar (ej. MEMBERSHIP, MEMBERSHIP_ANNUAL) para badge en lista
 
   // Relaciones
   gym  Gym  @relation(fields: [gym_id], references: [id], onDelete: Cascade)
@@ -287,6 +289,7 @@ model Sale {
   cash_shift_id String?  @db.Uuid
   seller_id     String?  @db.Uuid // Staff que realizó la venta
   total         Decimal  @db.Decimal(10, 2)
+  receipt_folio String?  // V-YYYY-NNNNNN para auditoría y comprobante
   created_at    DateTime @default(now())
 
   // Relaciones
@@ -297,6 +300,17 @@ model Sale {
 
   @@index([gym_id])
   @@index([cash_shift_id])
+}
+
+// Secuencia de folios por gym y año (V-venta, R-renovación) para comprobantes y auditoría
+model ReceiptSequence {
+  gym_id       String   @db.Uuid
+  year         Int
+  sale_seq     Int      @default(0)
+  renewal_seq  Int      @default(0)
+  updated_at   DateTime @updatedAt
+
+  @@id([gym_id, year])
 }
 
 model SaleItem {

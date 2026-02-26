@@ -3,6 +3,8 @@ import { prisma } from '../db';
 import { ShiftStatus, TransactionType } from '@prisma/client';
 import { saleSchema, expenseSchema } from '../schemas/pos.schema';
 import { handleControllerError } from '../utils/http';
+import { getNextSaleFolio } from '../utils/receipt-folio';
+import { sendSaleReceiptEmail } from '../services/n8n.service';
 
 // GET /pos/products — mirrors inventory but from a POS-optimized view
 export const getProducts = async (req: Request, res: Response) => {
@@ -49,7 +51,8 @@ export const createSale = async (req: Request, res: Response) => {
       return;
     }
 
-    const { items, sellerId } = validation.data;
+    const { items, sellerId, customer_email: customerEmailRaw } = validation.data;
+    const customerEmail = typeof customerEmailRaw === 'string' && customerEmailRaw.trim() ? customerEmailRaw.trim() : undefined;
 
     // Find the currently open shift for this user/gym (sales go to the seller's shift)
     const openShift = await prisma.cashShift.findFirst({
@@ -106,16 +109,18 @@ export const createSale = async (req: Request, res: Response) => {
         });
       }
 
-      // Create parent Sale linked to the open shift
+      const receiptFolio = await getNextSaleFolio(gymId, tx);
+
       const sale = await tx.sale.create({
         data: {
           gym_id: gymId,
           cash_shift_id: openShift.id,
-          seller_id: sellerId || actorId, // TRACK COMMISSION: specific seller or the actor
+          seller_id: sellerId || actorId,
           total: totalAmount,
+          receipt_folio: receiptFolio,
           items: { create: saleItemsData },
         },
-        include: { items: true },
+        include: { items: { include: { product: { select: { name: true } } } } },
       });
 
       // Record InventoryTransactions for each sold product (audit trail)
@@ -123,6 +128,27 @@ export const createSale = async (req: Request, res: Response) => {
 
       return sale;
     });
+
+    if (customerEmail && result) {
+      const gym = await prisma.gym.findUnique({ where: { id: gymId }, select: { name: true } });
+      const items = result.items.map((item: { quantity: number; price: { toString: () => string }; product: { name: string } }) => {
+        const unitPrice = Number(item.price);
+        return {
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: unitPrice,
+          line_total: unitPrice * item.quantity,
+        };
+      });
+      sendSaleReceiptEmail(gymId, customerEmail, {
+        receipt_folio: result.receipt_folio ?? result.id,
+        sale_id: result.id,
+        items,
+        total: Number(result.total),
+        sold_at: result.created_at.toISOString(),
+        gym_name: gym?.name ?? null,
+      }).catch(() => {});
+    }
 
     res.status(201).json({
       message: 'Sale completed successfully.',
@@ -332,5 +358,63 @@ export const getOpenShifts = async (req: Request, res: Response) => {
     res.status(200).json({ data: openShifts });
   } catch (error) {
     handleControllerError(req, res, error, '[getOpenShifts Error]', 'Failed to retrieve open shifts.');
+  }
+};
+
+// GET /pos/shifts/:id/sales — Admin: ventas (transacciones) de un corte con folios para auditoría
+export const getShiftSales = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    const shiftId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+    if (!shiftId) {
+      res.status(400).json({ error: 'ID de turno inválido.' });
+      return;
+    }
+
+    const shift = await prisma.cashShift.findFirst({
+      where: { id: shiftId, gym_id: gymId },
+      select: { id: true, user_id: true, opened_at: true, closed_at: true, status: true },
+    });
+    if (!shift) {
+      res.status(404).json({ error: 'Turno no encontrado.' });
+      return;
+    }
+
+    const sales = await prisma.sale.findMany({
+      where: { gym_id: gymId, cash_shift_id: shift.id },
+      include: {
+        items: { include: { product: { select: { name: true } } } },
+        seller: { select: { id: true, name: true } },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    res.status(200).json({
+      data: sales.map((s) => ({
+        id: s.id,
+        receipt_folio: s.receipt_folio,
+        total: Number(s.total),
+        created_at: s.created_at,
+        seller: s.seller ? { id: s.seller.id, name: s.seller.name } : null,
+        items: s.items.map((i) => ({
+          product_name: i.product.name,
+          quantity: i.quantity,
+          price: Number(i.price),
+          line_total: Number(i.price) * i.quantity,
+        })),
+      })),
+      shift: {
+        id: shift.id,
+        opened_at: shift.opened_at,
+        closed_at: shift.closed_at,
+        status: shift.status,
+      },
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getShiftSales Error]', 'Failed to retrieve shift sales.');
   }
 };

@@ -23,8 +23,8 @@ Regla: **si el socio se fue y regresa a pagar, el nuevo periodo empieza el día 
 
 ### 2.1 Precio y caja
 
-- **Precio:** El monto se toma del producto **"Membresía 30 días"** (barcode `MEMBERSHIP`) en Inventario. **Admin** debe crearlo y asignar el precio. Reception/Coach **no pueden ingresar monto manual** (evita manipulación).
-- **Producto no existe:** Si el producto no está en inventario, el backend devuelve 400 con mensaje: *"El Admin debe crearlo en Inventario (barcode MEMBERSHIP) y asignar el precio antes de renovar."*
+- **Precio:** El monto se toma del producto con barcode **`MEMBERSHIP`** en Inventario (nombre típico: "Membresía 30 días"). **Admin** solo debe asignar el precio en Inventario; el producto ya viene dado de alta al crear el gym (junto con otros plantilla: visita 1 día, semanal, quincenal). Reception/Coach **no pueden ingresar monto manual** (evita manipulación).
+- **Producto no existe:** En gyms creados desde el panel SaaS el producto ya existe. Si faltara (ej. gym migrado o borrado), el backend devuelve 400 indicando que debe existir un producto con código "MEMBERSHIP" y que en gyms nuevos ya viene de alta.
 - **Registro en caja:** Si el producto tiene precio > 0 y hay turno abierto, se crea una `Sale` con ese precio y se suma al turno del usuario que renueva.
 
 ### 2.2 Lógica de extensión
@@ -64,10 +64,27 @@ Para que en listados y reportes se vea “Expirado” cuando ya pasó la fecha:
 
 - Endpoint (Admin): **POST** `/api/v1/users/sync-expired-subscriptions`.
 - Marca como **EXPIRED** todas las suscripciones del gym con `status = ACTIVE` y `expires_at < hoy`.
+- Además, por cada suscripción marcada EXPIRED, setea en el **usuario** `streak_freeze_until = expires_at + 7 días` (ver sección 7).
 - Respuesta: `{ count, message }`.
 - Queda registrado en auditoría como `SUBSCRIPTIONS_SYNC_EXPIRED`.
 
 Recomendación: llamar una vez al día (cron con JWT de admin o script que use este endpoint).
+
+---
+
+## 7. Congelar racha al vencer suscripción (streak freeze por vencimiento)
+
+Para que un socio que se pasó 1–2 días (o hasta 7) sin renovar **no pierda la racha** al volver a entrar después de pagar:
+
+- **Campo en User:** `streak_freeze_until` (DateTime, opcional). Si está seteo y el próximo check-in cae **antes o en** esa fecha, y han pasado más de 1 día desde el último check-in (`diffDays > 1`), la racha **no se reinicia**: se mantiene y se suma 1 (como si hubiera sido día consecutivo).
+- **Cuándo se setea:**
+  1. **Sync de vencidas:** al marcar una suscripción como EXPIRED, se setea `user.streak_freeze_until = expires_at + 7 días`.
+  2. **Check-in 403 (NO_ACTIVE_SUBSCRIPTION):** si intentan entrar sin suscripción activa, se setea `user.streak_freeze_until = hoy + 7 días` (por si el sync aún no corrió).
+- **Cuándo se limpia:** en el primer check-in exitoso donde se aplica el “streak freeze” por vencimiento (diffDays > 1 y `now <= streak_freeze_until`), tras actualizar la racha se pone `streak_freeze_until = null`.
+
+Así, si el socio renueva uno o dos días después de vencer y vuelve a entrar, conserva su progreso de racha. El período de gracia es de **7 días** (mismo valor en sync y en check-in 403).
+
+---
 
 ### Qué falta y por qué (revisión posterior)
 

@@ -247,6 +247,10 @@ async function main() {
       rewards_config: {
         points_per_visit: 10,
         streak_bonus: { streak_7: 50, streak_30: 200 },
+        streak_rewards: [
+          { days: 7, label: 'Batido gratis' },
+          { days: 30, label: 'Mes gratis' },
+        ],
         rewards: [
           { id: 'free_bottle', name: 'Botella gratis', cost: 100 },
           { id: 'free_month',  name: 'Mes gratis',     cost: 500 },
@@ -327,7 +331,7 @@ async function main() {
     ],
   });
 
-  // Productos Pro
+  // Productos Pro (incl. Membresía 30 días para renovar en caja)
   const [prodPro1, prodPro2, prodPro3, prodPro4, prodPro5] = await Promise.all([
     prisma.product.create({ data: { gym_id: gymPro.id, name: 'Pre-Workout C4 30srv',      price: 599, stock: 25, barcode: '0810038001234' } }),
     prisma.product.create({ data: { gym_id: gymPro.id, name: 'Proteína Whey 2kg',         price: 899, stock: 15, barcode: '0810038005678' } }),
@@ -335,6 +339,7 @@ async function main() {
     prisma.product.create({ data: { gym_id: gymPro.id, name: 'Agua Electrolit 600ml',     price: 35,  stock: 120 } }),
     prisma.product.create({ data: { gym_id: gymPro.id, name: 'Cuerda para Saltar Pro',    price: 179, stock: 12 } }),
   ]);
+  await prisma.product.create({ data: { gym_id: gymPro.id, name: 'Membresía 30 días', price: 0, stock: 99999, barcode: 'MEMBERSHIP' } });
 
   // Clases (módulo habilitado en PRO) — Instructor y Coach
   const [classSpin, classBox, classFunc] = await Promise.all([
@@ -454,6 +459,11 @@ async function main() {
       rewards_config: {
         points_per_visit: 15,
         streak_bonus: { streak_7: 75, streak_30: 300, streak_90: 1000 },
+        streak_rewards: [
+          { days: 7, label: 'Shaker gratis' },
+          { days: 30, label: 'Toalla personalizada' },
+          { days: 90, label: 'Sesión PT personal' },
+        ],
         rewards: [
           { id: 'free_shaker',  name: 'Shaker gratis',      cost: 150  },
           { id: 'free_towel',   name: 'Toalla personalizada', cost: 300  },
@@ -523,7 +533,7 @@ async function main() {
   });
   await linkSupabaseAuth(premiumMembers[0].id, 'member@elitebody.dev', 'Member1234!');
 
-  // Productos Premium (tienda más completa)
+  // Productos Premium (tienda más completa + Membresía 30 días para renovar en caja)
   const premProducts = await Promise.all([
     prisma.product.create({ data: { gym_id: gymPremium.id, name: 'Proteína Isolate 2kg',        price: 1099, stock: 20, barcode: '0810099000001' } }),
     prisma.product.create({ data: { gym_id: gymPremium.id, name: 'BCAA 300g',                    price: 499,  stock: 35, barcode: '0810099000002' } }),
@@ -534,6 +544,7 @@ async function main() {
     prisma.product.create({ data: { gym_id: gymPremium.id, name: 'Cinturón Levantamiento Peso',  price: 699,  stock: 8  } }),
     prisma.product.create({ data: { gym_id: gymPremium.id, name: 'Rodilleras Elásticas (par)',   price: 399,  stock: 15 } }),
   ]);
+  await prisma.product.create({ data: { gym_id: gymPremium.id, name: 'Membresía 30 días', price: 0, stock: 99999, barcode: 'MEMBERSHIP' } });
 
   // Clases Premium
   const [classYoga, classCross, classPilates] = await Promise.all([

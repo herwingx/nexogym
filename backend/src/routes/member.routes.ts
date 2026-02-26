@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Role } from '@prisma/client';
 import { requireAuth } from '../middlewares/auth.middleware';
+import { requireModuleEnabled } from '../middlewares/module-access.middleware';
 import { getMemberProfile, getMemberHistory, requestQrResend, getLeaderboard } from '../controllers/member.controller';
 
 const router = Router();
@@ -15,6 +16,7 @@ const requireMember = (req: Request, res: Response, next: NextFunction) => {
 };
 
 router.use(requireAuth);
+router.use(requireModuleEnabled('qr_access')); // Portal del socio solo en planes con QR (no BASIC)
 router.use(requireMember);
 
 /**

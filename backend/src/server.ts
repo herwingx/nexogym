@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import pinoHttp from 'pino-http';
 import { randomUUID } from 'crypto';
+import { getManifest } from './controllers/manifest.controller';
 
 // Import routers
 import saasRouter from './routes/saas.routes';
@@ -17,6 +19,7 @@ import routineRouter from './routes/routine.routes';
 import memberRouter from './routes/member.routes';
 import webhooksRouter from './routes/webhooks.routes';
 import integrationsRouter from './routes/integrations.routes';
+import gymRouter from './routes/gym.routes';
 import { setupSwagger } from './swagger';
 import { logger } from './lib/logger';
 import { createRateLimiter } from './middlewares/rate-limit.middleware';
@@ -87,6 +90,7 @@ const biometricRateLimiter = createRateLimiter({
 
   // Body Parser
   app.use(express.json({ limit: env.BODY_LIMIT }));
+  app.use(cookieParser());
 
   // Root route for local sanity and to avoid noisy 404 from browser prefetches
   app.get('/', (_req, res) => {
@@ -138,6 +142,9 @@ const biometricRateLimiter = createRateLimiter({
 
   app.use('/api/v1', apiRateLimiter);
 
+  // PWA manifest dinámico (white-label: nombre del gym al instalar). Público; lee cookie seteada en /users/me/context.
+  app.get('/api/v1/manifest', getManifest);
+
 // --- API Routes ---
   app.use('/api/v1/saas', saasRouter);            // Sprint B3: SuperAdmin Panel
   app.use('/api/v1/users', userRouter);            // Sprint B3: Member CRM (lifecycle completo)
@@ -150,6 +157,7 @@ const biometricRateLimiter = createRateLimiter({
   app.use('/api/v1/members', memberRouter);        // Portal del Socio (solo MEMBER)
   app.use('/api/v1/webhooks', webhooksRouter);     // Billing / cron (POST /billing)
   app.use('/api/v1/integrations', integrationsRouter); // n8n / cumpleaños (GET /birthdays)
+  app.use('/api/v1/gym', gymRouter);                  // Configuración del gym (premios por racha, etc.)
   app.use('/biometric', biometricRateLimiter, biometricRouter);          // Sprint B9: IoT / Hardware endpoint (no JWT, x-api-key)
 
 // Global Error Handler

@@ -1,26 +1,12 @@
 import { type FormEvent, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { ChevronLeft } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuthStore } from '../store/useAuthStore'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { notifyError, notifySuccess } from '../lib/notifications'
-import { getRouteConfig } from '../config/routes.config'
-
-const BACK_LABELS: Record<string, string> = {
-  '/saas': 'Volver al dashboard',
-  '/admin': 'Volver al panel',
-  '/reception': 'Volver a recepción',
-  '/member': 'Volver al inicio',
-}
 
 export const ProfileSettings = () => {
-  const { pathname } = useLocation()
   const user = useAuthStore((s) => s.user)
-  const config = getRouteConfig(pathname)
-  const backTo = config?.parent ?? '/'
-  const backLabel = BACK_LABELS[backTo] ?? 'Volver'
   const [newPassword, setNewPassword] = useState('')
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -63,14 +49,6 @@ export const ProfileSettings = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-lg mx-auto">
-      <Link
-        to={backTo}
-        className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 mb-4 transition-colors"
-        title={backLabel}
-      >
-        <ChevronLeft className="h-4 w-4" />
-        {backLabel}
-      </Link>
       <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50 mb-2">
         Mi perfil
       </h1>

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { SubscriptionStatus, AccessMethod, AccessType } from '@prisma/client';
 import { sendRewardMessage } from '../services/n8n.service';
+import { parseRewardsConfig, getRewardMessageForStreak } from '../utils/rewards-config';
 
 export const biometricCheckIn = async (req: Request, res: Response) => {
   try {
@@ -92,14 +93,10 @@ export const biometricCheckIn = async (req: Request, res: Response) => {
 
     let rewardUnlocked = false;
     let rewardMessage: string | null = null;
-
-    if (gym.rewards_config && typeof gym.rewards_config === 'object') {
-      const config = gym.rewards_config as Record<string, string>;
-      const unlocked = config[newStreak.toString()];
-      if (unlocked) {
-        rewardUnlocked = true;
-        rewardMessage = unlocked;
-      }
+    if (gym.rewards_config) {
+      const parsed = parseRewardsConfig(gym.rewards_config);
+      rewardMessage = getRewardMessageForStreak(parsed, newStreak);
+      if (rewardMessage) rewardUnlocked = true;
     }
 
     // Transaction: register visit + update streak

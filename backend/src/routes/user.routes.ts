@@ -9,6 +9,7 @@ import {
   deleteUser,
   restoreUser,
   sendQrToMember,
+  sendPortalAccess,
   regenerateQr,
   renewSubscription,
   freezeSubscription,
@@ -223,6 +224,43 @@ router.post('/:id/send-qr', requireStaff, sendQrToMember);
 
 /**
  * @swagger
+ * /api/v1/users/{id}/send-portal-access:
+ *   post:
+ *     summary: Enviar acceso al portal a un socio que aún no lo tiene (ej. subida de BASIC a plan con QR)
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Credenciales enviadas por correo
+ *       400:
+ *         description: Email inválido o socio ya tiene acceso
+ *       403:
+ *         description: Gym sin qr_access
+ *       404:
+ *         description: Socio no encontrado
+ *       409:
+ *         description: Correo ya registrado en otro usuario
+ */
+router.post('/:id/send-portal-access', requireStaff, sendPortalAccess);
+
+/**
+ * @swagger
  * /api/v1/users/{id}/regenerate-qr:
  *   post:
  *     summary: Regenerar QR de acceso del socio (Admin only). Invalida el anterior.
@@ -320,7 +358,7 @@ router.patch('/:id/restore', requireAdminOrSuperAdmin, restoreUser);
  * @swagger
  * /api/v1/users/{id}/renew:
  *   patch:
- *     summary: Renew or update member subscription (Staff: Reception/Admin)
+ *     summary: "Renew or update member subscription (Staff: Reception/Admin)"
  *     tags: [Users]
  *     parameters:
  *       - in: path
@@ -334,14 +372,14 @@ router.patch('/:id/restore', requireAdminOrSuperAdmin, restoreUser);
  *           schema:
  *             type: object
  *             properties:
- *               amount:
- *                 type: number
- *                 description: Monto cobrado. Si > 0 y hay turno abierto, registra venta en caja.
+ *               barcode:
+ *                 type: string
+ *                 description: "Plan a renovar (ej. MEMBERSHIP, MEMBERSHIP_ANNUAL). Si no se envía, se usa MEMBERSHIP (30 días). El monto se toma del producto en Inventario."
  *     responses:
  *       200:
  *         description: Subscription renewed successfully
  *       400:
- *         description: No turno abierto (si amount > 0)
+ *         description: "Plan no válido, producto faltante en inventario, o no hay turno abierto (si precio > 0)"
  */
 router.patch('/:id/renew', requireStaff, renewSubscription);
 

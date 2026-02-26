@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Plus, ArrowUpCircle, ArrowDownCircle, Pencil, Trash2 } from 'lucide-react'
+import { Navigate } from 'react-router-dom'
+import { Plus, ArrowUpCircle, ArrowDownCircle, Pencil, Trash2, Info } from 'lucide-react'
 import {
   fetchInventoryProducts,
   createInventoryProduct,
@@ -13,27 +14,45 @@ import { notifyError, notifySuccess } from '../lib/notifications'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { TableRowSkeleton } from '../components/ui/Skeleton'
+import { useAuthStore } from '../store/useAuthStore'
+import { PlanRestrictionCard } from '../components/ui/PlanRestrictionCard'
+import { isPlanRestrictionError } from '../lib/apiErrors'
 
 const fmt = (n: number) =>
   n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+/** Barcode interno del producto usado al renovar mensualidad (el admin no tiene que escribirlo). */
+const MEMBERSHIP_BARCODE = 'MEMBERSHIP'
+
 export const AdminInventory = () => {
+  const modules = useAuthStore((s) => s.modulesConfig)
   const [products, setProducts] = useState<InventoryProduct[]>([])
   const [loading, setLoading] = useState(true)
+  const [accessDeniedByPlan, setAccessDeniedByPlan] = useState(false)
   const [modal, setModal] = useState<
     | null
     | { type: 'new' }
     | { type: 'edit'; product: InventoryProduct }
     | { type: 'restock'; product: InventoryProduct }
     | { type: 'loss'; product: InventoryProduct }
+    | { type: 'delete'; product: InventoryProduct }
   >(null)
+  const [deleting, setDeleting] = useState(false)
+
+  if (!modules.pos) return <Navigate to="/admin" replace />
+  if (accessDeniedByPlan) return <PlanRestrictionCard backTo="/admin" backLabel="Volver al inicio" />
 
   const load = async () => {
     try {
       setLoading(true)
+      setAccessDeniedByPlan(false)
       const data = await fetchInventoryProducts()
       setProducts(data)
     } catch (e) {
+      if (isPlanRestrictionError(e)) {
+        setAccessDeniedByPlan(true)
+        return
+      }
       notifyError({
         title: 'Error al cargar inventario',
         description: (e as Error)?.message ?? 'Intenta de nuevo.',
@@ -57,6 +76,17 @@ export const AdminInventory = () => {
               Productos, stock, restock y mermas.
             </p>
           </div>
+          {!loading && products.some((p) => p.price === 0) && (
+            <div className="w-full rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/50 px-4 py-3 flex items-start gap-3">
+              <Info className="h-5 w-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+              <div className="text-sm text-sky-800 dark:text-sky-200">
+                <p className="font-medium">Antes de operar en caja o renovar mensualidades</p>
+                <p className="mt-0.5 text-sky-700 dark:text-sky-300">
+                  Asigna el precio a los productos que usarás (por ejemplo <strong>Membresía 30 días</strong>). Solo edita el precio y guarda; no necesitas configurar códigos de barras.
+                </p>
+              </div>
+            </div>
+          )}
           <Button
             size="sm"
             onClick={() => setModal({ type: 'new' })}
@@ -87,7 +117,14 @@ export const AdminInventory = () => {
                     className="border-t border-zinc-200 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                   >
                     <td className="py-2.5 px-4 font-medium text-zinc-900 dark:text-zinc-100">
-                      {p.name}
+                      <span className="inline-flex items-center gap-2">
+                        {p.name}
+                        {p.barcode === MEMBERSHIP_BARCODE && (
+                          <span className="rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs px-1.5 py-0.5 font-medium">
+                            Usado en renovación
+                          </span>
+                        )}
+                      </span>
                     </td>
                     <td className="py-2.5 px-4 text-right text-zinc-700 dark:text-zinc-300">
                       ${fmt(p.price)}
@@ -124,19 +161,7 @@ export const AdminInventory = () => {
                         <button
                           type="button"
                           className="rounded p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-rose-600 dark:hover:text-rose-400"
-                          onClick={async () => {
-                            if (!confirm(`¿Eliminar "${p.name}"? (soft delete)`)) return
-                            try {
-                              await deleteInventoryProduct(p.id)
-                              notifySuccess({ title: 'Producto eliminado' })
-                              void load()
-                            } catch (e) {
-                              notifyError({
-                                title: 'Error',
-                                description: (e as Error)?.message,
-                              })
-                            }
-                          }}
+                          onClick={() => setModal({ type: 'delete', product: p })}
                           title="Eliminar"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -196,6 +221,50 @@ export const AdminInventory = () => {
             }}
             onCancel={() => setModal(null)}
           />
+        </Modal>
+      )}
+      {modal?.type === 'delete' && (
+        <Modal
+          isOpen
+          title="Eliminar producto"
+          onClose={() => !deleting && setModal(null)}
+        >
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+            ¿Eliminar <strong>"{modal.product.name}"</strong>? Se dará de baja (soft delete) y dejará de aparecer en el catálogo.
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setModal(null)}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="border-rose-500 text-rose-600 hover:bg-rose-500/10"
+              onClick={async () => {
+                setDeleting(true)
+                try {
+                  await deleteInventoryProduct(modal.product.id)
+                  notifySuccess({ title: 'Producto eliminado' })
+                  setModal(null)
+                  void load()
+                } catch (e) {
+                  notifyError({
+                    title: 'Error',
+                    description: (e as Error)?.message,
+                  })
+                } finally {
+                  setDeleting(false)
+                }
+              }}
+              disabled={deleting}
+            >
+              {deleting ? 'Eliminando…' : 'Eliminar'}
+            </Button>
+          </div>
         </Modal>
       )}
     </div>

@@ -18,6 +18,8 @@ import {
   type ModulesConfig,
   resolveModulesConfig,
 } from '../utils/modules-config';
+import { DEFAULT_GYM_PRODUCTS } from '../data/default-products';
+import { closeAllOpenShiftsForGym } from './shift.controller';
 
 // POST /saas/gym
 export const createGym = async (req: Request, res: Response) => {
@@ -57,6 +59,18 @@ export const createGym = async (req: Request, res: Response) => {
         api_key_hardware: apiKeyHardware,
         ...(logo_url != null && logo_url !== '' && { logo_url }),
       },
+    });
+
+    // Productos plantilla: membresía 30 días (para renovar en caja), visita 1 día, semanal, quincenal.
+    // El admin define precios en Inventario; sin precio o 0 = no se cobra / aún no configurado.
+    await prisma.product.createMany({
+      data: DEFAULT_GYM_PRODUCTS.map((p) => ({
+        gym_id: gym.id,
+        barcode: p.barcode,
+        name: p.name,
+        price: p.price,
+        stock: p.stock,
+      })),
     });
 
     let adminCreated: { email: string } | null = null;
@@ -135,9 +149,12 @@ export const createGym = async (req: Request, res: Response) => {
 };
 
 // PATCH /saas/gym/:id/tier
+// Cierra automáticamente todos los turnos abiertos antes de cambiar el tier (downgrade/upgrade).
+// Super Admin no debe tener que cerrar turnos manualmente; todo se hace en una sola acción.
 export const updateGymTier = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const actorId = req.user?.id;
     const validation = updateGymTierSchema.safeParse(req.body);
     if (!validation.success) {
       res.status(400).json({ error: validation.error.issues[0].message });
@@ -145,6 +162,11 @@ export const updateGymTier = async (req: Request, res: Response) => {
     }
 
     const { subscription_tier } = validation.data;
+
+    // Cierre automático: turnos abiertos se cierran antes de aplicar el cambio de tier
+    if (actorId) {
+      await closeAllOpenShiftsForGym(id, actorId);
+    }
 
     const gym = await prisma.gym.update({
       where: { id },
@@ -450,9 +472,11 @@ export const getGymModules = async (req: Request, res: Response) => {
 };
 
 // PATCH /saas/gyms/:id/modules — override de módulos por gym (SuperAdmin)
+// Si se desactiva pos, cierra automáticamente todos los turnos abiertos.
 export const updateGymModules = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const actorId = req.user?.id;
     const validation = updateGymModulesSchema.safeParse(req.body);
     if (!validation.success) {
       res.status(400).json({ error: validation.error.issues[0].message });
@@ -475,6 +499,11 @@ export const updateGymModules = async (req: Request, res: Response) => {
     ) as ModulesConfig;
     const merged: ModulesConfig = { ...currentResolved, ...validation.data };
 
+    // Cierre automático si se desactiva pos (quitar módulo POS)
+    if (merged.pos === false && currentResolved.pos === true && actorId) {
+      await closeAllOpenShiftsForGym(id, actorId);
+    }
+
     await prisma.gym.update({
       where: { id },
       data: { modules_config: merged as Prisma.InputJsonValue },
@@ -491,6 +520,47 @@ export const updateGymModules = async (req: Request, res: Response) => {
       error,
       '[updateGymModules Error]',
       'Failed to update gym modules.',
+    );
+  }
+};
+
+/** POST /saas/gyms/:id/close-open-shifts — Super Admin: cierra todos los turnos abiertos del gym (ej. antes de downgrade / quitar POS). */
+export const closeGymOpenShifts = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.params.id as string;
+    const actorId = req.user?.id;
+
+    if (!actorId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const gym = await prisma.gym.findUnique({
+      where: { id: gymId },
+      select: { id: true, name: true },
+    });
+    if (!gym) {
+      res.status(404).json({ error: 'Gym not found.' });
+      return;
+    }
+
+    const result = await closeAllOpenShiftsForGym(gymId, actorId);
+
+    res.status(200).json({
+      message:
+        result.closed > 0
+          ? `Se cerraron ${result.closed} turno(s) abierto(s). Puedes bajar de plan o quitar POS sin dejar cortes colgados.`
+          : 'No había turnos abiertos en este gym.',
+      closed: result.closed,
+      shift_ids: result.shift_ids,
+    });
+  } catch (error) {
+    handleControllerError(
+      req,
+      res,
+      error,
+      '[closeGymOpenShifts Error]',
+      'Failed to close open shifts.',
     );
   }
 };

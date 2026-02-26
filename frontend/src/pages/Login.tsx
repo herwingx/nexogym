@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import { fetchUserContext } from '../lib/apiClient'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { ThemeToggle } from '../components/ui/ThemeToggle'
 import { notifyError, notifyPromise, notifySuccess } from '../lib/notifications'
 
 export const LoginPage = () => {
@@ -81,6 +82,7 @@ export const LoginPage = () => {
               crm: context.gym.modules_config.crm ?? false,
               portal: context.gym.modules_config.portal ?? false,
               qr_access: context.gym.modules_config.qr_access ?? false,
+              gamification: context.gym.modules_config.gamification ?? false,
             },
             tenantTheme: {
               primaryHex: context.gym.theme_colors?.primary ?? '#2563eb',
@@ -90,12 +92,13 @@ export const LoginPage = () => {
           })
 
           navigate('/', { replace: true })
+          return { userName: context.user.name ?? email }
         })(),
         {
           loading: { title: 'Iniciando sesión...' },
-          success: () => ({
+          success: (data?: { userName: string }) => ({
             title: 'Bienvenido',
-            description: 'Contexto de NexoGym cargado correctamente.',
+            description: data?.userName ? `Bienvenido, ${data.userName}.` : 'Sesión iniciada correctamente.',
           }),
           error: (err: unknown) => ({
             title: 'No pudimos iniciar sesión',
@@ -164,7 +167,10 @@ export const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-4 sm:p-6">
+    <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-4 sm:p-6 relative">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4 sm:p-6 shadow-soft space-y-6">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">NexoGym</h1>

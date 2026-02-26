@@ -47,4 +47,45 @@
       sans-serif;
     margin: 0;
   }
+
+  /* Scrollbars: estilo acorde a la app (light/dark) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(240 5% 65%) hsl(240 5% 94%);
+  }
+
+  .dark * {
+    scrollbar-color: hsl(0 0% 35%) hsl(240 10% 8%);
+  }
+
+  /* WebKit (Chrome, Safari, Edge) */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: hsl(240 5% 94%);
+  }
+
+  .dark *::-webkit-scrollbar-track {
+    background: hsl(240 10% 8%);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: hsl(240 5% 65%);
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(240 5% 55%);
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 35%);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 45%);
+  }
 }

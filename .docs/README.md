@@ -27,7 +27,9 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 
 | Documento | Contenido |
 |-----------|-----------|
-| **API_SPEC.md** | Contratos de la API por sprint: check-in, POS, turnos, users, members, bookings, routines, SaaS. Incluye **cierre ciego** (POST /pos/shifts/close), **force-close**, **POST /pos/expenses** (tipos), **GET /users?role_not=MEMBER**, **DELETE /users/:id**. |
+| **API_SPEC.md** | Contratos de la API por sprint: check-in, POS, turnos, users, members, bookings, routines, SaaS. Incluye **cierre ciego** (POST /pos/shifts/close), **force-close**, **POST /pos/expenses** (tipos), **GET /users?role_not=MEMBER**, **DELETE /users/:id**, **GET/PATCH /gym/rewards-config** (premios por racha). |
+| **GAMIFICACION_PREMIOS_RACHA.md** | Gamificación: configuración de premios por racha por gym (admin), formato `rewards_config.streak_rewards`, portal socio (participación por racha, hitos), check-in y n8n. |
+| **ACCESO_PORTAL_SOCIOS.md** | Acceso al portal de socios por **email + contraseña** (no por número). Alta con email obligatorio cuando el gym tiene portal; contraseña temporal por correo y cambio en el primer login. |
 
 ---
 
@@ -54,7 +56,7 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 |-----------|-----------|
 | **SEED_USERS_AND_ROLES.md** | Roles (SUPERADMIN, ADMIN, RECEPTIONIST, **COACH**, **INSTRUCTOR**, MEMBER), planes, credenciales de seed, **tabla qué SÍ/NO por rol**, checklist de verificación y datos para flujos (QR, leaderboard, auditoría, COACH). |
 | **RECEPTIONIST_PERMISSIONS_ANALYSIS.md** | Matriz Recepcionista vs Admin: check-in, caja (cierre ciego, egresos tipados, forzar cierre), socios, inventario. |
-| **REVISION_ROLES_FRONTEND_BACKEND.md** | Revisión por rol: qué puede hacer cada uno en frontend y backend, gaps (Admin Members mock), checklist. INSTRUCTOR incluido en requireCoachOrAdmin (2025-02). |
+| **REVISION_ROLES_FRONTEND_BACKEND.md** | Revisión por rol: qué puede hacer cada uno en frontend y backend, checklist. Admin/Recepción Socios alineados (2025-02-26). INSTRUCTOR en requireCoachOrAdmin. |
 | **REVISION_ROLES_FINAL.md** | Matriz RBAC completa, gaps de seguridad resueltos (check-in requireStaff, POS/Inventory requireStaff), changelog de seguridad. |
 
 ---
@@ -66,6 +68,7 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 | **FRONTEND_INTEGRATION.md** | Integración frontend con la API. |
 | **REVISION_FRONTEND_POS_Y_STAFF.md** | Revisión frontend ↔ backend: egresos, cierre ciego, force close, personal; correcciones aplicadas (ocultar “Esperado”, parseo efectivo, confirmación dar de baja). |
 | **UI_UX_GUIDELINES.md** | Guías de UI/UX del proyecto. |
+| **PWA_MANIFEST_DINAMICO.md** | PWA: manifest dinámico por gym (nombre y theme al instalar la app; cookie en /users/me/context). |
 | **SILEO_TOAST.md** | Uso de toasts (Sileo) en la app. |
 | **SKELETONS.md** | Componentes de carga (skeletons). |
 
@@ -102,13 +105,15 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 - **Renovación con precio del producto:** Admin configura el producto "Membresía 30 días" (barcode MEMBERSHIP) en Inventario; Reception/Coach solo renuevan sin input manual de monto (evita manipulación). Si el producto no existe, error claro pidiendo al Admin crearlo.
 - **Inventario:** Crear/editar productos (incl. precios) solo Admin; Reception/Coach solo venden al precio del catálogo.
 - **Plan BASIC — Socios sin portal:** Miembros en plan Basic no tienen acceso al portal (QR, premios, historial); ven pantalla de bloqueo y pueden cerrar sesión.
+- **Ocupación / aforo:** El semáforo de ocupación en Dashboard admin y el bloque "Aforo actual" en Check-in (recepción) **solo se muestran cuando el gym tiene Check-in QR** (`qr_access`). En plan Basic el front no llama a `/api/v1/analytics/occupancy`; el admin ve solo Ventas del mes y Ganancia neta.
 - **Inputs turno:** Corregida la edición en Abrir turno (fondo inicial) y Cerrar turno (efectivo contado); HardwareScanner no roba foco cuando modales de turno están abiertos.
 - **Cierre ciego:** Recepcionista no ve saldo esperado; solo envía efectivo contado; backend no devuelve reconciliación si rol RECEPTIONIST.
 - **Tipos de egreso:** SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP; descripción obligatoria para los dos primeros.
 - **Forzar cierre:** Admin puede cerrar un turno abierto desde Cortes de caja (PATCH /pos/shifts/:id/force-close).
 - **Personal (/admin/staff):** Listado de staff (role_not=MEMBER), dar de baja (soft delete), badge INACTIVO.
 - **COACH / INSTRUCTOR:** Acceso a /admin con menú limitado (solo Clases y Rutinas); defaultPath /admin/routines; AdminDashboard redirige a rutinas si el rol es COACH o INSTRUCTOR.
-- **Menú por módulo:** Clases y Rutinas solo se muestran si `modules_config.classes === true`; acceso directo por URL redirige a `/admin` si el módulo está deshabilitado. Breadcrumbs y botón "Volver" en layouts.
+- **Menú por módulo:** Clases y Rutinas solo se muestran si `modules_config.classes === true`; **Gamificación** (premios por racha) solo si `gamification === true` (`/admin/rewards`). Inventario y Cortes solo si `pos === true`. Acceso directo por URL redirige o muestra mensaje según el módulo. Breadcrumbs y botón "Volver" en layouts.
 - **Admin móvil:** Menú hamburguesa y drawer en pantallas pequeñas.
+- **PWA manifest dinámico (white-label):** Al instalar la app, el usuario ve el **nombre del gym** (y theme_color) en lugar de "NexoGym". GET /api/v1/manifest devuelve el manifest personalizado usando la cookie `nexogym_gym_id` seteada en /users/me/context. Ver **PWA_MANIFEST_DINAMICO.md**.
 
 Para más detalle técnico: **CORTES_CAJA_Y_STOCK.md**, **API_SPEC.md**, **REVISION_ROLES_FRONTEND_BACKEND.md**, **REVISION_FRONTEND_POS_Y_STAFF.md**, **SUBSCRIPTION_EXPIRY_AND_RENEWAL.md**.

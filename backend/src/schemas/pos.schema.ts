@@ -8,6 +8,7 @@ export const saleSchema = z.object({
     quantity: z.number().int().min(1),
   })).min(1, { message: "Debe incluir al menos un producto" }),
   sellerId: z.string().uuid().optional(), // ID del staff que realiza la venta para comisiones
+  customer_email: z.string().email().optional().or(z.literal('')), // Envío de comprobante; si viene '' se ignora
 });
 
 export const expenseSchema = z

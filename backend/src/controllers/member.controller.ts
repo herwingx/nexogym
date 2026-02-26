@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { SubscriptionStatus } from '@prisma/client';
 import { handleControllerError } from '../utils/http';
 import { sendQrResend } from '../services/n8n.service';
+import { parseRewardsConfig, getNextRewardMilestone } from '../utils/rewards-config';
 
 const QR_PAYLOAD_PREFIX = 'GYM_QR_';
 
@@ -53,24 +54,15 @@ export const getMemberProfile = async (req: Request, res: Response) => {
     else if (status === SubscriptionStatus.EXPIRED || status === SubscriptionStatus.CANCELED)
       membership_status = 'EXPIRED';
 
-    const rewardsConfig = gym?.rewards_config as Record<string, unknown> | null;
+    const parsed = parseRewardsConfig(gym?.rewards_config ?? null);
     let next_reward: { label: string; visits_required: number; visits_progress: number } | null = null;
-    if (rewardsConfig && user.current_streak >= 0) {
-      const streakBonus = rewardsConfig.streak_bonus as Record<string, number> | undefined;
-      const milestones = streakBonus
-        ? Object.keys(streakBonus)
-            .map((k) => parseInt(k.replace('streak_', ''), 10))
-            .filter((n) => !Number.isNaN(n))
-            .sort((a, b) => a - b)
-        : [];
-      const next = milestones.find((m) => m > user.current_streak);
-      if (next != null) {
-        next_reward = {
-          label: `Racha ${next} visitas`,
-          visits_required: next,
-          visits_progress: user.current_streak,
-        };
-      }
+    const nextMilestone = getNextRewardMilestone(parsed, user.current_streak);
+    if (nextMilestone) {
+      next_reward = {
+        label: nextMilestone.label,
+        visits_required: nextMilestone.days,
+        visits_progress: user.current_streak,
+      };
     }
 
     const email = (req.user as { email?: string })?.email ?? null;
@@ -90,6 +82,7 @@ export const getMemberProfile = async (req: Request, res: Response) => {
       best_streak: user.current_streak,
       total_visits: totalVisits,
       next_reward,
+      streak_rewards: parsed.streakRewards,
     });
   } catch (error) {
     handleControllerError(req, res, error, '[getMemberProfile Error]', 'Failed to load member profile.');

@@ -263,3 +263,64 @@ export const forceCloseShift = async (req: Request, res: Response) => {
     handleControllerError(req, res, error, '[forceCloseShift Error]', 'Failed to force-close shift.');
   }
 };
+
+/**
+ * Cierra todos los turnos abiertos de un gym (uso Super Admin, ej. antes de downgrade).
+ * No requiere que el gym tenga módulo POS.
+ */
+export const closeAllOpenShiftsForGym = async (
+  gymId: string,
+  actorId: string,
+): Promise<{ closed: number; shift_ids: string[] }> => {
+  const openShifts = await prisma.cashShift.findMany({
+    where: { gym_id: gymId, status: ShiftStatus.OPEN },
+    include: { user: { select: { name: true } } },
+  });
+
+  const shiftIds: string[] = [];
+
+  for (const currentShift of openShifts) {
+    const [salesAgg, expensesAgg] = await Promise.all([
+      prisma.sale.aggregate({
+        where: { gym_id: gymId, cash_shift_id: currentShift.id },
+        _sum: { total: true },
+      }),
+      prisma.expense.aggregate({
+        where: { gym_id: gymId, cash_shift_id: currentShift.id },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const totalSales = Number(salesAgg._sum.total || 0);
+    const totalExpenses = Number(expensesAgg._sum.amount || 0);
+    const expected_balance = Number(currentShift.opening_balance) + totalSales - totalExpenses;
+    const actual_balance = 0;
+
+    await prisma.cashShift.update({
+      where: { id: currentShift.id },
+      data: {
+        closed_at: new Date(),
+        status: ShiftStatus.CLOSED,
+        expected_balance,
+        actual_balance,
+      },
+    });
+
+    const openedByName = (currentShift as { user?: { name: string | null } }).user?.name;
+    await logAuditEvent(gymId, actorId, 'SHIFT_FORCE_CLOSED', {
+      shift_id: currentShift.id,
+      opened_by: openedByName,
+      opening_balance: Number(currentShift.opening_balance),
+      total_sales: totalSales,
+      total_expenses: totalExpenses,
+      expected_balance,
+      actual_balance,
+      difference: actual_balance - expected_balance,
+      source: 'saas_close_all_open_shifts',
+    });
+
+    shiftIds.push(currentShift.id);
+  }
+
+  return { closed: shiftIds.length, shift_ids: shiftIds };
+};

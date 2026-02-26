@@ -219,11 +219,16 @@ Perfil del socio para el portal: membresía, racha, visitas, próximo premio.
   "current_streak": 3,
   "best_streak": 5,
   "total_visits": 42,
-  "next_reward": { "label": "Racha 5 visitas", "visits_required": 5, "visits_progress": 3 }
+  "next_reward": { "label": "Batido gratis", "visits_required": 7, "visits_progress": 3 },
+  "streak_rewards": [
+    { "days": 7, "label": "Batido gratis" },
+    { "days": 30, "label": "Mes gratis" }
+  ]
 }
 ```
 - `membership_status`: `ACTIVE` | `EXPIRED` | `SUSPENDED`
-- `next_reward`: `null` si no hay siguiente hito en `rewards_config.streak_bonus`
+- `next_reward`: `null` si no hay siguiente hito. El `label` viene de la configuración del gym (`rewards_config.streak_rewards` o legacy).
+- `streak_rewards`: lista de premios por racha configurados por el gym (`[{ days, label }, ...]`). El portal del socio muestra "Estás participando por racha para los siguientes premios" con esta lista.
 
 ### `GET /api/v1/members/me/history?page=1&pageSize=10`
 Historial de visitas (check-ins) del socio, paginado.
@@ -243,6 +248,37 @@ Historial de visitas (check-ins) del socio, paginado.
 }
 ```
 - `page` por defecto 1; `pageSize` entre 1 y 100.
+
+---
+
+## Configuración del gym (Admin)
+
+Solo **Admin o SuperAdmin** del gym. Requiere **módulo gamification** activo (planes no BASIC). Si el plan no tiene gamificación, la API responde **403** con mensaje `Feature disabled for current subscription: gamification`.
+
+### `GET /api/v1/gym/rewards-config`
+Devuelve la configuración de premios por racha del gym.
+```json
+{
+  "streak_rewards": [
+    { "days": 7, "label": "Batido gratis" },
+    { "days": 30, "label": "Mes gratis" }
+  ]
+}
+```
+- Si el gym no tiene `streak_rewards` configurados, se devuelve `streak_rewards: []`.
+
+### `PATCH /api/v1/gym/rewards-config`
+Actualiza los premios por racha. Cada hito es un número de días consecutivos de visita y el texto que verá el socio al alcanzarlo (y que se usa en la notificación por WhatsApp si n8n está configurado).
+```json
+{
+  "streak_rewards": [
+    { "days": 7, "label": "Batido gratis" },
+    { "days": 30, "label": "Mes gratis" }
+  ]
+}
+```
+- **Validación:** `days` entero ≥ 1; `label` entre 1 y 120 caracteres; máximo 20 hitos; no se permiten días duplicados.
+- El backend guarda en `Gym.rewards_config.streak_rewards`. El check-in y el perfil del socio (`GET /members/me`) usan esta configuración para desbloquear premios y mostrar el próximo hito.
 
 ---
 

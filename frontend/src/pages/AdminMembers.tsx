@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
+  searchMembers,
   fetchMemberUsers,
   renewSubscription,
   freezeSubscription,
   unfreezeSubscription,
   cancelSubscription,
+  PLAN_BARCODE_LABELS,
+  type MemberSummary,
   type MemberUserRow,
 } from '../lib/apiClient'
 import { notifyError, notifyPromise } from '../lib/notifications'
@@ -13,6 +16,7 @@ import { cn } from '../lib/utils'
 import { Button } from '../components/ui/Button'
 import { TableRowSkeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
+import { EditMemberForm } from '../components/members/EditMemberForm'
 
 type MemberStatus = 'ACTIVE' | 'FROZEN' | 'EXPIRED' | 'CANCELED'
 
@@ -47,15 +51,28 @@ function getMemberStatus(row: MemberUserRow): MemberStatus {
 const PAGE_SIZE = 20
 
 export const AdminMembers = () => {
+  const [query, setQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<MemberSummary[]>([])
+  const [searching, setSearching] = useState(false)
   const [members, setMembers] = useState<MemberUserRow[]>([])
-  const [meta, setMeta] = useState({ total: 0, page: 1, limit: PAGE_SIZE })
+  const [meta, setMeta] = useState<{ total: number; page: number; limit: number; expiring_7d?: number; expired?: number }>({ total: 0, page: 1, limit: PAGE_SIZE })
   const [loading, setLoading] = useState(true)
+  const [editMember, setEditMember] = useState<MemberSummary | null>(null)
   const [actionTarget, setActionTarget] = useState<{ user: MemberUserRow; action: 'renew' | 'freeze' | 'unfreeze' | 'cancel' } | null>(null)
+  const [renewPlanBarcode, setRenewPlanBarcode] = useState<string>('MEMBERSHIP')
+
+  useEffect(() => {
+    if (actionTarget?.action === 'renew' && actionTarget.user?.subscriptions?.[0]?.plan_barcode && actionTarget.user.subscriptions[0].plan_barcode in PLAN_BARCODE_LABELS) {
+      setRenewPlanBarcode(actionTarget.user.subscriptions[0].plan_barcode)
+    } else if (actionTarget?.action === 'renew') {
+      setRenewPlanBarcode('MEMBERSHIP')
+    }
+  }, [actionTarget?.action, actionTarget?.user?.id, actionTarget?.user?.subscriptions?.[0]?.plan_barcode])
 
   const load = async (page = 1) => {
     try {
       setLoading(true)
-      const res = await fetchMemberUsers(page, PAGE_SIZE)
+      const res = await fetchMemberUsers(page, PAGE_SIZE, 'name')
       setMembers(res.data)
       setMeta(res.meta)
     } catch (e) {
@@ -72,14 +89,36 @@ export const AdminMembers = () => {
     void load()
   }, [])
 
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setSearchResults([])
+      return
+    }
+    const t = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const data = await searchMembers(query)
+        setSearchResults(data)
+      } catch {
+        setSearchResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query])
+
+  const showSearch = query.trim().length >= 2
+
   const handleAction = async () => {
     if (!actionTarget) return
     const { user, action } = actionTarget
+    const planToUse = renewPlanBarcode
     setActionTarget(null)
     try {
       await notifyPromise(
         (async () => {
-          if (action === 'renew') await renewSubscription(user.id)
+          if (action === 'renew') await renewSubscription(user.id, { barcode: planToUse })
           else if (action === 'freeze') await freezeSubscription(user.id)
           else if (action === 'unfreeze') await unfreezeSubscription(user.id)
           else if (action === 'cancel') await cancelSubscription(user.id)
@@ -101,149 +140,247 @@ export const AdminMembers = () => {
         },
       )
       void load(meta.page)
+      if (editMember?.id === user.id) setEditMember(null)
     } catch {
       // notifyPromise handles it
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(meta.total / meta.limit))
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-4 py-6 space-y-4">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Socios</h1>
-            <p className="text-sm text-zinc-500">
-              Directorio de socios del gimnasio ({meta.total} en total).
-            </p>
-          </div>
+        <header>
+          <h1 className="text-xl font-semibold tracking-tight">Socios</h1>
+          <p className="text-sm text-zinc-500">
+            Directorio de socios del gimnasio. Buscar, editar datos o gestionar suscripciones.
+          </p>
         </header>
 
-        <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
-                <th className="py-3 px-4 text-left font-medium">Nombre</th>
-                <th className="py-3 px-4 text-left font-medium">Estado</th>
-                <th className="py-3 px-4 text-left font-medium">Teléfono</th>
-                <th className="py-3 px-4 text-right font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <TableRowSkeleton columns={4} rows={8} />
-              ) : members.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-12 text-center text-zinc-500">
-                    No hay socios registrados.
-                  </td>
-                </tr>
-              ) : (
-                members.map((member) => {
-                  const status = getMemberStatus(member)
-                  return (
-                    <tr
-                      key={member.id}
-                      className="border-t border-zinc-200 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
-                    >
-                      <td className="py-3 px-4 align-middle text-zinc-900 dark:text-zinc-100 font-medium">
-                        {member.name ?? '—'}
-                      </td>
-                      <td className="py-3 px-4 align-middle">
-                        <span
-                          className={cn(
-                            'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide',
-                            STATUS_BADGE[status],
-                          )}
-                        >
-                          {STATUS_LABELS[status]}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 align-middle text-zinc-500 dark:text-zinc-400">
-                        {member.phone ?? '—'}
-                      </td>
-                      <td className="py-3 px-4 align-middle">
-                        <div className="flex flex-wrap justify-end gap-1">
-                          {status === 'EXPIRED' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setActionTarget({ user: member, action: 'renew' })}
-                            >
-                              Renovar
-                            </Button>
-                          )}
-                          {status === 'ACTIVE' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setActionTarget({ user: member, action: 'freeze' })}
-                            >
-                              Congelar
-                            </Button>
-                          )}
-                          {status === 'FROZEN' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setActionTarget({ user: member, action: 'unfreeze' })}
-                            >
-                              Descongelar
-                            </Button>
-                          )}
-                          {(status === 'ACTIVE' || status === 'FROZEN') && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setActionTarget({ user: member, action: 'cancel' })}
-                            >
-                              Cancelar
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+        {/* Resumen: próximos a vencer y vencidos */}
+        {(meta.expiring_7d != null || meta.expired != null) && (
+          <div className="flex flex-wrap gap-3 text-sm">
+            {meta.expiring_7d != null && meta.expiring_7d > 0 && (
+              <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-amber-700 dark:text-amber-400">
+                {meta.expiring_7d} por vencer (7 días)
+              </span>
+            )}
+            {meta.expired != null && meta.expired > 0 && (
+              <span className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-rose-600 dark:text-rose-400">
+                {meta.expired} vencidos
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Búsqueda */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Nombre o teléfono (mín. 2 caracteres)"
+            className="w-full rounded-lg border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 py-2.5 pl-10 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+          />
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex flex-wrap justify-between items-center gap-3">
-            <p className="text-xs text-zinc-500">
-              Página {meta.page} de {totalPages}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={meta.page <= 1}
-                onClick={() => void load(meta.page - 1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Anterior
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={meta.page >= totalPages}
-                onClick={() => void load(meta.page + 1)}
-              >
-                Siguiente
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+        {/* Resultados de búsqueda */}
+        {showSearch && (
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 overflow-hidden">
+            {searching ? (
+              <p className="px-4 py-3 text-sm text-zinc-500">Buscando...</p>
+            ) : searchResults.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-zinc-500">Sin resultados</p>
+            ) : (
+              <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {searchResults.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => setEditMember(m)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                    >
+                      {m.profile_picture_url ? (
+                        <img
+                          src={m.profile_picture_url}
+                          alt=""
+                          className="h-10 w-10 rounded-full object-cover border border-zinc-200 dark:border-white/10"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                          <User className="h-5 w-5 text-zinc-500" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                          {m.name || 'Sin nombre'}
+                        </p>
+                        <p className="text-xs text-zinc-500 truncate">{m.phone}</p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+        )}
+
+        {/* Listado paginado (cuando no hay búsqueda activa) */}
+        {!showSearch && (
+          <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
+                  <th className="py-3 px-4 text-left font-medium">Nombre</th>
+                  <th className="py-3 px-4 text-left font-medium">Teléfono</th>
+                  <th className="py-3 px-4 text-left font-medium">Estado</th>
+                  <th className="py-3 px-4 text-left font-medium">Plan</th>
+                  <th className="py-3 px-4 text-left font-medium">Vence</th>
+                  <th className="py-3 px-4 text-right font-medium">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <TableRowSkeleton columns={6} rows={8} />
+                ) : members.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-zinc-500">
+                      No hay socios registrados.
+                    </td>
+                  </tr>
+                ) : (
+                  members.map((member) => {
+                    const status = getMemberStatus(member)
+                    const sub = member.subscriptions?.[0]
+                    const expiresAt = sub?.expires_at ? new Date(sub.expires_at) : null
+                    return (
+                      <tr
+                        key={member.id}
+                        className="border-t border-zinc-200 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                      >
+                        <td className="py-2.5 px-4 align-middle">
+                          <button
+                            type="button"
+                            onClick={() => setEditMember({ id: member.id, name: member.name, phone: member.phone ?? '', profile_picture_url: member.profile_picture_url ?? null, role: member.role, auth_user_id: member.auth_user_id ?? null })}
+                            className="text-left font-medium text-zinc-900 dark:text-zinc-100 hover:underline truncate block max-w-[180px]"
+                          >
+                            {member.name ?? '—'}
+                          </button>
+                        </td>
+                        <td className="py-2.5 px-4 align-middle text-zinc-700 dark:text-zinc-300 truncate max-w-[120px]">
+                          {member.phone ?? '—'}
+                        </td>
+                        <td className="py-2.5 px-4 align-middle">
+                          <span
+                            className={cn(
+                              'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide',
+                              STATUS_BADGE[status],
+                            )}
+                          >
+                            {STATUS_LABELS[status]}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 align-middle">
+                          <span className="inline-flex rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                            {sub?.plan_barcode ? (PLAN_BARCODE_LABELS[sub.plan_barcode] ?? sub.plan_barcode) : 'Mensual'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 align-middle text-zinc-600 dark:text-zinc-400 text-xs">
+                          {expiresAt ? expiresAt.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                        </td>
+                        <td className="py-2.5 px-4 align-middle">
+                          <div className="flex flex-wrap justify-end gap-1">
+                            {(status === 'EXPIRED' || status === 'CANCELED' || status === 'ACTIVE') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setActionTarget({ user: member, action: 'renew' })}
+                              >
+                                {status === 'ACTIVE' ? 'Pagar / Renovar' : 'Renovar'}
+                              </Button>
+                            )}
+                            {status === 'ACTIVE' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setActionTarget({ user: member, action: 'freeze' })}
+                              >
+                                Congelar
+                              </Button>
+                            )}
+                            {status === 'FROZEN' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setActionTarget({ user: member, action: 'renew' })}
+                                >
+                                  Pagar / Renovar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setActionTarget({ user: member, action: 'unfreeze' })}
+                                >
+                                  Descongelar
+                                </Button>
+                              </>
+                            )}
+                            {(status === 'ACTIVE' || status === 'FROZEN') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setActionTarget({ user: member, action: 'cancel' })}
+                              >
+                                Cancelar
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+            {meta.total > PAGE_SIZE && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
+                <span>
+                  {members.length} de {meta.total}
+                </span>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => load(meta.page - 1)}
+                    disabled={meta.page <= 1 || loading}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => load(meta.page + 1)}
+                    disabled={meta.page * meta.limit >= meta.total || loading}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
         )}
       </div>
 
       {actionTarget && (
         <Modal
           isOpen
-          onClose={() => setActionTarget(null)}
+          onClose={() => {
+            setActionTarget(null)
+            setRenewPlanBarcode('MEMBERSHIP')
+          }}
           title={
             actionTarget.action === 'renew' ? 'Renovar suscripción' :
             actionTarget.action === 'freeze' ? 'Congelar suscripción' :
@@ -253,7 +390,7 @@ export const AdminMembers = () => {
         >
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
             {actionTarget.action === 'renew' &&
-              `¿Renovar la membresía de ${actionTarget.user.name ?? 'este socio'} por 30 días?`}
+              `Renovar a ${actionTarget.user.name ?? 'este socio'}. Elige el plan; el cobro usa el precio configurado en Inventario.`}
             {actionTarget.action === 'freeze' &&
               `¿Congelar la membresía de ${actionTarget.user.name ?? 'este socio'}?`}
             {actionTarget.action === 'unfreeze' &&
@@ -261,12 +398,40 @@ export const AdminMembers = () => {
             {actionTarget.action === 'cancel' &&
               `¿Cancelar la membresía de ${actionTarget.user.name ?? 'este socio'}? Esta acción es irreversible.`}
           </p>
+          {actionTarget.action === 'renew' && (
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5">Plan</label>
+              <select
+                value={renewPlanBarcode}
+                onChange={(e) => setRenewPlanBarcode(e.target.value)}
+                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-zinc-100 py-2 px-3"
+              >
+                {Object.entries(PLAN_BARCODE_LABELS).map(([barcode, label]) => (
+                  <option key={barcode} value={barcode}>{label}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setActionTarget(null)}>
+            <Button variant="outline" onClick={() => { setActionTarget(null); setRenewPlanBarcode('MEMBERSHIP') }}>
               Cancelar
             </Button>
             <Button onClick={handleAction}>Confirmar</Button>
           </div>
+        </Modal>
+      )}
+
+      {editMember && (
+        <Modal isOpen title="Editar socio" onClose={() => setEditMember(null)}>
+          <EditMemberForm
+            member={editMember}
+            onSuccess={() => {
+              setEditMember(null)
+              void load(meta.page)
+            }}
+            onCancel={() => setEditMember(null)}
+            canRegenerateQr
+          />
         </Modal>
       )}
     </div>

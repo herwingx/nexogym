@@ -32,6 +32,7 @@ El SaaS es Multitenant. La interfaz debe adaptarse al color corporativo del gimn
 - **Inyección de Variables:** PROHIBIDO usar clases utilitarias estáticas de colores de marca. NUNCA usar `bg-blue-500` como color principal. Todo el color de marca se maneja mediante la variable CSS `--theme-primary`.
 - **Color Math Dinámico (WCAG):** El sistema (vía la librería `colord`) evaluará matemáticamente la luminancia del color hexadecimal recibido del backend. Generará automáticamente una variable `--theme-primary-foreground` que será texto `#FFFFFF` (blanco) o `#000000` (negro) para garantizar siempre un contraste perfecto en los botones.
 - **Acento Elegante:** El color de marca se usa como "acento" (para botones primarios, checks, y estados activos), no para rellenar fondos masivos.
+- **PWA (instalación):** El manifest es dinámico: al instalar la app en el dispositivo, el nombre y el color mostrados son los del gym (white-label). Ver **PWA_MANIFEST_DINAMICO.md**.
 
 ---
 
@@ -99,19 +100,21 @@ Las vistas se ocultan o muestran dinámicamente evaluando el store global `gym.m
 
 | Pantalla | Descripción | Ruta sugerida |
 |---|---|---|
-| **Dashboard principal** | Semáforo de ocupación + ingresos del día + socios activos | `/admin` |
+| **Dashboard principal** | Ventas del mes + ganancia neta; **semáforo de ocupación** solo si el gym tiene Check-in QR (`qr_access`). En plan Basic no se muestra ocupación. | `/admin` |
+| **Check-in** | Enlace en el sidebar que lleva a la vista de recepción (`/reception`) para hacer check-in (el admin tiene los mismos permisos que recepcionista en backend). | Sidebar → Check-in → `/reception` |
 | **Reporte financiero** | Selector de mes + desglose de ventas, egresos y ganancia neta | `/admin/finance` |
-| **Socios** | Lista con filtros, estado de membresía y acciones | `/admin/members` |
+| **Socios** | Búsqueda por nombre/teléfono, listado paginado, columnas Nombre/Teléfono/Estado/Plan/Vence, acciones renovar/congelar/descongelar (y solo Admin: cancelar, regenerar QR). Misma UX en Recepción. | `/admin/members` |
 | **Inventario** | Tabla de productos con stock actual + botones Restock y Merma | `/admin/inventory` |
-| **Auditoría** | Tabla filtrable de `AuditLog` (Mermas, Cortesías, etc.) | `/admin/audit` |
-| **Cortes de caja** | Historial de turnos con estado BALANCED / SURPLUS / SHORTAGE | `/admin/shifts` |
+| **Auditoría** | Registro de acciones críticas (etiquetas en español): turno cerrado, personal dado de alta, suscripción renovada, etc. Filtrable por tipo. | `/admin/audit` |
+| **Cortes de caja** | Historial de turnos con estado Cuadrado / Sobrante / Faltante; por turno, Transacciones (ventas por folio con desglose por producto) | `/admin/shifts` |
+| **Gamificación** | Configuración de premios por racha: hitos (días) y texto del premio. Solo visible si el plan tiene módulo gamificación. | `/admin/rewards` |
 
 ### Portal del Socio — PWA Móvil (Rol: MEMBER)
 
 | Pantalla | Descripción | Ruta sugerida |
 |---|---|---|
 | **Home (Código QR)** | Código QR estático gigante + estado de membresía | `/` |
-| **Gamificación** | Racha actual (fuego 🔥) + próximo premio | `/rewards` |
+| **Gamificación** | Racha actual (fuego 🔥), mensaje "Estás participando por racha para los siguientes premios" con lista del gym, próximo premio e hitos (configurables por gym o por defecto) | `/member/rewards` |
 | **Historial** | Últimas visitas del socio | `/history` |
 
 ---

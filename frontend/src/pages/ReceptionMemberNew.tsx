@@ -5,12 +5,14 @@ import { Button } from '../components/ui/Button'
 import { createUser } from '../lib/apiClient'
 import { notifyError, notifySuccess } from '../lib/notifications'
 import { supabase } from '../lib/supabaseClient'
+import { useAuthStore } from '../store/useAuthStore'
 
 const PROFILE_BUCKET = 'profile-pictures'
 
 export const ReceptionMemberNewPage = () => {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const hasPortal = useAuthStore((s) => s.modulesConfig.qr_access)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -49,12 +51,20 @@ export const ReceptionMemberNewPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!phone.trim()) return
+    const emailVal = email.trim()
+    if (emailVal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+      notifyError({
+        title: 'Email no válido',
+        description: 'Si indicas correo, debe ser válido. Puedes dejarlo vacío y enviar acceso al portal después desde la ficha del socio.',
+      })
+      return
+    }
     setSubmitting(true)
     try {
       const res = await createUser({
         name: name.trim() || undefined,
         phone: phone.trim(),
-        email: email.trim() || undefined,
+        email: emailVal || undefined,
         pin: pin.trim() || undefined,
         role: 'MEMBER',
         ...(profilePictureUrl.trim() && { profile_picture_url: profilePictureUrl.trim() }),
@@ -84,7 +94,9 @@ export const ReceptionMemberNewPage = () => {
           </h1>
         </div>
         <p className="text-sm text-zinc-500 mb-4">
-          Alta rápida de nuevo miembro. Teléfono obligatorio. Email opcional para portal (gamificación) y promociones.
+          {hasPortal
+            ? 'Alta de socio. Teléfono obligatorio. Correo opcional: si lo indicas, recibirá credenciales del portal por correo; si no (o no quiere participar), podrás enviarle acceso después desde la ficha del socio.'
+            : 'Alta rápida de nuevo miembro. Teléfono obligatorio. Email opcional para portal y promociones (si tu plan lo incluye).'}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -119,7 +131,9 @@ export const ReceptionMemberNewPage = () => {
               autoComplete="email"
             />
             <p className="text-[11px] text-zinc-500 mt-0.5">
-              Para portal (gamificación) y promociones. Recibirá credenciales por correo.
+              {hasPortal
+                ? 'Si lo indicas, recibirá credenciales del portal por correo. Si no (ej. no quiere o no usa correo), podrás enviarle acceso después desde Socios → Editar socio → Enviar acceso al portal.'
+                : 'Para portal (gamificación) y promociones. Recibirá credenciales por correo.'}
             </p>
           </div>
           <div>

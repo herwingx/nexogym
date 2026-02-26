@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProducts, createSale, registerExpense, getSales, getCurrentShift, getShifts, getOpenShifts } from '../controllers/pos.controller';
+import { getProducts, createSale, registerExpense, getSales, getCurrentShift, getShifts, getOpenShifts, getShiftSales } from '../controllers/pos.controller';
 import { openShift, closeShift, forceCloseShift } from '../controllers/shift.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
@@ -220,6 +220,25 @@ router.get('/shifts/current', getCurrentShift);
  *         description: List of open shifts (receptionists who have not done corte)
  */
 router.get('/shifts/open', requireAdminOrSuperAdmin, getOpenShifts);
+
+/**
+ * @swagger
+ * /api/v1/pos/shifts/{id}/sales:
+ *   get:
+ *     summary: "[Admin] Ventas (transacciones) de un corte con folios para auditoría"
+ *     tags: [Shifts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Lista de ventas del turno con receipt_folio, items, seller
+ *       404:
+ *         description: Turno no encontrado
+ */
+router.get('/shifts/:id/sales', requireAdminOrSuperAdmin, getShiftSales);
 
 /**
  * @swagger

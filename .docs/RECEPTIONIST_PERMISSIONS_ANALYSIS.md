@@ -84,13 +84,7 @@ Documento de referencia para decidir **qué sí** y **qué no** puede hacer el r
 | Crear / editar / eliminar clases | ❌ No | ✅ Sí | Configuración del gym. |
 | Ver rutinas de un socio | ❌ No | ✅ Sí (o instructor) | No es rol de recepción. |
 | Crear / editar rutinas | ❌ No | ✅ Sí (o instructor) | Idem. |
-| Ver ocupación en vivo | ⚠️ Opcional | ✅ Sí | Útil en recepción para “cuántos hay”; no obligatorio. |
-| Reporte financiero (mensual) | ❌ No | ✅ Sí | Solo admin. |
-| Ingresos del día | ⚠️ Opcional | ✅ Sí | Si quieren mostrar “ventas de hoy” en recepción, se puede. |
-| Auditoría (AuditLog) | ❌ No | ✅ Sí | Control y anti-fraude; solo admin. |
-| Comisiones | ❌ No | ✅ Sí | Datos sensibles de nómina. |
-| Cualquier ruta `/saas/*` | ❌ No | ❌ No (solo SuperAdmin) | Fuera de alcance. |
-
+| Ver ocupación en vivo | ⚠️ Solo con Check-in QR | ✅ Sí (si qr_access) | Semáforo (Dashboard) y "Aforo actual" (Check-in recepción) solo cuando el gym tiene Check-in QR; en Basic no se muestra. |
 ---
 
 ## 4. Estado del backend (implementado)
@@ -114,10 +108,27 @@ Con esto se cubre la operación diaria cuando el admin no está y se mantiene un
 
 ---
 
-## 6. Qué falta (si aplica) y por qué
+## 6. Pendientes / decisiones
+
+- [x] **Ocupación en recepción:** Mostrar aforo en check-in y semáforo en Dashboard **solo cuando el gym tiene Check-in QR** (qr_access). En plan Basic no se muestra. Implementado.
+
+---
+
+## 7. Qué falta (si aplica) y por qué
 
 | Qué revisar | Dónde | Por qué |
 |-------------|--------|--------|
 | **UI no debe mostrar acciones que el backend deniega al recepcionista** | Frontend: botones/links de merma, eliminar producto, eliminar socio, auditoría, reporte financiero, comisiones | El backend ya devuelve 403 si un recepcionista intenta esas acciones. La UI debe ocultar o deshabilitar esos controles para recepcionista (mejor UX y menos confusión). Si la UI los muestra, el usuario verá error al usarlos; no es fallo de seguridad, pero conviene revisar que el menú y las pantallas reflejen la matriz de este doc. |
 | **Cortesía (entrada sin membresía)** | Solo admin en backend; en frontend solo el rol admin debe ver la opción | Idem: consistencia UI ↔ permisos. |
 | **Nada “falta” en backend** para el rol recepcionista según esta matriz | — | La sección 4 describe lo ya implementado; si en el futuro se amplía lo que puede hacer recepción, habría que actualizar middlewares y este doc. |
+
+---
+
+## 8. Coherencia UI: Socios en Admin y Recepción (2025-02-26)
+
+Las vistas **Socios** en Admin (`/admin/members`) y Recepción (`/reception/members`) comparten la misma estructura y flujos para evitar duplicación y confusión:
+
+- **Común:** Búsqueda por nombre/teléfono, listado paginado (20 por página), columnas Nombre, Teléfono, Estado, Plan, Vence, Acciones; resumen "por vencer (7 días)" y "vencidos"; editar socio (nombre, teléfono, foto, reenviar QR); renovar / pagar-renovar, congelar, descongelar.
+- **Solo Admin:** Botón **Cancelar** suscripción; en el modal Editar socio, botón **Regenerar QR** (Recepción no lo ve).
+
+El formulario de edición de socio está en un componente compartido (`EditMemberForm`); Admin pasa `canRegenerateQr={true}`, Recepción según rol (solo ADMIN/SUPERADMIN pueden regenerar si en algún flujo se expusiera).

@@ -6,6 +6,7 @@ import { logAuditEvent } from '../utils/audit.logger';
 import { checkinSchema } from '../schemas/checkin.schema';
 import { handleControllerError } from '../utils/http';
 import { resolveModulesConfig } from '../utils/modules-config';
+import { parseRewardsConfig, getRewardMessageForStreak } from '../utils/rewards-config';
 
 export const processCheckin = async (req: Request, res: Response) => {
   try {
@@ -53,6 +54,15 @@ export const processCheckin = async (req: Request, res: Response) => {
     });
 
     if (!subscription) {
+      // Congelar racha: si renueva en los próximos días, no pierde el progreso
+      const STREAK_FREEZE_DAYS = 7;
+      const freezeUntil = new Date();
+      freezeUntil.setDate(freezeUntil.getDate() + STREAK_FREEZE_DAYS);
+      await prisma.user.update({
+        where: { id: userId },
+        data: { streak_freeze_until: freezeUntil },
+      }).catch(() => {});
+
       const debtorUser = await prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, name: true, profile_picture_url: true },
@@ -97,6 +107,7 @@ export const processCheckin = async (req: Request, res: Response) => {
         current_streak: true,
         last_visit_at: true,
         last_checkin_date: true,
+        streak_freeze_until: true,
       },
     });
 
@@ -149,6 +160,7 @@ export const processCheckin = async (req: Request, res: Response) => {
     let newStreak = user.current_streak;
     let streakUpdated = false;
     let newLastCheckinDate: Date | null = user.last_checkin_date;
+    let clearStreakFreezeUntil = false;
 
     if (gamificationEnabled) {
       if (!user.last_checkin_date) {
@@ -168,14 +180,17 @@ export const processCheckin = async (req: Request, res: Response) => {
           streakUpdated = true;
           newLastCheckinDate = todayStart;
         } else {
-          // diffDays > 1: normalmente rompe racha. Excepción: Streak Freeze (gym reactivado en últimas 48h)
+          // diffDays > 1: normalmente rompe racha. Excepciones: Streak Freeze (gym reactivado 48h) o vencimiento reciente (streak_freeze_until)
           const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
           const reactivatedWithin48h =
             gym.last_reactivated_at != null && gym.last_reactivated_at >= fortyEightHoursAgo;
-          if (reactivatedWithin48h) {
+          const withinExpiryFreeze =
+            user.streak_freeze_until != null && now <= user.streak_freeze_until;
+          if (reactivatedWithin48h || withinExpiryFreeze) {
             newStreak = user.current_streak + 1;
             streakUpdated = true;
             newLastCheckinDate = todayStart;
+            if (withinExpiryFreeze) clearStreakFreezeUntil = true;
           } else {
             newStreak = 1;
             streakUpdated = true;
@@ -185,15 +200,13 @@ export const processCheckin = async (req: Request, res: Response) => {
       }
     }
 
-    // 4. Evaluate Reward
+    // 4. Evaluate Reward (formato unificado: streak_rewards o legacy)
     let rewardUnlocked = false;
     let rewardMessage: string | null = null;
-    if (gamificationEnabled && gym.rewards_config && typeof gym.rewards_config === 'object') {
-      const config = gym.rewards_config as Record<string, string>;
-      if (config[newStreak.toString()]) {
-        rewardUnlocked = true;
-        rewardMessage = config[newStreak.toString()];
-      }
+    if (gamificationEnabled && gym.rewards_config) {
+      const parsed = parseRewardsConfig(gym.rewards_config);
+      rewardMessage = getRewardMessageForStreak(parsed, newStreak);
+      if (rewardMessage) rewardUnlocked = true;
     }
 
     // 5. Transaction: Visit + User (last_visit_at siempre; last_checkin_date y current_streak si gamificación)
@@ -206,6 +219,7 @@ export const processCheckin = async (req: Request, res: Response) => {
             current_streak: newStreak,
             last_checkin_date: newLastCheckinDate,
           }),
+          ...(clearStreakFreezeUntil && { streak_freeze_until: null }),
         },
       }),
       prisma.visit.create({

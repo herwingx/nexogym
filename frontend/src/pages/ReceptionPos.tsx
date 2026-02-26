@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { ShoppingCart, Trash2, Wallet, Banknote } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -20,12 +21,16 @@ const fmt = (n: number) =>
 
 export const ReceptionPosPage = () => {
   const user = useAuthStore((s) => s.user)
+  const modules = useAuthStore((s) => s.modulesConfig)
   const [products, setProducts] = useState<PosProduct[]>([])
+
+  if (!modules.pos) return <Navigate to="/reception" replace />
   const [cart, setCart] = useState<CartLine[]>([])
   const [shiftData, setShiftData] = useState<CurrentShiftResponse | null | undefined>(undefined)
   const [expenseModal, setExpenseModal] = useState(false)
   const [closeModal, setCloseModal] = useState(false)
   const [openShiftModal, setOpenShiftModal] = useState(false)
+  const [customerEmail, setCustomerEmail] = useState('')
 
   const total = useMemo(
     () => cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0),
@@ -80,19 +85,23 @@ export const ReceptionPosPage = () => {
   const handleCheckout = async () => {
     if (!cart.length || !hasOpenShift) return
     const items = cart.map((l) => ({ productId: l.product.id, quantity: l.quantity }))
-    await notifyPromise(createPosSale(items), {
-      loading: { title: 'Registrando venta...' },
-      success: () => {
-        setCart([])
-        void loadShift()
-        void loadProducts()
-        return { title: 'Venta registrada' }
+    await notifyPromise(
+      createPosSale(items, { customer_email: customerEmail || undefined }),
+      {
+        loading: { title: 'Registrando venta...' },
+        success: () => {
+          setCart([])
+          setCustomerEmail('')
+          void loadShift()
+          void loadProducts()
+          return { title: 'Venta registrada' }
+        },
+        error: (e) => ({
+          title: 'Error al registrar venta',
+          description: (e as Error)?.message ?? '',
+        }),
       },
-      error: (e) => ({
-        title: 'Error al registrar venta',
-        description: (e as Error)?.message ?? '',
-      }),
-    })
+    )
   }
 
   return (
@@ -227,6 +236,20 @@ export const ReceptionPosPage = () => {
                 </ul>
               )}
             </div>
+            {cart.length > 0 && (
+              <div className="mt-3">
+                <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                  Enviar comprobante a (opcional)
+                </label>
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="correo@ejemplo.com"
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 py-2 px-3"
+                />
+              </div>
+            )}
             <div className="mt-4 flex items-center justify-between gap-3">
               <span className="text-xs text-zinc-500">
                 Total: <span className="font-semibold text-zinc-900 dark:text-zinc-50">${fmt(total)}</span>

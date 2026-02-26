@@ -18,7 +18,7 @@ El backend resuelve `code` → `userId` por `qr_token` y hace el check-in con `a
 
 ## 2. Flujo completo
 
-1. **Alta del socio:** el backend (createUser) genera `qr_token`, crea el usuario y envía a n8n `event: 'welcome'` con `qrData: GYM_QR_<qr_token>`, PIN, etc. n8n envía el mensaje de bienvenida por WhatsApp. Si se indica **email opcional** (para portal/gamificación), el socio recibe además por correo: credenciales de portal + QR y PIN como backup (ver CANALES_COMUNICACION.md).
+1. **Alta del socio:** el backend (createUser) genera `qr_token`, crea el usuario y envía a n8n `event: 'welcome'` con `qrData: GYM_QR_<qr_token>`, PIN, etc. n8n envía el mensaje de bienvenida por WhatsApp. Cuando el gym tiene portal (`qr_access`), el **email es opcional**: si se indica, se crea cuenta en Supabase con contraseña temporal, se envía por correo (evento `member_welcome`) y en el primer inicio de sesión se pide cambio de contraseña; si no, el staff puede enviar acceso después desde la ficha del socio. Ver **ACCESO_PORTAL_SOCIOS.md**. Si el gym **sube de BASIC a plan con QR**, los socios que no tenían email/cuenta pueden recibir acceso desde la ficha del socio con el botón «Enviar acceso al portal» (ver **ACCESO_PORTAL_SOCIOS.md**).
 2. **Socio recibe por WhatsApp** su QR. Ese mismo código es estable y no cambia.
 3. **En el gym:** recepción escanea el QR → lector envía código + Enter → frontend `POST /checkin` con `{ code, accessMethod: 'QR' }` → backend registra llegada y actualiza racha.
 4. **Reenviar el mismo QR** (borró el chat, lo perdió, etc.):
@@ -53,4 +53,5 @@ El backend resuelve `code` → `userId` por `qr_token` y hace el check-in con `a
 |----------|--------|---------|-------------|
 | `POST /members/me/send-qr` | POST | Socio (portal) | Reenviar mi QR por WhatsApp |
 | `POST /users/:id/send-qr` | POST | Staff | Reenviar QR del socio por WhatsApp |
+| `POST /users/:id/send-portal-access` | POST | Staff | Enviar acceso al portal a un socio sin cuenta (ej. subida BASIC→QR). Body: `{ email: string }` |
 | `POST /users/:id/regenerate-qr` | POST | Admin/SuperAdmin | Regenerar QR (invalida el anterior). Body opcional: `{ sendToWhatsApp: boolean }` |

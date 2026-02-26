@@ -11,6 +11,8 @@ const DEFAULT_N8N_WEBHOOKS = {
   admin_welcome: `${N8N_BASE_URL}/webhook/admin-bienvenida`,
   staff_password_reset: `${N8N_BASE_URL}/webhook/staff-password-reset`,
   member_welcome: `${N8N_BASE_URL}/webhook/member-bienvenida`,
+  member_receipt: `${N8N_BASE_URL}/webhook/comprobante-socio`,
+  sale_receipt: `${N8N_BASE_URL}/webhook/comprobante-venta`,
 } as const;
 
 export type N8nEventKey = keyof typeof DEFAULT_N8N_WEBHOOKS;
@@ -313,5 +315,89 @@ export const sendMemberWelcomeEmail = async (
     logger.debug({ gymId, memberEmail }, '[n8n] Member welcome email queued');
   } catch (error) {
     logger.error({ err: error, gymId, memberEmail }, '[n8n] Member welcome webhook error');
+  }
+};
+
+/**
+ * Envía comprobante por correo al socio tras renovación (cualquier plan) o venta tipo membresía/visita.
+ * n8n puede enviar email con: plan, monto, vigencia, fecha. Para soporte y trazabilidad.
+ */
+export const sendMemberReceiptEmail = async (
+  gymId: string,
+  memberEmail: string,
+  payload: {
+    receipt_folio: string; // R-YYYY-NNNNNN para auditoría
+    member_name: string | null;
+    plan_barcode: string;
+    plan_label?: string;
+    amount: number;
+    expires_at: string; // ISO
+    renewed_at: string; // ISO
+    is_visit_one_day?: boolean;
+  },
+) => {
+  try {
+    const context = await resolveN8nContext(gymId, 'member_receipt');
+    if (!context.enabled) {
+      logger.info({ gymId, memberEmail }, '[n8n] Member receipt skipped by gym configuration');
+      return;
+    }
+
+    const response = await postEvent(context.webhookUrl, {
+      event: 'member_receipt',
+      gym_id: gymId,
+      gym_name: context.gymName,
+      member_email: memberEmail,
+      ...payload,
+    });
+
+    if (!response.ok) {
+      logger.warn({ gymId, memberEmail, status: response.status }, '[n8n] Member receipt webhook failed');
+      return;
+    }
+    logger.debug({ gymId, memberEmail }, '[n8n] Member receipt email queued');
+  } catch (error) {
+    logger.error({ err: error, gymId, memberEmail }, '[n8n] Member receipt webhook error');
+  }
+};
+
+/**
+ * Envía comprobante de venta POS por correo. Cualquier venta (productos, membresía, visita 1 día).
+ * n8n puede generar PDF con folio, ítems y total; adjuntar al correo.
+ */
+export const sendSaleReceiptEmail = async (
+  gymId: string,
+  customerEmail: string,
+  payload: {
+    receipt_folio: string;
+    sale_id: string;
+    items: Array<{ product_name: string; quantity: number; unit_price: number; line_total: number }>;
+    total: number;
+    sold_at: string; // ISO
+    gym_name: string | null;
+  },
+) => {
+  try {
+    const context = await resolveN8nContext(gymId, 'sale_receipt');
+    if (!context.enabled) {
+      logger.info({ gymId, customerEmail }, '[n8n] Sale receipt skipped by gym configuration');
+      return;
+    }
+
+    const response = await postEvent(context.webhookUrl, {
+      event: 'sale_receipt',
+      gym_id: gymId,
+      gym_name: payload.gym_name,
+      customer_email: customerEmail,
+      ...payload,
+    });
+
+    if (!response.ok) {
+      logger.warn({ gymId, customerEmail, status: response.status }, '[n8n] Sale receipt webhook failed');
+      return;
+    }
+    logger.debug({ gymId, customerEmail, receipt_folio: payload.receipt_folio }, '[n8n] Sale receipt email queued');
+  } catch (error) {
+    logger.error({ err: error, gymId, customerEmail }, '[n8n] Sale receipt webhook error');
   }
 };

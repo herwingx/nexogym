@@ -33,7 +33,23 @@ Estrategia de canales: **Email** solo para bienvenida y recuperación de contras
 - **Webhook n8n:** `member_welcome` (`/webhook/member-bienvenida`)
 - **Condición:** Requiere `APP_LOGIN_URL` en `.env` del backend.
 
-### 2.2 Recuperación de contraseña
+### 2.2 Comprobante por correo (renovación / soporte socios)
+
+- **Cuándo:** Tras renovar la suscripción de un socio (cualquier plan: mensual, semanal, anual, etc.) desde Recepción o Admin.
+- **A quién:** Al correo del socio, solo si tiene cuenta con email (alta con email o vinculado a Supabase Auth).
+- **Payload n8n:** `event: 'member_receipt'`, URL por defecto `/webhook/comprobante-socio`. Campos: `gym_id`, `gym_name`, `member_email`, `member_name`, `plan_barcode`, `plan_label` (ej. "Mensual", "Anual"), `amount`, `expires_at` (ISO), `renewed_at` (ISO). Opcional `is_visit_one_day` para futuras ventas de visita 1 día.
+- **Objetivo:** El socio recibe comprobante de la renovación (plan, monto, vigencia) para soporte y trazabilidad.
+- **Configuración gym:** En `n8n_config.enabled_events` se puede excluir `member_receipt` si el gym no quiere enviar comprobantes; por defecto está habilitado si el webhook existe.
+- **Folio:** Cada comprobante de renovación incluye `receipt_folio` (ej. R-2025-000042) para auditoría del admin.
+
+### 2.3 Comprobante de venta POS
+
+- **Cuándo:** En cada venta en POS la recepción puede indicar un correo opcional ("Enviar comprobante a"). Si se indica, el backend envía a n8n el detalle de la venta para que se envíe el comprobante por correo (PDF o cuerpo del correo).
+- **A quién:** Al correo indicado en caja; no hace falta que el cliente esté registrado.
+- **Payload n8n:** `event: 'sale_receipt'`, URL por defecto `/webhook/comprobante-venta`. Campos: `gym_id`, `gym_name`, `customer_email`, `receipt_folio` (V-YYYY-NNNNNN), `sale_id`, `items` (product_name, quantity, unit_price, line_total), `total`, `sold_at` (ISO).
+- **Folio:** Cada venta tiene un folio único por gym y año (V-2025-000001) guardado en `Sale.receipt_folio` para auditoría.
+
+### 2.4 Recuperación de contraseña
 
 - **Members (socios con login):** Usan "¿Olvidaste tu contraseña?" en la pantalla de login. Supabase envía el enlace de recuperación por correo (requiere SMTP configurado en Supabase).
 - **Staff (Recep, Coach, Instructor):** No usan "olvidé contraseña". El **Admin** resetea la contraseña desde Personal (`/admin/staff`) → "Resetear contraseña". La **nueva contraseña se envía al correo del Admin**, quien la entrega al staff en persona.

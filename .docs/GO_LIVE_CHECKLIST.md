@@ -53,6 +53,15 @@ Para evitar drift de `modules_config` y asegurar que el plan gobierna features:
    - `GET /api/v1/saas/gyms/:id/modules`
 4. Si el paso 2 falla, **el release no se considera completo**.
 
+## 2.2) Frontend y PWA en producción (nombre del gym al instalar)
+
+Para que el diálogo "Instalar app" muestre el nombre del gym (white-label) y no "NexoGym":
+
+- **Frontend y API deben ser mismo origen:** un solo dominio (p. ej. `https://app.nexogym.com`) con proxy de `/api/v1` al backend.
+- **No definir `VITE_API_BASE_URL`** en el build de producción (o dejarlo relativo), para que todas las peticiones vayan al mismo dominio y la cookie del manifest se envíe correctamente.
+
+Detalle: **`.docs/PWA_MANIFEST_DINAMICO.md`** (sección 3. Producción).
+
 ## 3) Variables mínimas obligatorias para producción
 
 - `NODE_ENV=production`

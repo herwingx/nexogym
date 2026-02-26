@@ -62,6 +62,7 @@ export const AuthRestore = ({ children }: { children: React.ReactNode }) => {
             crm: context.gym.modules_config?.crm ?? false,
             portal: context.gym.modules_config?.portal ?? false,
             qr_access: context.gym.modules_config?.qr_access ?? false,
+            gamification: context.gym.modules_config?.gamification ?? false,
           },
           tenantTheme: {
             primaryHex: context.gym.theme_colors?.primary ?? '#2563eb',

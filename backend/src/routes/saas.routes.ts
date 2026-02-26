@@ -3,6 +3,7 @@ import { requireAuth } from '../middlewares/auth.middleware';
 import { requireSuperAdmin } from '../middlewares/superadmin.middleware';
 import {
   createGym,
+  closeGymOpenShifts,
   deleteGym,
   exportGymData,
   getGlobalMetrics,
@@ -206,6 +207,29 @@ router.patch('/gyms/:id/status', updateGymStatus);
  *         description: Gym not found
  */
 router.patch('/gyms/:id/tier', updateGymTier);
+
+/**
+ * @swagger
+ * /api/v1/saas/gyms/{id}/close-open-shifts:
+ *   post:
+ *     summary: Close all open cash shifts for a gym (SuperAdmin only, e.g. before downgrade)
+ *     description: Use before removing POS so no open shifts are left with no UI to close them.
+ *     tags: [SaaS]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: closed count and shift_ids
+ *       404:
+ *         description: Gym not found
+ */
+router.post('/gyms/:id/close-open-shifts', closeGymOpenShifts);
 
 /**
  * @swagger

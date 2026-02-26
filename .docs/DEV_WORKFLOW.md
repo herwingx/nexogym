@@ -468,10 +468,16 @@ Se usan como header: `X-Hardware-Key: <valor>`
 
 | Método | Endpoint | Qué probar |
 |---|---|---|
-| `GET` | `/api/v1/analytics/occupancy` | Semáforo en tiempo real (últimos 90 min) |
+| `GET` | `/api/v1/analytics/occupancy` | Ocupación en tiempo real (últimos 90 min). Usado solo cuando el gym tiene Check-in QR; en plan Basic el front no llama a este endpoint. |
 | `GET` | `/api/v1/analytics/revenue/daily?date=2026-02-24` | Ingresos del día |
 | `GET` | `/api/v1/analytics/financial-report?month=2026-02` | Reporte mensual |
 | `GET` | `/api/v1/analytics/audit-logs` | Historial de auditoría |
+
+#### 📱 PWA manifest (público)
+
+| Método | Endpoint | Qué probar |
+|---|---|---|
+| `GET` | `/api/v1/manifest` | Manifest dinámico: sin cookie → "NexoGym"; con cookie `nexogym_gym_id` (seteada en /users/me/context) → nombre y theme del gym. Ver **PWA_MANIFEST_DINAMICO.md**. |
 
 #### 🏢 Módulo SaaS Admin (requiere JWT SUPERADMIN)
 

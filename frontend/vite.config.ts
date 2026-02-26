@@ -35,4 +35,14 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      '/api/v1': {
+        target: process.env.VITE_API_BASE_URL
+          ? new URL(process.env.VITE_API_BASE_URL).origin
+          : 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
+  },
 })

@@ -2,13 +2,16 @@ import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '../db';
 import { SubscriptionStatus, Role, SubscriptionTier, ShiftStatus } from '@prisma/client';
-import { sendWelcomeMessage, sendQrResend, sendStaffPasswordResetToAdmin, sendMemberWelcomeEmail } from '../services/n8n.service';
+import { sendWelcomeMessage, sendQrResend, sendStaffPasswordResetToAdmin, sendMemberWelcomeEmail, sendMemberReceiptEmail } from '../services/n8n.service';
 import { env } from '../config/env';
 import { logAuditEvent } from '../utils/audit.logger';
 import { normalizeGymSlug, generateStaffEmail } from '../utils/staff-email';
 import crypto from 'crypto';
 import { handleControllerError } from '../utils/http';
 import { resolveModulesConfig } from '../utils/modules-config';
+import { MEMBERSHIP_BARCODE, PLAN_BARCODE_DAYS, PLAN_BARCODE_LABELS } from '../data/default-products';
+import { getNextRenewalFolio } from '../utils/receipt-folio';
+import { MANIFEST_COOKIE_OPTIONS } from './manifest.controller';
 
 const STAFF_ROLES = [Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR] as const;
 
@@ -72,15 +75,41 @@ export const getMyContext = async (req: Request, res: Response) => {
     }
 
     const themeColors = gym.theme_colors as Record<string, string> | null | undefined;
+
+    // SUPERADMIN siempre es la marca Nexo Gym: no setear cookie y limpiarla si existía (manifest = NexoGym).
+    const isSuperAdmin = userRole === Role.SUPERADMIN;
+    const NEXO_PRIMARY = '#2563eb';
+
+    const isProd = process.env.NODE_ENV === 'production';
+    if (isSuperAdmin) {
+      res.clearCookie(MANIFEST_COOKIE_OPTIONS.cookieName, {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProd,
+        ...(isProd ? {} : { domain: 'localhost' }),
+      });
+    } else {
+      const maxAgeMs = MANIFEST_COOKIE_OPTIONS.maxAgeDays * 24 * 60 * 60 * 1000;
+      res.cookie(MANIFEST_COOKIE_OPTIONS.cookieName, gymId, {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: maxAgeMs,
+        secure: isProd,
+        path: '/',
+        ...(isProd ? {} : { domain: 'localhost' }),
+      });
+    }
+
     res.status(200).json({
       user,
       gym: {
         id: gym.id,
-        name: gym.name,
+        name: isSuperAdmin ? 'NexoGym' : gym.name,
         subscription_tier: gym.subscription_tier,
         modules_config: modulesConfig,
-        theme_colors: themeColors ?? undefined,
-        logo_url: gym.logo_url ?? undefined,
+        theme_colors: isSuperAdmin ? { primary: NEXO_PRIMARY } : (themeColors ?? undefined),
+        logo_url: isSuperAdmin ? undefined : gym.logo_url ?? undefined,
       },
     });
   } catch (error) {
@@ -146,7 +175,7 @@ export const getUsers = async (req: Request, res: Response) => {
           subscriptions: {
             orderBy: { created_at: 'desc' },
             take: 1,
-            select: { status: true, expires_at: true },
+            select: { status: true, expires_at: true, plan_barcode: true },
           },
         },
         orderBy: orderClause,
@@ -237,6 +266,7 @@ export const searchUsers = async (req: Request, res: Response) => {
         phone: true,
         profile_picture_url: true,
         role: true,
+        auth_user_id: true,
         current_streak: true,
         last_visit_at: true,
       },
@@ -271,6 +301,9 @@ export const createUser = async (req: Request, res: Response) => {
     const isMember = !role || role === Role.MEMBER;
     const email = emailFromBody && typeof emailFromBody === 'string' ? emailFromBody.trim() : '';
     const hasMemberEmail = isMember && email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    // Email es opcional en todos los planes: el socio puede no querer portal, ser de edad avanzada, etc.
+    // Si se indica email válido, se crea cuenta y se envían credenciales; si no, luego se puede usar "Enviar acceso al portal" en la ficha.
 
     let authUserId: string | null = auth_user_id ?? null;
     let memberPassword: string | undefined;
@@ -469,7 +502,8 @@ export const createStaff = async (req: Request, res: Response) => {
 };
 
 // PATCH /users/:id/renew
-// Usa el precio del producto "Membresía 30 días" (Admin lo configura en inventario). No acepta monto manual — evita manipulación.
+// Body opcional: { barcode?: string }. Si no se envía, se usa MEMBERSHIP (30 días).
+// Usa el precio del producto del plan elegido; no acepta monto manual.
 export const renewSubscription = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
@@ -480,20 +514,27 @@ export const renewSubscription = async (req: Request, res: Response) => {
     }
 
     const id = req.params.id as string; // User ID (member)
-
-    // Producto "Membresía 30 días" — Admin debe crearlo en Inventario y asignar el precio
-    const membershipProduct = await prisma.product.findFirst({
-      where: { gym_id: gymId, barcode: 'MEMBERSHIP', deleted_at: null },
-    });
-    if (!membershipProduct) {
+    const requestedBarcode = (req.body?.barcode as string | undefined)?.trim() || MEMBERSHIP_BARCODE;
+    const daysToAdd = PLAN_BARCODE_DAYS[requestedBarcode];
+    if (daysToAdd == null) {
       res.status(400).json({
-        error:
-          'El producto "Membresía 30 días" no está configurado en inventario. El Admin debe crearlo en Inventario (barcode MEMBERSHIP) y asignar el precio antes de renovar.',
+        error: `Plan no válido: "${requestedBarcode}". Debe ser uno de: ${Object.keys(PLAN_BARCODE_DAYS).join(', ')}.`,
       });
       return;
     }
 
-    const price = Number(membershipProduct.price);
+    const planProduct = await prisma.product.findFirst({
+      where: { gym_id: gymId, barcode: requestedBarcode, deleted_at: null },
+    });
+    if (!planProduct) {
+      res.status(400).json({
+        error:
+          `Falta el producto del plan en inventario (código "${requestedBarcode}"). En gyms creados desde el panel ya vienen dados de alta; asigna el precio en Inventario.`,
+      });
+      return;
+    }
+
+    const price = Number(planProduct.price);
     if (price > 0) {
       const openShift = await prisma.cashShift.findFirst({
         where: { gym_id: gymId, user_id: actorId, status: ShiftStatus.OPEN },
@@ -515,7 +556,7 @@ export const renewSubscription = async (req: Request, res: Response) => {
             create: [
               {
                 gym_id: gymId,
-                product_id: membershipProduct.id,
+                product_id: planProduct.id,
                 quantity: 1,
                 price: price,
               },
@@ -540,24 +581,55 @@ export const renewSubscription = async (req: Request, res: Response) => {
     const baseDate = isStillActiveWithTimeLeft ? currentSub.expires_at : now;
 
     const newExpiresAt = new Date(baseDate);
-    newExpiresAt.setDate(newExpiresAt.getDate() + 30);
+    newExpiresAt.setDate(newExpiresAt.getDate() + daysToAdd);
 
     const updatedSub = await prisma.subscription.update({
       where: { id: currentSub.id },
       data: {
         status: SubscriptionStatus.ACTIVE,
         expires_at: newExpiresAt,
+        plan_barcode: requestedBarcode,
         ...((currentSub.status === SubscriptionStatus.FROZEN || !isStillActiveWithTimeLeft) && {
           frozen_days_left: null,
         }),
       },
     });
 
+    const renewalFolio = await getNextRenewalFolio(gymId);
+
     await logAuditEvent(gymId, actorId, 'SUBSCRIPTION_RENEWED', {
       target_user_id: id,
+      receipt_folio: renewalFolio,
+      plan_barcode: requestedBarcode,
+      days_added: daysToAdd,
       new_expires_at: newExpiresAt.toISOString(),
       ...(price > 0 && { amount_charged: price }),
     });
+
+    if (env.SUPABASE_SERVICE_ROLE_KEY) {
+      const member = await prisma.user.findUnique({
+        where: { id, gym_id: gymId },
+        select: { auth_user_id: true, name: true },
+      });
+      if (member?.auth_user_id) {
+        const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(member.auth_user_id);
+        const email = authUser?.user?.email;
+        if (email) {
+          sendMemberReceiptEmail(gymId, email, {
+            receipt_folio: renewalFolio,
+            member_name: member.name ?? null,
+            plan_barcode: requestedBarcode,
+            plan_label: PLAN_BARCODE_LABELS[requestedBarcode] ?? requestedBarcode,
+            amount: price,
+            expires_at: newExpiresAt.toISOString(),
+            renewed_at: now.toISOString(),
+          }).catch(() => {});
+        }
+      }
+    }
 
     res.status(200).json({
       message: 'Subscription renewed successfully.',
@@ -839,6 +911,113 @@ export const sendQrToMember = async (req: Request, res: Response) => {
   }
 };
 
+// POST /users/:id/send-portal-access — Habilitar acceso al portal a un socio que aún no lo tiene (ej. subida de BASIC a plan con QR).
+export const sendPortalAccess = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const id = req.params.id as string;
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ error: 'Indica un correo válido para enviar las credenciales de acceso al portal.' });
+      return;
+    }
+
+    const gym = await prisma.gym.findUnique({
+      where: { id: gymId },
+      select: { subscription_tier: true, modules_config: true },
+    });
+    const modules = gym ? resolveModulesConfig(gym.modules_config, gym.subscription_tier) : null;
+    if (!modules?.qr_access) {
+      res.status(403).json({
+        error: 'El gym no tiene habilitado el portal de socios (qr_access). Solo aplica en planes con acceso por QR.',
+      });
+      return;
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { id, gym_id: gymId, deleted_at: null, role: Role.MEMBER },
+      select: { id: true, auth_user_id: true, name: true, qr_token: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'Socio no encontrado.' });
+      return;
+    }
+    if (user.auth_user_id) {
+      res.status(400).json({
+        error: 'Este socio ya tiene acceso al portal. Si olvidó la contraseña, puede usar "Olvidé mi contraseña" en la pantalla de inicio de sesión.',
+      });
+      return;
+    }
+
+    if (!env.SUPABASE_SERVICE_ROLE_KEY || !env.APP_LOGIN_URL) {
+      res.status(503).json({ error: 'Servicio de acceso al portal no configurado.' });
+      return;
+    }
+
+    const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const generatedPassword = crypto.randomBytes(12).toString('base64url');
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: generatedPassword,
+      email_confirm: true,
+      user_metadata: { must_change_password: true },
+    });
+    if (authError || !authData?.user) {
+      if (authError?.message?.toLowerCase().includes('already been registered')) {
+        res.status(409).json({
+          error: 'Ese correo ya está registrado en otro usuario. Usa otro correo o que el socio recupere acceso desde "Olvidé mi contraseña" en el login.',
+        });
+        return;
+      }
+      req.log?.warn({ err: authError }, '[sendPortalAccess] Supabase createUser failed');
+      res.status(500).json({ error: 'No se pudo crear la cuenta de acceso. Intenta de nuevo.' });
+      return;
+    }
+
+    const pin = generatePin();
+    const pinHash = crypto.createHash('sha256').update(String(pin)).digest('hex');
+    const qrPayload = `GYM_QR_${user.qr_token ?? user.id}`;
+    const loginUrl = `${env.APP_LOGIN_URL.replace(/\/$/, '')}/login`;
+
+    await prisma.user.update({
+      where: { id },
+      data: { auth_user_id: authData.user.id, pin_hash: pinHash },
+    });
+
+    sendMemberWelcomeEmail(
+      gymId,
+      email,
+      user.name ?? null,
+      generatedPassword,
+      loginUrl,
+      qrPayload,
+      pin,
+    ).catch((err) => {
+      req.log?.error({ err }, '[sendPortalAccess MemberWelcomeEmail Error]');
+    });
+
+    await logAuditEvent(gymId, req.user?.id ?? '', 'MEMBER_PORTAL_ACCESS_SENT', {
+      target_user_id: id,
+      email,
+    });
+
+    res.status(200).json({
+      message:
+        'Se enviaron las credenciales de acceso al portal por correo. El socio debe cambiar la contraseña en el primer inicio de sesión. Si olvida la contraseña, puede usar "Olvidé mi contraseña" en el login.',
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[sendPortalAccess Error]', 'Failed to send portal access.');
+  }
+};
+
 // POST /users/:id/regenerate-qr — Regenerar QR del socio (Admin only). Invalida el anterior.
 export const regenerateQr = async (req: Request, res: Response) => {
   try {
@@ -982,7 +1161,9 @@ export const unfreezeSubscription = async (req: Request, res: Response) => {
   }
 };
 
-/** Sincroniza estado: ACTIVE con expires_at ya pasada → EXPIRED (por gym). Para cron diario o ejecución manual. */
+const STREAK_FREEZE_DAYS_AFTER_EXPIRY = 7;
+
+/** Sincroniza estado: ACTIVE con expires_at ya pasada → EXPIRED (por gym). Además setea streak_freeze_until en el usuario para no resetear racha si renueva en los próximos días. */
 export const syncExpiredSubscriptions = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
@@ -992,25 +1173,40 @@ export const syncExpiredSubscriptions = async (req: Request, res: Response) => {
     }
 
     const now = new Date();
-    const result = await prisma.subscription.updateMany({
+    const toExpire = await prisma.subscription.findMany({
       where: {
         gym_id: gymId,
         status: SubscriptionStatus.ACTIVE,
         expires_at: { lt: now },
       },
-      data: { status: SubscriptionStatus.EXPIRED },
+      select: { id: true, user_id: true, expires_at: true },
     });
 
-    if (result.count > 0) {
+    for (const sub of toExpire) {
+      const freezeUntil = new Date(sub.expires_at);
+      freezeUntil.setDate(freezeUntil.getDate() + STREAK_FREEZE_DAYS_AFTER_EXPIRY);
+      await prisma.$transaction([
+        prisma.subscription.update({
+          where: { id: sub.id },
+          data: { status: SubscriptionStatus.EXPIRED },
+        }),
+        prisma.user.update({
+          where: { id: sub.user_id },
+          data: { streak_freeze_until: freezeUntil },
+        }),
+      ]);
+    }
+
+    if (toExpire.length > 0) {
       await logAuditEvent(gymId, req.user?.id ?? 'system', 'SUBSCRIPTIONS_SYNC_EXPIRED', {
-        count: result.count,
+        count: toExpire.length,
         reason: 'expires_at < now',
       });
     }
 
     res.status(200).json({
-      message: result.count > 0 ? `${result.count} subscription(s) marked as EXPIRED.` : 'No subscriptions to sync.',
-      count: result.count,
+      message: toExpire.length > 0 ? `${toExpire.length} subscription(s) marked as EXPIRED.` : 'No subscriptions to sync.',
+      count: toExpire.length,
     });
   } catch (error) {
     handleControllerError(req, res, error, '[syncExpiredSubscriptions Error]', 'Failed to sync expired subscriptions.');

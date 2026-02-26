@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuthStore } from '../../store/useAuthStore'
 import { Button } from '../ui/Button'
@@ -55,9 +56,10 @@ export const MustChangePasswordModal = () => {
     }
   }
 
-  return (
+  const overlay = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/30 dark:bg-black/70 backdrop-blur-md"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-900/30 dark:bg-black/70 backdrop-blur-md min-h-[100dvh]"
+      style={{ top: 0, left: 0, right: 0, bottom: 0 }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="must-change-password-title"
@@ -102,4 +104,5 @@ export const MustChangePasswordModal = () => {
       </div>
     </div>
   )
+  return createPortal(overlay, document.body)
 }

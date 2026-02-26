@@ -15,8 +15,11 @@ import {
   User,
   Menu,
   X,
+  Trophy,
+  ScanQrCode,
 } from 'lucide-react'
 import { useAuthStore, type ModulesConfig } from '../store/useAuthStore'
+import { ThemeToggle } from '../components/ui/ThemeToggle'
 import { cn } from '../lib/utils'
 import { logout } from '../lib/logout'
 
@@ -34,6 +37,7 @@ type NavItem = {
 // moduleKey null = siempre visible para admin. pos/classes = según modules_config del backend (plan del gym).
 const navItems: NavItem[] = [
   { label: 'Dashboard', to: '/admin', icon: LayoutDashboard, moduleKey: null },
+  { label: 'Check-in', to: '/reception', icon: ScanQrCode, moduleKey: null },
   { label: 'Socios', to: '/admin/members', icon: Users, moduleKey: null },
   { label: 'Finanzas', to: '/admin/finance', icon: BarChart2, moduleKey: null },
   { label: 'Inventario', to: '/admin/inventory', icon: Package, moduleKey: 'pos' },
@@ -41,6 +45,7 @@ const navItems: NavItem[] = [
   { label: 'Personal', to: '/admin/staff', icon: UserCog, moduleKey: null },
   { label: 'Clases', to: '/admin/classes', icon: CalendarDays, moduleKey: 'classes', coachOrInstructorOnly: true },
   { label: 'Rutinas', to: '/admin/routines', icon: Dumbbell, moduleKey: 'classes', coachOrInstructorOnly: true },
+  { label: 'Gamificación', to: '/admin/rewards', icon: Trophy, moduleKey: 'gamification' },
   { label: 'Auditoría', to: '/admin/audit', icon: ShieldAlert, moduleKey: null },
   { label: 'Mi perfil', to: '/admin/profile', icon: User, moduleKey: null },
 ]
@@ -49,7 +54,9 @@ export const AdminLayout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
+  const gymName = useAuthStore((state) => state.gymName)
   const modules = useAuthStore((state) => state.modulesConfig)
+  const brandName = gymName ?? 'NexoGym'
 
   const closeMobileMenu = () => setMobileMenuOpen(false)
 
@@ -69,19 +76,19 @@ export const AdminLayout = () => {
   })
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-60 flex-col border-r border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl">
-        <div className="px-5 py-4 border-b border-zinc-200 dark:border-white/10">
-          <div className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            NexoGym
+    <div className="h-screen flex overflow-hidden bg-background text-foreground">
+      {/* Sidebar: fijo a la altura de la ventana; solo el nav hace scroll si hay muchas opciones */}
+      <aside className="hidden md:flex w-60 shrink-0 flex-col h-full border-r border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl">
+        <div className="shrink-0 h-14 px-5 flex flex-col justify-center border-b border-zinc-200 dark:border-white/10">
+          <div className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 truncate">
+            {brandName}
           </div>
           <div className="mt-0.5 text-xs text-zinc-500">
             {user.role === 'ADMIN' ? 'Panel Admin' : user.role === 'COACH' || user.role === 'INSTRUCTOR' ? 'Clases y Rutinas' : user.role}
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-3 space-y-0.5">
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-0.5">
           {filteredNav.map((item) => {
             const Icon = item.icon
             return (
@@ -105,15 +112,18 @@ export const AdminLayout = () => {
           })}
         </nav>
 
-        <div className="px-4 py-3 border-t border-zinc-200 dark:border-white/10 space-y-2">
-          <p className="text-xs text-zinc-500 truncate">
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">
-              {user.name}
-            </span>
-          </p>
+        <div className="shrink-0 px-4 py-3 border-t border-zinc-200 dark:border-white/10 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <ThemeToggle size="sm" className="shrink-0" />
+            <p className="text-xs text-zinc-500 truncate min-w-0">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                {user.name}
+              </span>
+            </p>
+          </div>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors w-full"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors w-full"
             onClick={handleLogout}
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -122,9 +132,9 @@ export const AdminLayout = () => {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 flex flex-col">
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
         {/* Mobile topbar con menú hamburguesa */}
-        <div className="md:hidden px-4 py-3 border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl flex items-center justify-between gap-3">
+        <div className="shrink-0 md:hidden px-4 py-3 border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
@@ -134,10 +144,12 @@ export const AdminLayout = () => {
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-              NexoGym
+            <div className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 truncate">
+              {brandName}
             </div>
-            <div className="mt-0.5 text-xs text-zinc-500">Panel Admin</div>
+            <div className="mt-0.5 text-xs text-zinc-500">
+              {user.role === 'ADMIN' ? 'Panel Admin' : user.role === 'COACH' || user.role === 'INSTRUCTOR' ? 'Clases y Rutinas' : user.role}
+            </div>
           </div>
         </div>
 
@@ -159,9 +171,11 @@ export const AdminLayout = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between px-4 py-4 border-b border-zinc-200 dark:border-white/10">
-                <div>
-                  <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">NexoGym</div>
-                  <div className="text-xs text-zinc-500">Panel Admin</div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">{brandName}</div>
+                  <div className="text-xs text-zinc-500">
+                    {user.role === 'ADMIN' ? 'Panel Admin' : user.role === 'COACH' || user.role === 'INSTRUCTOR' ? 'Clases y Rutinas' : user.role}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -197,16 +211,19 @@ export const AdminLayout = () => {
                 })}
               </nav>
               <div className="px-4 py-3 border-t border-zinc-200 dark:border-white/10 space-y-2">
-                <p className="text-xs text-zinc-500 truncate">
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300">{user.name}</span>
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <ThemeToggle size="sm" className="shrink-0" />
+                  <p className="text-xs text-zinc-500 truncate min-w-0">
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">{user.name}</span>
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
                     closeMobileMenu()
                     handleLogout()
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors w-full"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors w-full"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   Cerrar sesión
@@ -215,10 +232,12 @@ export const AdminLayout = () => {
             </aside>
           </div>
         )}
-        <div className="border-b border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95">
+        <div className="shrink-0 h-14 flex items-center border-b border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95">
           <Breadcrumb />
         </div>
-        <Outlet />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <Outlet />
+        </div>
       </main>
     </div>
   )

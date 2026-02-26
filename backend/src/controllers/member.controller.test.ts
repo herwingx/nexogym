@@ -79,7 +79,11 @@ describe('member.controller', () => {
           membership_status: 'ACTIVE',
           current_streak: 2,
           total_visits: 10,
-          next_reward: { label: 'Racha 3 visitas', visits_required: 3, visits_progress: 2 },
+          next_reward: { label: 'Racha 3 días', visits_required: 3, visits_progress: 2 },
+          streak_rewards: [
+            { days: 3, label: 'Racha 3 días' },
+            { days: 5, label: 'Racha 5 días' },
+          ],
         }),
       );
     });

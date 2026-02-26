@@ -1,6 +1,13 @@
 <!doctype html>
-<html lang="es" class="dark">
+<html lang="es">
   <head>
+    <script>
+      (function () {
+        var s = localStorage.getItem('nexogym-theme');
+        var dark = s === 'dark' || (s !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -10,7 +17,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="NexoGym" />
-    <link rel="manifest" href="/manifest.json" />
+    <!-- Manifest se inyecta desde la app tras tener sesión, para que el nombre del gym se muestre al instalar (white-label) -->
     <title>NexoGym</title>
   </head>
   <body>

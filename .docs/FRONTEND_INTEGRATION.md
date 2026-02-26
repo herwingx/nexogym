@@ -55,16 +55,16 @@ Respuesta esperada (incluye white-label: `theme_colors`, `logo_url`):
 Regla UX: si `false`, ocultar menú/acción y no renderizar CTA.
 
 **Implementación actual:**
-- **Admin** (`AdminLayout`): filtra ítems según `modules_config`. Clases y Rutinas solo se muestran si `classes === true`; Inventario y Cortes solo si `pos === true`. Si el usuario accede por URL directa a `/admin/classes` o `/admin/routines` sin el módulo habilitado, se redirige a `/admin`.
+- **Admin** (`AdminLayout`): filtra ítems según `modules_config`. Clases y Rutinas solo se muestran si `classes === true`; Inventario y Cortes solo si `pos === true`; **Gamificación** (Premios por racha) solo si `gamification === true` (`/admin/rewards`). Si el usuario accede por URL directa a `/admin/classes`, `/admin/routines` o `/admin/rewards` sin el módulo habilitado, la página muestra mensaje de plan no disponible o se redirige según el caso.
 - **Member** (`MemberRoute`): si `qr_access === false` (plan BASIC), el portal de socios está **bloqueado**; el socio ve pantalla de bloqueo con botón Cerrar sesión. Si `qr_access === true`, acceso normal a Inicio, Premios, Historial, Perfil.
 
 ## 4) Manejo de errores estándar
 
 - `401`: token ausente/expirado → logout o refresh session.
-- `403` con mensaje `Feature disabled for current subscription: <module>` → mostrar banner de plan no habilitado.
-- `404`: recurso inexistente en gym actual.
+- **`403` "Feature disabled for current subscription":** el apiClient usa `getErrorFromResponse` y lanza `PlanRestrictionError`. Las páginas que cargan datos condicionados por plan muestran la tarjeta **`PlanRestrictionCard`** ("No tienes acceso a este recurso. No está incluido en el plan actual de tu gimnasio.") con botón Volver, igual que la pantalla que ve el socio en plan Basic. Helpers: `isPlanRestrictionError(e)` en `lib/apiErrors.ts`.
+- **`404`:** el apiClient lanza `ResourceNotFoundError` con el mensaje del backend. El componente **`ResourceNotFound`** sirve para mostrar una pantalla "Recurso no encontrado" con botón Volver cuando la página quiera mostrar 404 en pantalla; en otros casos se usa toast con el mensaje.
 - `429`: rate limit → retry con backoff.
-- `500`: error interno del servidor. En desarrollo, la API puede devolver en el body un campo **`detail`** con el mensaje técnico (ej. error de BD o Prisma). El cliente (`apiClient.fetchUserContext` y otros que lean el body de error) puede mostrar ese `detail` en el toast o en consola para facilitar la depuración (p. ej. "Error al cargar contexto: column X does not exist").
+- `500`: error interno del servidor. En desarrollo, la API puede devolver en el body un campo **`detail`** con el mensaje técnico (ej. error de BD o Prisma). El cliente puede mostrar ese `detail` en toast o consola.
 
 ## 5) Flujo de baja y privacidad (pantallas)
 

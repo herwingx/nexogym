@@ -4,28 +4,35 @@ import { notifyError } from '../lib/notifications'
 import { fetchMemberProfile, fetchMemberLeaderboard, type MemberProfile, type LeaderboardEntry } from '../lib/apiClient'
 import { cn } from '../lib/utils'
 import { CardSkeleton, Skeleton } from '../components/ui/Skeleton'
+import { PlanRestrictionCard } from '../components/ui/PlanRestrictionCard'
+import { isPlanRestrictionError } from '../lib/apiErrors'
 
-const STREAK_MILESTONES = [7, 14, 21, 30, 60, 90]
+const FALLBACK_MILESTONES = [7, 14, 21, 30, 60, 90]
 
-function getNextMilestone(streak: number) {
-  return STREAK_MILESTONES.find((m) => m > streak) ?? null
+function getNextMilestoneFromList(streak: number, milestones: number[]) {
+  return milestones.find((m) => m > streak) ?? null
 }
 
 export const MemberRewards = () => {
   const [profile, setProfile] = useState<MemberProfile | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [accessDeniedByPlan, setAccessDeniedByPlan] = useState(false)
 
   useEffect(() => {
     Promise.all([
       fetchMemberProfile().catch((err) => {
+        if (isPlanRestrictionError(err)) {
+          setAccessDeniedByPlan(true)
+          return null
+        }
         notifyError({ title: 'Error al cargar perfil', description: (err as Error)?.message ?? 'Intenta de nuevo.' })
         return null
       }),
       fetchMemberLeaderboard({ limit: 20 }).catch(() => ({ data: [] })),
     ]).then(([p, lb]) => {
-      setProfile(p ?? null)
-      setLeaderboard(lb.data)
+      if (p) setProfile(p)
+      if (lb) setLeaderboard(lb.data)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -43,6 +50,16 @@ export const MemberRewards = () => {
     )
   }
 
+  if (accessDeniedByPlan) {
+    return (
+      <PlanRestrictionCard
+        backTo="/member"
+        backLabel="Volver al inicio"
+        detail="El portal de socios (premios, racha, historial) no está disponible en el plan actual de tu gimnasio."
+      />
+    )
+  }
+
   if (!profile) {
     return (
       <div className="px-4 pt-10 pb-6 max-w-md mx-auto text-center text-zinc-500 text-sm">
@@ -52,10 +69,16 @@ export const MemberRewards = () => {
   }
 
   const data = profile
-  const nextMilestone = getNextMilestone(data.current_streak)
+  const milestoneDays = data.streak_rewards?.length
+    ? data.streak_rewards.map((r) => r.days)
+    : FALLBACK_MILESTONES
+  const nextMilestone =
+    data.next_reward?.visits_required ??
+    getNextMilestoneFromList(data.current_streak, milestoneDays)
   const streakProgress = nextMilestone
     ? (data.current_streak / nextMilestone) * 100
     : 100
+  const hasStreakRewards = (data.streak_rewards?.length ?? 0) > 0
   const level =
     data.current_streak >= 30
       ? 'Élite'
@@ -79,6 +102,29 @@ export const MemberRewards = () => {
           Tu racha y los premios que puedes ganar.
         </p>
       </div>
+
+      {/* Participación por racha */}
+      {hasStreakRewards && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 dark:bg-primary/10 p-4">
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">
+            Estás participando por racha para los siguientes premios
+          </p>
+          <ul className="space-y-1.5 text-sm text-zinc-600 dark:text-zinc-400">
+            {data.streak_rewards!.map((r) => {
+              const reached = data.current_streak >= r.days
+              return (
+                <li
+                  key={r.days}
+                  className={reached ? 'text-primary font-medium' : ''}
+                >
+                  {r.days} días → {r.label}
+                  {reached && ' ✓'}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Racha Hero Card */}
       <div className="rounded-2xl border border-primary/30 bg-primary/5 dark:bg-primary/10 p-5 relative overflow-hidden">
@@ -236,14 +282,20 @@ export const MemberRewards = () => {
         </div>
       )}
 
-      {/* Hitos de racha */}
+      {/* Hitos de racha (del gym o por defecto) */}
       <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4 shadow-sm">
         <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-3">
           Hitos
         </p>
-        <div className="grid grid-cols-3 gap-2">
-          {STREAK_MILESTONES.map((m) => {
+        <div className={cn(
+          'grid gap-2',
+          (data.streak_rewards?.length ?? 0) <= 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-3',
+        )}>
+          {(hasStreakRewards ? data.streak_rewards!.map((r) => r.days) : FALLBACK_MILESTONES).map((m) => {
             const reached = data.current_streak >= m
+            const label = hasStreakRewards
+              ? data.streak_rewards!.find((r) => r.days === m)?.label ?? `${m} días`
+              : `${m} días`
             return (
               <div
                 key={m}
@@ -260,7 +312,7 @@ export const MemberRewards = () => {
                     reached ? 'text-primary' : 'text-zinc-300 dark:text-zinc-600',
                   )}
                 />
-                <p className="text-xs font-semibold">{m} días</p>
+                <p className="text-xs font-semibold truncate" title={label}>{label}</p>
               </div>
             )
           })}

@@ -10,6 +10,8 @@ export type ModulesConfig = {
   portal: boolean
   /** Portal de socios (QR, premios, historial). En BASIC es false; miembros no tienen acceso. */
   qr_access: boolean
+  /** Premios por racha (gamificación). Solo en planes no BASIC. */
+  gamification: boolean
 }
 
 export type TenantTheme = {
@@ -60,6 +62,7 @@ const defaultModulesConfig: ModulesConfig = {
   crm: false,
   portal: false,
   qr_access: false,
+  gamification: false,
 }
 
 const defaultTenantTheme: TenantTheme = {

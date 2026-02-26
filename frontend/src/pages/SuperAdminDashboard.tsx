@@ -1,7 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { LogOut, User } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import {
   fetchGyms,
@@ -20,7 +17,6 @@ import { notifyError, notifyPromise, notifySuccess } from '../lib/notifications'
 import { supabase } from '../lib/supabaseClient'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
-import { logout } from '../lib/logout'
 import { CardSkeleton, TableRowSkeleton } from '../components/ui/Skeleton'
 import { Input } from '../components/ui/Input'
 
@@ -30,6 +26,19 @@ const TIER_LABELS: Record<Tier, string> = {
   BASIC: 'Basic',
   PRO_QR: 'Pro · QR',
   PREMIUM_BIO: 'Premium · Biométrico',
+}
+
+const TIER_ORDER: Record<Tier, number> = {
+  BASIC: 0,
+  PRO_QR: 1,
+  PREMIUM_BIO: 2,
+}
+
+type PendingTierChange = {
+  gymId: string
+  gymName: string
+  currentTier: Tier
+  newTier: Tier
 }
 
 const GYM_LOGOS_BUCKET = 'gym-logos'
@@ -51,13 +60,8 @@ const MODULE_KEYS = [
 ]
 
 export const SuperAdminDashboard = () => {
-  const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const [metrics, setMetrics] = useState<SaasMetrics | null>(null)
-
-  const handleLogout = () => {
-    logout().then(() => navigate('/login', { replace: true }))
-  }
   const [gyms, setGyms] = useState<GymSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [updatingGymId, setUpdatingGymId] = useState<string | null>(null)
@@ -83,6 +87,7 @@ export const SuperAdminDashboard = () => {
   const [editGymSecondaryColor, setEditGymSecondaryColor] = useState('')
   const [savingEditGym, setSavingEditGym] = useState(false)
   const [uploadingEditLogo, setUploadingEditLogo] = useState(false)
+  const [pendingTierChange, setPendingTierChange] = useState<PendingTierChange | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -106,28 +111,33 @@ export const SuperAdminDashboard = () => {
     }
   }, [user?.role])
 
-  const handleTierChange = (gymId: string, tier: Tier) => {
-    const gym = gyms.find((g) => g.id === gymId)
-    if (!gym || gym.subscription_tier === tier) return
+  const isDowngrade = (current: Tier, next: Tier) => TIER_ORDER[next] < TIER_ORDER[current]
 
+  const applyTierChange = (gymId: string, tier: Tier) => {
     setUpdatingGymId(gymId)
-
+    setPendingTierChange(null)
     void notifyPromise(
-      updateGymTier(gymId, tier).then(() => {
+      updateGymTier(gymId, tier).then((res) => {
         setGyms((prev) =>
           prev.map((g) =>
-            g.id === gymId ? { ...g, subscription_tier: tier } : g,
+            g.id === gymId
+              ? {
+                  ...g,
+                  subscription_tier: res.gym.subscription_tier,
+                  modules_config: res.gym.modules_config ?? g.modules_config,
+                }
+              : g,
           ),
         )
       }),
       {
-        loading: { title: 'Actualizando tier del gimnasio...' },
+        loading: { title: 'Actualizando plan del gimnasio...' },
         success: () => ({
-          title: 'Tier actualizado',
+          title: 'Plan actualizado',
           description: 'Los módulos del gimnasio fueron recalculados.',
         }),
         error: (error) => ({
-          title: 'No pudimos actualizar el tier',
+          title: 'No pudimos actualizar el plan',
           description:
             (error as Error)?.message ??
             'Revisa la conexión con el backend e inténtalo de nuevo.',
@@ -136,6 +146,23 @@ export const SuperAdminDashboard = () => {
     ).finally(() => {
       setUpdatingGymId(null)
     })
+  }
+
+  const handleTierChange = (gymId: string, tier: Tier) => {
+    const gym = gyms.find((g) => g.id === gymId)
+    if (!gym || gym.subscription_tier === tier) return
+
+    if (isDowngrade(gym.subscription_tier, tier)) {
+      setPendingTierChange({
+        gymId,
+        gymName: gym.name,
+        currentTier: gym.subscription_tier,
+        newTier: tier,
+      })
+      return
+    }
+
+    applyTierChange(gymId, tier)
   }
 
   const openModulesModal = (gym: GymSummary) => {
@@ -363,40 +390,16 @@ export const SuperAdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-start justify-center p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-5xl space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Master Dashboard · SuperAdmin
-            </h1>
-            <p className="text-sm text-zinc-500">
-              Visión global del SaaS y control de gimnasios.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/saas/profile"
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors"
-              title="Mi perfil"
-            >
-              <User className="h-3.5 w-3.5" />
-              Perfil
-            </Link>
-            <div className="rounded-full border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-4 py-1.5 text-xs text-zinc-600 dark:text-zinc-300 shadow-sm">
-              Sesión como <span className="font-semibold">{user.name}</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors"
-              title="Cerrar sesión"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              Salir
-            </button>
-          </div>
-        </header>
+    <div className="p-4 sm:p-6 md:p-8">
+      <div className="w-full max-w-5xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Master Dashboard · SuperAdmin
+          </h1>
+          <p className="text-sm text-zinc-500 mt-0.5">
+            Visión global del SaaS y control de gimnasios.
+          </p>
+        </div>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {isLoading ? (
@@ -647,6 +650,50 @@ export const SuperAdminDashboard = () => {
               </Button>
             </div>
           </div>
+        </Modal>
+
+        {/* Modal: confirmar downgrade — advertencia de acciones antes de aplicar */}
+        <Modal
+          isOpen={!!pendingTierChange}
+          title="Confirmar cambio de plan"
+          description={
+            pendingTierChange
+              ? `Bajar el plan de "${pendingTierChange.gymName}" de ${TIER_LABELS[pendingTierChange.currentTier]} a ${TIER_LABELS[pendingTierChange.newTier]}.`
+              : undefined
+          }
+          onClose={() => !updatingGymId && setPendingTierChange(null)}
+        >
+          {pendingTierChange && (
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Al aceptar, se realizarán automáticamente las siguientes acciones:
+              </p>
+              <ul className="list-disc list-inside space-y-1.5 text-sm text-zinc-700 dark:text-zinc-300">
+                <li>Se cerrarán todos los turnos de caja abiertos de este gym (si los hay).</li>
+                <li>El plan y los módulos se actualizarán al nuevo tier; pueden desactivarse Check-in QR, Gamificación, Clases o Biométrico según el plan elegido.</li>
+                <li>Recepción y Admin del gym dejarán de ver en el menú las funciones que ya no incluya el nuevo plan hasta que recarguen la sesión.</li>
+              </ul>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPendingTierChange(null)}
+                  disabled={!!updatingGymId}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() =>
+                    applyTierChange(pendingTierChange.gymId, pendingTierChange.newTier)
+                  }
+                  disabled={!!updatingGymId}
+                >
+                  Aceptar y cambiar plan
+                </Button>
+              </div>
+            </div>
+          )}
         </Modal>
 
         {/* Modal: editar gym (nombre, logo, colores) */}

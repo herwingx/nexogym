@@ -44,7 +44,7 @@ Cada fila indica la vista y el tipo de skeleton recomendado.
 | Vista | Skeleton recomendado |
 |-------|----------------------|
 | **Admin** | |
-| `/admin` (Dashboard) | 3× `CardSkeleton` (ocupación, ventas, ganancia) |
+| `/admin` (Dashboard) | 2× o 3× `CardSkeleton`: ventas y ganancia siempre; ocupación solo si el gym tiene Check-in QR. |
 | `/admin/finance` | `CardSkeleton` para resumen + opcional tabla |
 | `/admin/members` | `TableRowSkeleton` × N o `ListSkeleton` |
 | `/admin/classes` | `ListSkeleton` o grid de cards |
@@ -56,7 +56,7 @@ Cada fila indica la vista y el tipo de skeleton recomendado.
 | `/reception/pos` | Grid de productos: skeletons de cards |
 | **Portal del socio** | |
 | `/member` (MemberHome) | 1× `CardSkeleton` para bloque QR + estado |
-| `/member/rewards` | Card racha + próximo premio |
+| `/member/rewards` | Card racha + participación por premios del gym + próximo premio + hitos |
 | `/member/history` | `ListSkeleton` o `TableRowSkeleton` |
 | **SuperAdmin** | |
 | `/super` (Dashboard) | Cards de métricas + lista de gimnasios |

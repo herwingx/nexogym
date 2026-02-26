@@ -71,24 +71,17 @@ Revisión completa de permisos backend/frontend, gaps y deuda técnica en el flu
 
 ## 3. Deuda Técnica Frontend
 
-### 🔴 AdminMembers: Mock en vez de API real
+### ✅ AdminMembers / Vista Socios — Resuelto
 
-**Estado:** Usa `MOCK_MEMBERS`; no llama `GET /users` ni ninguna API real.
+**Estado:** Conectado a `GET /users?role=MEMBER` (fetchMemberUsers). Admin y Recepción comparten la misma UX de Socios con coherencia de funcionalidades.
 
-**Falta implementar:**
+**Implementado:**
 
-- Conectar a `GET /api/v1/users?role_not=MEMBER` (o equivalente para socios)
-- Acciones: renovar, congelar, descongelar, cancelar suscripción
-- Exportar datos, anonimizar (GDPR)
-
-**apiClient:** Faltan:
-
-- `renewSubscription(userId, payload)`
-- `freezeSubscription(userId)`
-- `unfreezeSubscription(userId)`
-- `cancelSubscription(userId, reason?)`
-- `exportUserData(userId)`
-- `anonymizeUserData(userId)`
+- Listado paginado (20 por página), orden por nombre, búsqueda por nombre/teléfono.
+- Columnas: Nombre, Teléfono, Estado, Plan, Vence, Acciones. Resumen "por vencer (7 días)" y "vencidos".
+- Acciones: Renovar / Pagar-Renovar (incl. activos y congelados), Congelar, Descongelar. **Solo Admin:** Cancelar suscripción.
+- Editar socio (nombre, teléfono, foto, reenviar QR). **Solo Admin:** Regenerar QR (componente compartido `EditMemberForm`).
+- apiClient: `fetchMemberUsers`, `searchMembers`, `renewSubscription`, `freezeSubscription`, `unfreezeSubscription`, `cancelSubscription`; export/anonymize siguen pendientes en UI si se requieren.
 
 ### 🟡 ModulesConfig: Mapeo frontend/backend
 
@@ -104,7 +97,7 @@ Revisión completa de permisos backend/frontend, gaps y deuda técnica en el flu
 |------|------------|----------------|-------------|------------------|
 | /saas | — | — | — | SUPERADMIN (directo) |
 | /admin/* | ✅ | — | — | ADMIN, SUPERADMIN, COACH, INSTRUCTOR |
-| /reception/* | — | ✅ | — | RECEPTIONIST, ADMIN, SUPERADMIN |
+| /reception/* | — | ✅ | — | RECEPTIONIST, ADMIN, SUPERADMIN. El admin tiene enlace "Check-in" en el sidebar que lleva a /reception. |
 | /member/* | — | — | ✅ | MEMBER |
 
 **AdminLayout** filtra menú por rol:
@@ -142,7 +135,7 @@ Revisión completa de permisos backend/frontend, gaps y deuda técnica en el flu
 | **Seguridad check-in** | ✅ Resuelto | requireStaff en POST /checkin |
 | **INSTRUCTOR backend** | ✅ Resuelto | Incluido en requireCoachOrAdmin |
 | **POS/Inventory por rol** | ✅ Resuelto | requireStaff en ambas rutas |
-| **AdminMembers** | ✅ Resuelto | Conectado a GET /users?role=MEMBER, acciones renovar/congelar/descongelar/cancelar |
+| **AdminMembers** | ✅ Resuelto | API real, paginación, búsqueda, editar socio, renovar/congelar/descongelar/cancelar; coherencia con Recepción Socios |
 | **apiClient suscripciones** | ✅ Resuelto | renew, freeze, unfreeze, cancel, export, anonymize implementados |
 | **Flujo día 0** | ✅ OK | Bootstrap, login, cambio contraseña |
 | **Guards frontend** | ✅ OK | AdminRoute, ReceptionRoute, MemberRoute |
@@ -161,3 +154,4 @@ Revisión completa de permisos backend/frontend, gaps y deuda técnica en el flu
 | 2025-02-25 | AdminMembers conectado a API real (GET /users?role=MEMBER) | AdminMembers.tsx, apiClient.ts |
 | 2025-02-25 | Backend: query param role=MEMBER en GET /users | user.controller.ts |
 | 2025-02-25 | MemberHome/Rewards/History: sin mock fallback, error en fallo | MemberHome.tsx, MemberRewards.tsx, MemberHistory.tsx |
+| 2025-02-26 | Socios Admin/Recepción: coherencia (búsqueda, paginación, Vence, editar socio); EditMemberForm compartido; solo Admin: Cancelar y Regenerar QR | AdminMembers.tsx, ReceptionMembers.tsx, components/members/EditMemberForm.tsx |

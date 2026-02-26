@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
-import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet, User } from 'lucide-react'
+import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet, User, LayoutDashboard } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
+import { ThemeToggle } from '../components/ui/ThemeToggle'
 import { cn } from '../lib/utils'
 import { logout } from '../lib/logout'
 import { fetchCurrentShift } from '../lib/apiClient'
 import { Modal } from '../components/ui/Modal'
 import { Button } from '../components/ui/Button'
 
-const navItems = [
+const navItems: { label: string; to: string; icon: typeof ScanQrCode; moduleKey?: 'pos' }[] = [
   { label: 'Check-in', to: '/reception', icon: ScanQrCode },
-  { label: 'POS', to: '/reception/pos', icon: CreditCard },
+  { label: 'POS', to: '/reception/pos', icon: CreditCard, moduleKey: 'pos' },
   { label: 'Socios', to: '/reception/members', icon: Users },
   { label: 'Alta', to: '/reception/members/new', icon: UserPlus },
 ]
@@ -21,6 +22,7 @@ export const ReceptionLayout = () => {
   const user = useAuthStore((state) => state.user)
   const gymName = useAuthStore((state) => state.gymName)
   const gymLogoUrl = useAuthStore((state) => state.gymLogoUrl)
+  const modules = useAuthStore((state) => state.modulesConfig)
   const [logoutBlockModal, setLogoutBlockModal] = useState(false)
   const [logoutChecking, setLogoutChecking] = useState(false)
 
@@ -45,6 +47,7 @@ export const ReceptionLayout = () => {
   }
 
   if (!user) return null
+  const isAdminOrSuperAdmin = user.role === 'ADMIN' || user.role === 'SUPERADMIN'
 
   return (
     <div className="min-h-screen bg-background text-foreground flex">
@@ -52,6 +55,16 @@ export const ReceptionLayout = () => {
         {/* Topbar */}
         <header className="border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 px-4 py-3 backdrop-blur-md flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
+            {isAdminOrSuperAdmin && (
+              <NavLink
+                to="/admin"
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors shrink-0"
+                title="Volver al panel de administración"
+              >
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Panel admin</span>
+              </NavLink>
+            )}
             {gymLogoUrl ? (
               <img
                 src={gymLogoUrl}
@@ -68,6 +81,7 @@ export const ReceptionLayout = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle size="sm" />
             <NavLink
               to="/reception/profile"
               className={({ isActive }) =>
@@ -107,7 +121,7 @@ export const ReceptionLayout = () => {
           <Breadcrumb compact />
         </div>
         <nav className="flex border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 px-2 py-1.5 gap-1">
-          {navItems.map((item) => {
+          {navItems.filter((item) => !item.moduleKey || modules[item.moduleKey]).map((item) => {
             const Icon = item.icon
             return (
               <NavLink

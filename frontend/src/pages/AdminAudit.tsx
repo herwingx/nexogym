@@ -8,23 +8,40 @@ const CRITICAL_ACTIONS = new Set([
   'COURTESY_ACCESS_GRANTED',
   'INVENTORY_LOSS_REPORTED',
   'SHIFT_CLOSED',
+  'SHIFT_FORCE_CLOSED',
 ])
 
+/** Todas las etiquetas de auditoría en español (normalización UI). */
 const ACTION_LABELS: Record<string, string> = {
+  // Turnos y caja
+  SHIFT_CLOSED: 'Turno cerrado',
+  SHIFT_FORCE_CLOSED: 'Turno cerrado forzosamente',
+  // Personal
+  STAFF_CREATED: 'Personal dado de alta',
+  STAFF_RESTORED: 'Personal restaurado',
+  STAFF_PASSWORD_RESET: 'Contraseña de personal restablecida',
+  USER_SOFT_DELETED: 'Usuario dado de baja',
+  USER_UPDATED: 'Usuario actualizado',
+  QR_RESENT: 'QR reenviado',
+  QR_REGENERATED: 'QR regenerado',
+  // Socios y suscripciones
+  SUBSCRIPTION_RENEWED: 'Suscripción renovada',
+  SUBSCRIPTION_FROZEN: 'Suscripción congelada',
+  SUBSCRIPTION_UNFROZEN: 'Suscripción descongelada',
+  SUBSCRIPTION_CANCELED: 'Suscripción cancelada',
+  SUBSCRIPTIONS_SYNC_EXPIRED: 'Suscripciones marcadas vencidas (sync)',
+  // Otros
   COURTESY_ACCESS_GRANTED: 'Cortesía otorgada',
   INVENTORY_LOSS_REPORTED: 'Merma reportada',
-  SHIFT_CLOSED: 'Turno cerrado',
+  USER_DATA_EXPORTED: 'Exportación de datos de usuario',
+  USER_DATA_ANONYMIZED: 'Datos de usuario anonimizados',
   CHECKIN_SUCCESS: 'Check-in exitoso',
   MEMBER_CREATED: 'Socio creado',
   MEMBER_UPDATED: 'Socio actualizado',
   SALE_CREATED: 'Venta registrada',
-  SUBSCRIPTION_RENEWED: 'Suscripción renovada',
-  SUBSCRIPTION_FROZEN: 'Suscripción congelada',
-  SUBSCRIPTION_UNFROZEN: 'Suscripción descongelada',
-  SUBSCRIPTIONS_SYNC_EXPIRED: 'Suscripciones marcadas vencidas (sync)',
 }
 
-const ALL_ACTIONS = Object.keys(ACTION_LABELS)
+const ALL_ACTIONS = Object.keys(ACTION_LABELS).sort()
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString('es-MX', {

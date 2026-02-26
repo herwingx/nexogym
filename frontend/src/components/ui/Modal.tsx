@@ -1,4 +1,5 @@
 import type { ReactNode, KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -27,9 +28,10 @@ export const Modal = ({
     }
   }
 
-  return (
+  const overlay = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/20 dark:bg-black/60 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/20 dark:bg-black/60 backdrop-blur-md min-h-[100dvh]"
+      style={{ top: 0, left: 0, right: 0, bottom: 0 }}
       onClick={onClose}
       onKeyDown={handleKeyDown}
       role="dialog"
@@ -69,5 +71,7 @@ export const Modal = ({
       </div>
     </div>
   )
+
+  return createPortal(overlay, document.body)
 }
 

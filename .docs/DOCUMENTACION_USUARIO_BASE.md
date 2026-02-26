@@ -43,13 +43,10 @@ En plan **Basic**, los socios no tienen acceso al portal; ven una pantalla de bl
 - Personal: dar de baja, reactivar.
 
 #### Finanzas y auditoría
-- Cortes de caja (historial).
+- Cortes de caja: historial de turnos cerrados (estado Cuadrado/Sobrante/Faltante).
+- Por cada turno, ver **Transacciones**: ventas agrupadas por folio (ticket) con desglose por producto.
 - Forzar cierre de turno si un recepcionista salió sin corte.
-- Ver auditoría de acciones.
-
-#### Turnos de caja
-- Ver historial de turnos cerrados.
-- Ver turnos abiertos (sin corte) y forzar cierre si aplica.
+- Auditoría: registro de acciones críticas (quién hizo qué y cuándo), etiquetas en español.
 
 ---
 
