@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { requireAdminOrSuperAdmin } from '../middlewares/admin.middleware';
+import {
+  requireCanViewDashboard,
+  requireCanUseFinance,
+  requireCanViewFinanceData,
+  requireCanViewAudit,
+} from '../middlewares/admin.middleware';
 import {
   getLiveOccupancy,
   getDailyRevenue,
@@ -31,7 +36,7 @@ router.use(requireAuth);
  *       200:
  *         description: Current occupancy count
  */
-router.get('/occupancy', getLiveOccupancy);           // Semáforo en tiempo real (90 min)
+router.get('/occupancy', requireCanViewDashboard, getLiveOccupancy);
 
 /**
  * @swagger
@@ -50,7 +55,7 @@ router.get('/occupancy', getLiveOccupancy);           // Semáforo en tiempo rea
  *       200:
  *         description: Revenue and sale count for the target date
  */
-router.get('/revenue/daily', getDailyRevenue);        // Ingresos del día (?date=YYYY-MM-DD)
+router.get('/revenue/daily', requireCanViewFinanceData, getDailyRevenue);
 
 /**
  * @swagger
@@ -73,7 +78,7 @@ router.get('/revenue/daily', getDailyRevenue);        // Ingresos del día (?dat
  *       403:
  *         description: Forbidden (Admin only)
  */
-router.get('/financial-report', requireAdminOrSuperAdmin, getFinancialReport);  // Solo admin
+router.get('/financial-report', requireCanViewFinanceData, getFinancialReport);
 
 /**
  * @swagger
@@ -87,7 +92,7 @@ router.get('/financial-report', requireAdminOrSuperAdmin, getFinancialReport);  
  *       403:
  *         description: Forbidden (Admin only)
  */
-router.get('/audit-logs', requireAdminOrSuperAdmin, getAuditLogs);              // Solo admin
+router.get('/audit-logs', requireCanViewAudit, getAuditLogs);
 
 /**
  * @swagger
@@ -108,6 +113,6 @@ router.get('/audit-logs', requireAdminOrSuperAdmin, getAuditLogs);              
  *       403:
  *         description: Forbidden (Admin only)
  */
-router.get('/commissions', requireAdminOrSuperAdmin, getCommissions);
+router.get('/commissions', requireCanUseFinance, getCommissions);
 
 export default router;

@@ -10,7 +10,7 @@ import {
 } from '../controllers/inventory.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
-import { requireAdminOrSuperAdmin, requireStaff } from '../middlewares/admin.middleware';
+import { requireAdminOrSuperAdmin, requireCanUsePos } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -24,7 +24,7 @@ const router = Router();
 // Todas las rutas de inventario requieren autenticación JWT (Multitenancy) y rol Staff
 router.use(requireAuth);
 router.use(requireModuleEnabled('pos'));
-router.use(requireStaff); // Inventario: solo Admin o Recepcionista (no Coach/Instructor)
+router.use(requireCanUsePos); // Inventario: Admin/SuperAdmin o staff con permiso "puede vender"
 
 /**
  * @swagger

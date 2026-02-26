@@ -328,7 +328,10 @@ Búsqueda rápida para recepción por nombre o teléfono (Staff). Mín. 2 caract
 ```
 
 ### `GET /api/v1/users?page=1&limit=50&role_not=MEMBER`
-Lista usuarios del gym (Staff). Query **role_not=MEMBER** devuelve solo usuarios que no son socios (admin, recepcionista, coach, etc.). Incluye `deleted_at` para mostrar inactivos. Requiere Staff. Usado por la vista **Personal** (`/admin/staff`).
+Lista usuarios del gym (Staff). Query **role_not=MEMBER** devuelve solo usuarios que no son socios (admin, recepcionista, coach, etc.). Incluye `deleted_at` para mostrar inactivos. Requiere `can_use_reception`. Usado por la vista **Personal** (`/admin/staff`).
+
+### `GET /api/v1/users/instructors`
+Lista usuarios COACH e INSTRUCTOR activos del gym (sin paginación). Requiere `can_use_routines`. Usado por **Clases** (`/admin/classes`) para el dropdown de instructores. Permite a coaches acceder a Clases sin necesitar `can_use_reception`.
 
 ### `DELETE /api/v1/users/:id`
 **Solo Admin/SuperAdmin.** Soft delete del usuario (`deleted_at = now()`). Usado en **Personal** para "Dar de baja". No borra registros; el usuario queda inactivo y sin acciones en la UI.

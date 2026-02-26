@@ -50,8 +50,8 @@ export const ReceptionLayout = () => {
   const isAdminOrSuperAdmin = user.role === 'ADMIN' || user.role === 'SUPERADMIN'
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
-      <main className="flex-1 min-w-0 flex flex-col">
+    <div className="h-screen flex overflow-hidden bg-background text-foreground">
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
         {/* Topbar */}
         <header className="border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 px-4 py-3 backdrop-blur-md flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -144,7 +144,7 @@ export const ReceptionLayout = () => {
           })}
         </nav>
 
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <Outlet />
         </div>
       </main>

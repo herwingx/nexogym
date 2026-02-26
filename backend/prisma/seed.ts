@@ -694,6 +694,15 @@ async function main() {
     await prisma.workoutExercise.createMany({ data: tpl.exercises.map(e => ({ ...e, routine_id: routine.id })) });
   }
 
+  // Catálogo de ejercicios por defecto (misma base que al crear gym vía SaaS)
+  const { DEFAULT_EXERCISES } = await import('../src/data/default-exercises');
+  for (const gym of [gymPro, gymPremium]) {
+    await prisma.exercise.createMany({
+      data: DEFAULT_EXERCISES.map((e) => ({ gym_id: gym.id, name: e.name, category: e.category })),
+      skipDuplicates: true,
+    });
+  }
+
   // AuditLog (para AdminAudit — simular acciones típicas)
   const auditPro = [
     { gym_id: gymPro.id, user_id: adminPro.id, action: 'SUBSCRIPTION_RENEWED', details: { member_name: 'Claudia Vega', days: 28 } },

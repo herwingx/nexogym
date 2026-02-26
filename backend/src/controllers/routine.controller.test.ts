@@ -12,9 +12,14 @@ vi.mock('../db', () => ({
       create: vi.fn(),
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     },
+    workoutExercise: {
+      createMany: vi.fn(),
+    },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -59,19 +64,27 @@ describe('routine.controller', () => {
     });
 
     it('crea la rutina y la vincula al gym correcto', async () => {
-      (prisma.user.findFirst as any).mockResolvedValue({ id: 'user-1', gym_id: 'gym-1' });
-      (prisma.routine.create as any).mockResolvedValue({ id: 'routine-1', name: 'Fuerza' });
+      (prisma.user.findFirst as any).mockResolvedValue({ id: 'user-1', gym_id: 'gym-1', name: 'Juan' });
+      const createdRoutine = { id: 'routine-1', name: 'Fuerza', gym_id: 'gym-1', user_id: '550e8400-e29b-41d4-a716-446655440001', description: 'Rutina de fuerza', exercises: [], user: { id: 'user-1', name: 'Juan' } };
+      (prisma.$transaction as any).mockImplementation((fn: (tx: any) => Promise<string>) =>
+        fn({
+          routine: {
+            create: vi.fn().mockResolvedValue({ id: 'routine-1', name: 'Fuerza' }),
+          },
+          workoutExercise: {
+            createMany: vi.fn().mockResolvedValue({ count: 0 }),
+          },
+        }).then((id: string) => id),
+      );
+      (prisma.routine.findUnique as any).mockResolvedValue(createdRoutine);
       const req: any = {
         gymId: 'gym-1',
         body: { userId: '550e8400-e29b-41d4-a716-446655440001', name: 'Fuerza', description: 'Rutina de fuerza' },
       };
       const res = mockRes();
       await createRoutine(req, res as any);
-      expect(prisma.routine.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ gym_id: 'gym-1', user_id: '550e8400-e29b-41d4-a716-446655440001', name: 'Fuerza' }),
-        }),
-      );
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.routine.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'routine-1' } }));
       expect(res.status).toHaveBeenCalledWith(201);
     });
   });

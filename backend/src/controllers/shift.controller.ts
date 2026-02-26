@@ -46,6 +46,11 @@ export const openShift = async (req: Request, res: Response) => {
       },
     });
 
+    await logAuditEvent(gymId, userId, 'SHIFT_OPENED', {
+      shift_id: shift.id,
+      opening_balance: Number(opening_balance),
+    });
+
     res.status(201).json({
       message: 'Shift opened successfully.',
       shift,

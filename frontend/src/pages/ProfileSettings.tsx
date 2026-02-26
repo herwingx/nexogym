@@ -4,12 +4,27 @@ import { useAuthStore } from '../store/useAuthStore'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { notifyError, notifySuccess } from '../lib/notifications'
+import { updateGymThemeColors } from '../lib/apiClient'
+import { getAccessibleTextColor } from '../utils/colorMath'
+
+const PRESET_COLORS = [
+  { value: '#2563eb', label: 'Azul' },
+  { value: '#dc2626', label: 'Rojo' },
+  { value: '#059669', label: 'Verde' },
+  { value: '#7c3aed', label: 'Violeta' },
+  { value: '#f97316', label: 'Naranja' },
+  { value: '#6366f1', label: 'Indigo' },
+]
 
 export const ProfileSettings = () => {
   const user = useAuthStore((s) => s.user)
+  const tenantTheme = useAuthStore((s) => s.tenantTheme)
+  const setTenantTheme = useAuthStore((s) => s.setTenantTheme)
   const [newPassword, setNewPassword] = useState('')
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [accentColor, setAccentColor] = useState(tenantTheme.primaryHex)
+  const [savingColor, setSavingColor] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -82,6 +97,87 @@ export const ProfileSettings = () => {
             </div>
           </dl>
         </div>
+
+        {user?.role === 'ADMIN' && (
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4">
+            <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Color de acento del gimnasio
+            </h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+              Personaliza el color de botones y acentos. El contraste del texto se ajusta automáticamente (WCAG).
+            </p>
+            <div className="flex flex-wrap gap-3 items-end">
+              <div>
+                <span className="text-[11px] text-zinc-500 block mb-1">Vista previa</span>
+                <div
+                  className="h-9 px-4 rounded-md font-medium shadow-sm flex items-center justify-center text-sm"
+                  style={{
+                    backgroundColor: accentColor,
+                    color: getAccessibleTextColor(accentColor),
+                  }}
+                >
+                  Botón ejemplo
+                </div>
+              </div>
+              <div>
+                <span className="text-[11px] text-zinc-500 block mb-1">Color</span>
+                <div className="flex gap-1">
+                  <input
+                    type="color"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    className="h-8 w-12 rounded border border-zinc-200 dark:border-white/10 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    className="w-24 text-xs"
+                    placeholder="#2563eb"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {PRESET_COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setAccentColor(c.value)}
+                    className="h-6 w-6 rounded border border-zinc-200 dark:border-white/10 hover:ring-2 hover:ring-primary/50"
+                    style={{ backgroundColor: c.value }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={async () => {
+                  if (!/^#[0-9A-Fa-f]{6}$/.test(accentColor)) {
+                    notifyError({ title: 'Color inválido', description: 'Usa formato hexadecimal (ej. #2563eb).' })
+                    return
+                  }
+                  setSavingColor(true)
+                  try {
+                    await updateGymThemeColors(accentColor)
+                    setTenantTheme({ primaryHex: accentColor })
+                    notifySuccess({ title: 'Color actualizado', description: 'El color de acento se aplicó correctamente.' })
+                  } catch (err) {
+                    notifyError({
+                      title: 'No se pudo guardar',
+                      description: (err as Error)?.message ?? 'Inténtalo de nuevo.',
+                    })
+                  } finally {
+                    setSavingColor(false)
+                  }
+                }}
+                disabled={savingColor}
+              >
+                {savingColor ? 'Guardando...' : 'Aplicar color'}
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4">
           <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">

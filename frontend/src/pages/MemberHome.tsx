@@ -32,6 +32,12 @@ const STATUS_CONFIG = {
     classes:
       'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20',
   },
+  PENDING_PAYMENT: {
+    label: 'Pendiente de pago',
+    icon: Clock,
+    classes:
+      'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
+  },
 }
 
 /** QR único y estable por socio: no rota. Se envía por WhatsApp/n8n; al escanear en recepción = llegada, racha se actualiza sin abrir la web. */

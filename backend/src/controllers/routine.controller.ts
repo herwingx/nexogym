@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
-import { createRoutineSchema, updateRoutineSchema, addExerciseSchema } from '../schemas/routine.schema';
+import { createRoutineSchema, updateRoutineSchema, addExerciseSchema, updateExerciseSchema, duplicateRoutineSchema } from '../schemas/routine.schema';
 import { handleControllerError } from '../utils/http';
 
-// POST /routines — Admin/Instructor crea rutina para un socio
+// POST /routines — Admin/Instructor crea rutina (plantilla base o asignada a socio)
 export const createRoutine = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
@@ -18,28 +18,58 @@ export const createRoutine = async (req: Request, res: Response) => {
       return;
     }
 
-    const { userId, name, description } = validation.data;
+    const { userId, name, description, exercises } = validation.data;
 
-    // Verify the target user belongs to this gym
-    const member = await prisma.user.findFirst({
-      where: { id: userId, gym_id: gymId, deleted_at: null },
-    });
-
-    if (!member) {
-      res.status(404).json({ error: 'Member not found in this gym.' });
-      return;
+    // Si se envía userId, verificar que el socio existe en el gym
+    if (userId) {
+      const member = await prisma.user.findFirst({
+        where: { id: userId, gym_id: gymId, deleted_at: null },
+        select: { id: true, name: true },
+      });
+      if (!member) {
+        res.status(404).json({ error: 'Member not found in this gym.' });
+        return;
+      }
     }
 
-    const routine = await prisma.routine.create({
-      data: {
-        gym_id: gymId,
-        user_id: userId,
-        name,
-        description: description ?? null,
-      },
+    const routine = await prisma.$transaction(async (tx) => {
+      const created = await tx.routine.create({
+        data: {
+          gym_id: gymId,
+          user_id: userId ?? null,
+          name,
+          description: description ?? null,
+        },
+      });
+      if (exercises.length > 0) {
+        await tx.workoutExercise.createMany({
+          data: exercises.map((ex) => ({
+            routine_id: created.id,
+            name: ex.name,
+            sets: ex.sets,
+            reps: ex.reps,
+            weight: ex.weight ?? null,
+            notes: ex.notes ?? null,
+          })),
+        });
+      }
+      return created.id;
     });
 
-    res.status(201).json({ message: 'Routine created.', routine });
+    const routineWithExercises = await prisma.routine.findUnique({
+      where: { id: routine },
+      include: {
+        exercises: true,
+        user: { select: { id: true, name: true } },
+      },
+    });
+    if (!routineWithExercises) {
+      res.status(500).json({ error: 'Failed to load created routine.' });
+      return;
+    }
+    const { user, ...r } = routineWithExercises;
+    const payload = { ...r, user_name: user?.name ?? null };
+    res.status(201).json(payload);
   } catch (error) {
     handleControllerError(req, res, error, '[createRoutine Error]', 'Failed to create routine.');
   }
@@ -223,6 +253,143 @@ export const addExercise = async (req: Request, res: Response) => {
     res.status(201).json({ message: 'Exercise added.', exercise });
   } catch (error) {
     handleControllerError(req, res, error, '[addExercise Error]', 'Failed to add exercise.');
+  }
+};
+
+// PATCH /routines/:id/exercises/:exerciseId — Update exercise
+export const updateExercise = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const routineId = req.params.id as string;
+    const exerciseId = req.params.exerciseId as string;
+
+    const validation = updateExerciseSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
+      return;
+    }
+
+    const routine = await prisma.routine.findFirst({ where: { id: routineId, gym_id: gymId } });
+    if (!routine) {
+      res.status(404).json({ error: 'Routine not found.' });
+      return;
+    }
+
+    const exercise = await prisma.workoutExercise.findFirst({
+      where: { id: exerciseId, routine_id: routineId },
+    });
+    if (!exercise) {
+      res.status(404).json({ error: 'Exercise not found.' });
+      return;
+    }
+
+    const data = validation.data;
+    const updated = await prisma.workoutExercise.update({
+      where: { id: exerciseId },
+      data: {
+        ...(data.name != null && { name: data.name }),
+        ...(data.sets != null && { sets: data.sets }),
+        ...(data.reps != null && { reps: data.reps }),
+        ...(data.weight !== undefined && { weight: data.weight }),
+        ...(data.notes !== undefined && { notes: data.notes }),
+      },
+    });
+
+    res.status(200).json({ message: 'Exercise updated.', exercise: updated });
+  } catch (error) {
+    handleControllerError(req, res, error, '[updateExercise Error]', 'Failed to update exercise.');
+  }
+};
+
+// POST /routines/:id/duplicate — Duplicate routine and assign to one or more members
+export const duplicateRoutine = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const id = req.params.id as string;
+
+    const validation = duplicateRoutineSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
+      return;
+    }
+
+    const sourceRoutine = await prisma.routine.findFirst({
+      where: { id, gym_id: gymId },
+      include: { exercises: true },
+    });
+
+    if (!sourceRoutine) {
+      res.status(404).json({ error: 'Routine not found.' });
+      return;
+    }
+
+    const { userIds } = validation.data;
+
+    const members = await prisma.user.findMany({
+      where: { id: { in: userIds }, gym_id: gymId, deleted_at: null },
+      select: { id: true },
+    });
+
+    const validIds = new Set(members.map((m) => m.id));
+    const invalidIds = userIds.filter((u) => !validIds.has(u));
+    if (invalidIds.length > 0) {
+      res.status(400).json({ error: `Members not found: ${invalidIds.join(', ')}` });
+      return;
+    }
+
+    const created: { id: string; user_id: string }[] = [];
+
+    for (const userId of userIds) {
+      const createdRoutine = await prisma.routine.create({
+        data: {
+          gym_id: gymId,
+          user_id: userId,
+          name: sourceRoutine.name,
+          description: sourceRoutine.description,
+        },
+      });
+      if (sourceRoutine.exercises.length > 0) {
+        await prisma.workoutExercise.createMany({
+          data: sourceRoutine.exercises.map((ex) => ({
+            routine_id: createdRoutine.id,
+            name: ex.name,
+            sets: ex.sets,
+            reps: ex.reps,
+            weight: ex.weight,
+            notes: ex.notes,
+          })),
+        });
+      }
+      created.push({ id: createdRoutine.id, user_id: userId });
+    }
+
+    const routinesWithDetails = await prisma.routine.findMany({
+      where: { id: { in: created.map((c) => c.id) } },
+      include: {
+        exercises: true,
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const data = routinesWithDetails.map(({ user, ...r }) => ({
+      ...r,
+      user_name: user?.name ?? null,
+    }));
+
+    res.status(201).json({ message: 'Routines assigned.', data });
+  } catch (error) {
+    handleControllerError(req, res, error, '[duplicateRoutine Error]', 'Failed to duplicate routine.');
   }
 };
 

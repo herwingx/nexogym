@@ -89,8 +89,7 @@ Regla UX: si `false`, ocultar menú/acción y no renderizar CTA.
 | Qué falta | Dónde hacerlo | Por qué no está “hecho” aquí |
 |-----------|----------------|------------------------------|
 | **Verificar ítems del checklist** | Código frontend (revisión manual o E2E) | Cada ítem es una decisión de implementación; este doc solo lista requisitos. Revisar que cada uno esté cubierto antes de dar por cerrada la integración. |
-| **Bucket `profile-pictures` en Supabase** | Dashboard de Supabase → Storage → crear bucket y políticas | La subida de foto de perfil usa Supabase Storage; el bucket y sus límites (tamaño, MIME) se configuran en el proyecto de Supabase, no en el repo. Si el bucket no existe o no tiene límite de tamaño, las subidas pueden fallar. |
-| **Bucket `gym-logos` en Supabase** | Dashboard de Supabase → Storage → crear bucket público | La subida de logos de gym (SuperAdmin → Crear gimnasio / Editar gym) usa el bucket `gym-logos`. Si no existe, la subida falla; se puede usar solo la URL manual. |
+| **Buckets de Supabase Storage** | Ver **SUPABASE_STORAGE_BUCKETS.md** | Los buckets `gym-logos` y `profile-pictures` deben crearse y configurarse con políticas en el Dashboard. Guía paso a paso en ese documento. |
 | **E2E mínimo** | Suite E2E (Playwright/Cypress, etc.) en el repo o en otro | Si aún no existe, hay que escribir y mantener los tests; depende de prioridad del equipo. |
 | **Redirect URLs en Supabase** (recuperación de contraseña) | Supabase → Authentication → URL Configuration | Las URLs permitidas tras “olvidé contraseña” se configuran en el dashboard; no en código. |
 
@@ -102,7 +101,7 @@ Regla UX: si `false`, ocultar menú/acción y no renderizar CTA.
   - `POST /api/v1/saas/gyms` (crear gym; opcional: `admin_email`, `admin_password`, `admin_name` para crear el primer admin en el mismo paso).
   - `GET /api/v1/saas/gyms/:id/modules`
   - `PATCH /api/v1/saas/gyms/:id/tier`
-- **Foto de perfil al alta (Registrar socio):** el backend acepta `profile_picture_url` opcional en `POST /users`. En recepción el formulario permite pegar una URL o subir archivo; la subida usa Supabase Storage bucket **`profile-pictures`** (crear el bucket en el dashboard y política de escritura si aplica). Si el bucket no existe, se puede usar solo el campo URL.
+- **Foto de perfil al alta (Registrar socio):** el backend acepta `profile_picture_url` opcional en `POST /users`. En recepción el formulario permite pegar una URL o subir archivo; la subida usa Supabase Storage bucket **`profile-pictures`** (ver **SUPABASE_STORAGE_BUCKETS.md** para configuración). Si el bucket no existe, se puede usar solo el campo URL.
 
 ## 8) Navegación y breadcrumbs
 

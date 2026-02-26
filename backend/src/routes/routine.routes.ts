@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { requireAdminOrSuperAdmin, requireCoachOrAdmin } from '../middlewares/admin.middleware';
+import { requireAdminOrSuperAdmin, requireCanUseRoutines, requireCoachOrAdmin } from '../middlewares/admin.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
 import {
   listRoutines,
@@ -9,7 +9,9 @@ import {
   getMemberRoutines,
   updateRoutine,
   deleteRoutine,
+  duplicateRoutine,
   addExercise,
+  updateExercise,
   removeExercise,
 } from '../controllers/routine.controller';
 
@@ -37,7 +39,7 @@ router.use(requireModuleEnabled('classes'));
  *       200:
  *         description: List of routines with exercises
  */
-router.get('/', requireCoachOrAdmin, listRoutines);
+router.get('/', requireCanUseRoutines, listRoutines);
 
 /**
  * @swagger
@@ -73,7 +75,7 @@ router.get('/me', getMyRoutines);
  *       404:
  *         description: Member not found
  */
-router.get('/member/:userId', requireCoachOrAdmin, getMemberRoutines);
+router.get('/member/:userId', requireCanUseRoutines, getMemberRoutines);
 
 /**
  * @swagger
@@ -105,7 +107,7 @@ router.get('/member/:userId', requireCoachOrAdmin, getMemberRoutines);
  *       404:
  *         description: Member not found
  */
-router.post('/', requireCoachOrAdmin, createRoutine);
+router.post('/', requireCanUseRoutines, createRoutine);
 
 /**
  * @swagger
@@ -117,8 +119,38 @@ router.post('/', requireCoachOrAdmin, createRoutine);
  *     summary: Delete a routine and all its exercises (Admin/Instructor)
  *     tags: [Routines]
  */
-router.patch('/:id', requireCoachOrAdmin, updateRoutine);
-router.delete('/:id', requireCoachOrAdmin, deleteRoutine);
+router.patch('/:id', requireCanUseRoutines, updateRoutine);
+router.delete('/:id', requireCanUseRoutines, deleteRoutine);
+
+/**
+ * @swagger
+ * /api/v1/routines/{id}/duplicate:
+ *   post:
+ *     summary: Duplicate routine and assign to one or more members
+ *     tags: [Routines]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userIds
+ *             properties:
+ *               userIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 minItems: 1
+ *     responses:
+ *       201:
+ *         description: Routines duplicated and assigned
+ *       404:
+ *         description: Routine not found
+ */
+router.post('/:id/duplicate', requireCanUseRoutines, duplicateRoutine);
 
 /**
  * @swagger
@@ -153,6 +185,8 @@ router.delete('/:id', requireCoachOrAdmin, deleteRoutine);
  */
 router.post('/:id/exercises', requireCoachOrAdmin, addExercise);
 
+router.patch('/:id/exercises/:exerciseId', requireCoachOrAdmin, updateExercise);
+
 /**
  * @swagger
  * /api/v1/routines/{id}/exercises/{exerciseId}:
@@ -174,6 +208,6 @@ router.post('/:id/exercises', requireCoachOrAdmin, addExercise);
  *       200:
  *         description: Exercise removed
  */
-router.delete('/:id/exercises/:exerciseId', requireCoachOrAdmin, removeExercise);
+router.delete('/:id/exercises/:exerciseId', requireCanUseRoutines, removeExercise);
 
 export default router;

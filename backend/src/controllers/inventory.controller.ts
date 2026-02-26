@@ -28,6 +28,7 @@ export const getProducts = async (req: Request, res: Response) => {
 export const createProduct = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
+    const actorId = req.user?.id;
     if (!gymId) {
       res.status(401).json({ error: 'Unauthorized: Gym context missing' });
       return;
@@ -49,6 +50,16 @@ export const createProduct = async (req: Request, res: Response) => {
       },
     });
 
+    if (actorId) {
+      await logAuditEvent(gymId, actorId, 'PRODUCT_CREATED', {
+        product_id: product.id,
+        name: product.name,
+        barcode: product.barcode,
+        price: Number(product.price),
+        stock: product.stock,
+      });
+    }
+
     res.status(201).json({ message: 'Product created.', product });
   } catch (error) {
     handleControllerError(req, res, error, '[createProduct Error]', 'Failed to create product.');
@@ -59,6 +70,7 @@ export const createProduct = async (req: Request, res: Response) => {
 export const deleteProduct = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
+    const actorId = req.user?.id;
     if (!gymId) {
       res.status(401).json({ error: 'Unauthorized: Gym context missing' });
       return;
@@ -81,6 +93,14 @@ export const deleteProduct = async (req: Request, res: Response) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: { deleted_at: new Date() } as any,
     });
+
+    if (actorId) {
+      await logAuditEvent(gymId, actorId, 'PRODUCT_DELETED', {
+        product_id: id,
+        name: product.name,
+        barcode: product.barcode,
+      });
+    }
 
     res.status(200).json({ message: 'Product soft-deleted successfully.' });
   } catch (error) {
@@ -128,12 +148,23 @@ export const restockProduct = async (req: Request, res: Response) => {
         data: {
           gym_id: gymId,
           product_id: productId,
+          user_id: actorId,
           type: TransactionType.RESTOCK,
           quantity,
           reason: reason ?? null,
         },
       }),
     ]);
+
+    if (actorId) {
+      await logAuditEvent(gymId, actorId, 'INVENTORY_RESTOCKED', {
+        product_id: productId,
+        product_name: product.name,
+        quantity,
+        reason: reason ?? null,
+        transaction_id: transaction.id,
+      });
+    }
 
     res.status(200).json({
       message: `Restocked ${quantity} units of "${product.name}".`,
@@ -198,6 +229,7 @@ export const adjustLoss = async (req: Request, res: Response) => {
         data: {
           gym_id: gymId,
           product_id: productId,
+          user_id: actorId,
           type: TransactionType.LOSS,
           quantity,
           reason,
@@ -228,6 +260,7 @@ export const adjustLoss = async (req: Request, res: Response) => {
 export const updateProduct = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
+    const actorId = req.user?.id;
     if (!gymId) {
       res.status(401).json({ error: 'Unauthorized: Gym context missing' });
       return;
@@ -258,6 +291,21 @@ export const updateProduct = async (req: Request, res: Response) => {
         ...(price !== undefined && { price }),
       },
     });
+
+    if (actorId) {
+      const details: Record<string, unknown> = { product_id: id };
+      if (name !== undefined && name !== existing.name) details.name_before = existing.name;
+      if (name !== undefined && name !== existing.name) details.name_after = updated.name;
+      if (barcode !== undefined && barcode !== existing.barcode) details.barcode_before = existing.barcode;
+      if (barcode !== undefined && barcode !== existing.barcode) details.barcode_after = updated.barcode;
+      if (price !== undefined && Number(price) !== Number(existing.price)) {
+        details.price_before = Number(existing.price);
+        details.price_after = Number(updated.price);
+      }
+      if (Object.keys(details).length > 1) {
+        await logAuditEvent(gymId, actorId, 'PRODUCT_UPDATED', details);
+      }
+    }
 
     res.status(200).json({ message: 'Product updated.', product: updated });
   } catch (error) {

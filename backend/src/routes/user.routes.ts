@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getMyContext,
   getUsers,
+  getInstructors,
   searchUsers,
   createUser,
   createStaff,
@@ -19,9 +20,18 @@ import {
   exportUserData,
   anonymizeUserData,
   resetPasswordByAdmin,
+  getStaffLogin,
+  updateStaffPermissions,
 } from '../controllers/user.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { requireAdminOrSuperAdmin, requireStaff } from '../middlewares/admin.middleware';
+import {
+  requireAdminOrSuperAdmin,
+  requireCanUseReception,
+  requireCanUseRoutines,
+  requireCanListUsers,
+  requireCanViewMembers,
+  requireCanManageStaff,
+} from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -79,7 +89,21 @@ router.post('/sync-expired-subscriptions', requireAdminOrSuperAdmin, syncExpired
  *       403:
  *         description: Forbidden (Staff required)
  */
-router.get('/', requireStaff, getUsers);
+router.get('/', requireCanListUsers, getUsers);
+
+/**
+ * @swagger
+ * /api/v1/users/instructors:
+ *   get:
+ *     summary: List COACH and INSTRUCTOR users (for class instructor dropdown)
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: List of instructors
+ *       403:
+ *         description: Forbidden (can_use_routines required)
+ */
+router.get('/instructors', requireCanUseRoutines, getInstructors);
 
 /**
  * @swagger
@@ -102,7 +126,7 @@ router.get('/', requireStaff, getUsers);
  *       403:
  *         description: Forbidden (Staff required)
  */
-router.get('/search', requireStaff, searchUsers);
+router.get('/search', requireCanViewMembers, searchUsers);
 
 /**
  * @swagger
@@ -166,9 +190,9 @@ router.get('/search', requireStaff, searchUsers);
  *       403:
  *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.post('/staff', requireAdminOrSuperAdmin, createStaff);
+router.post('/staff', requireCanManageStaff, createStaff);
 
-router.post('/', requireStaff, createUser);
+router.post('/', requireCanViewMembers, createUser);
 
 /**
  * @swagger
@@ -198,7 +222,65 @@ router.post('/', requireStaff, createUser);
  *       403:
  *         description: Forbidden (Staff required)
  */
-router.patch('/:id', requireStaff, updateUser);
+/**
+ * @swagger
+ * /api/v1/users/{id}/staff-permissions:
+ *   patch:
+ *     summary: Admin actualiza permisos del staff (p. ej. coach puede vender, recepcionista puede rutinas)
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               can_use_pos:
+ *                 type: boolean
+ *               can_use_routines:
+ *                 type: boolean
+ *               can_use_reception:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Permisos actualizados
+ *       403:
+ *         description: Forbidden (Admin or SuperAdmin required)
+ *       404:
+ *         description: User not found
+ */
+router.patch('/:id/staff-permissions', requireCanManageStaff, updateStaffPermissions);
+
+/**
+ * @swagger
+ * /api/v1/users/{id}/staff-login:
+ *   get:
+ *     summary: Admin obtiene el usuario (email) de login del staff
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: { username: string }
+ *       400:
+ *         description: Usuario sin cuenta de acceso
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: User not found
+ */
+router.get('/:id/staff-login', requireCanManageStaff, getStaffLogin);
+
+router.patch('/:id', requireCanViewMembers, updateUser);
 
 /**
  * @swagger
@@ -220,7 +302,7 @@ router.patch('/:id', requireStaff, updateUser);
  *       404:
  *         description: User not found
  */
-router.post('/:id/send-qr', requireStaff, sendQrToMember);
+router.post('/:id/send-qr', requireCanViewMembers, sendQrToMember);
 
 /**
  * @swagger
@@ -257,7 +339,7 @@ router.post('/:id/send-qr', requireStaff, sendQrToMember);
  *       409:
  *         description: Correo ya registrado en otro usuario
  */
-router.post('/:id/send-portal-access', requireStaff, sendPortalAccess);
+router.post('/:id/send-portal-access', requireCanViewMembers, sendPortalAccess);
 
 /**
  * @swagger
@@ -381,7 +463,7 @@ router.patch('/:id/restore', requireAdminOrSuperAdmin, restoreUser);
  *       400:
  *         description: "Plan no válido, producto faltante en inventario, o no hay turno abierto (si precio > 0)"
  */
-router.patch('/:id/renew', requireStaff, renewSubscription);
+router.patch('/:id/renew', requireCanViewMembers, renewSubscription);
 
 /**
  * @swagger
@@ -401,7 +483,7 @@ router.patch('/:id/renew', requireStaff, renewSubscription);
  *       403:
  *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.patch('/:id/freeze', requireStaff, freezeSubscription);
+router.patch('/:id/freeze', requireCanViewMembers, freezeSubscription);
 
 /**
  * @swagger
@@ -421,7 +503,7 @@ router.patch('/:id/freeze', requireStaff, freezeSubscription);
  *       403:
  *         description: Forbidden (Admin or SuperAdmin required)
  */
-router.patch('/:id/unfreeze', requireStaff, unfreezeSubscription);
+router.patch('/:id/unfreeze', requireCanViewMembers, unfreezeSubscription);
 
 /**
  * @swagger

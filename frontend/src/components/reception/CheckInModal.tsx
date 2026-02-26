@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
 import { Button } from '../ui/Button'
+import { ModalCloseButton } from '../ui/ModalCloseButton'
 import { cn } from '../../lib/utils'
+import { STATUS_BADGE } from '../../lib/statusColors'
 
 export type CheckInModalState =
   | 'granted'
@@ -69,14 +70,7 @@ export function CheckInModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-end">
-          <button
-            type="button"
-            aria-label="Cerrar"
-            className="rounded-full p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-            onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <ModalCloseButton onClose={onClose} variant="default" />
         </div>
 
         <div className="flex flex-col items-center text-center mt-2">
@@ -105,14 +99,14 @@ export function CheckInModal({
 
           {/* Badges por estado */}
           {state === 'granted' && (
-            <span className="mt-3 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+            <span className={`mt-3 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${STATUS_BADGE.success}`}>
               Acceso concedido
             </span>
           )}
 
           {state === 'streak' && (
             <div className="mt-3 flex flex-col items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${STATUS_BADGE.success}`}>
                 Acceso concedido
               </span>
               <span className="inline-flex items-center gap-1 animate-pulse" title="Racha aumentada">
@@ -125,14 +119,14 @@ export function CheckInModal({
           )}
 
           {state === 'antipassback' && (
-            <span className="mt-3 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20">
+            <span className={`mt-3 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${STATUS_BADGE.danger}`}>
               Acceso denegado
             </span>
           )}
 
           {state === 'debtor' && (
             <div className="mt-4 w-full space-y-3">
-              <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20">
+              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${STATUS_BADGE.danger}`}>
                 Membresía vencida
               </span>
               {userId && onCourtesyRequest && (

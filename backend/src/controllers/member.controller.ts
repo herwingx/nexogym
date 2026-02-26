@@ -48,9 +48,10 @@ export const getMemberProfile = async (req: Request, res: Response) => {
     ]);
 
     const status = subscription?.status ?? null;
-    let membership_status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED' = 'EXPIRED';
+    let membership_status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED' | 'PENDING_PAYMENT' = 'EXPIRED';
     if (status === SubscriptionStatus.ACTIVE) membership_status = 'ACTIVE';
     else if (status === SubscriptionStatus.FROZEN) membership_status = 'SUSPENDED';
+    else if (status === SubscriptionStatus.PENDING_PAYMENT) membership_status = 'PENDING_PAYMENT';
     else if (status === SubscriptionStatus.EXPIRED || status === SubscriptionStatus.CANCELED)
       membership_status = 'EXPIRED';
 

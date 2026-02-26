@@ -243,7 +243,7 @@ export const AdminInventory = () => {
             </Button>
             <Button
               type="button"
-              className="border-rose-500 text-rose-600 hover:bg-rose-500/10"
+              variant="danger"
               onClick={async () => {
                 setDeleting(true)
                 try {

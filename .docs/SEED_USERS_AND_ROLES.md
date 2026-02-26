@@ -15,6 +15,8 @@ Documento de referencia para saber **quién puede hacer qué** en cada gym segú
 | **INSTRUCTOR** | Instructor de clases           | `/admin` (menú limitado) | Misma UI que COACH (Clases y Rutinas). Si el backend no incluye INSTRUCTOR en permisos de rutinas/asistencia, esas llamadas devolverán 403 hasta que se actualice. |
 | **MEMBER**     | Socio del gym                  | `/member` (portal socio) | Ver su perfil, historial, premios (si plan tiene gamificación), reservar clases (si plan tiene clases). **Plan BASIC:** sin acceso al portal (pantalla de bloqueo + Cerrar sesión). |
 
+El **admin puede activar módulos por persona** en Personal → Permisos (p. ej. coach que también vende, recepcionista que también edita rutinas). Ver **STAFF_PERMISSIONS_BY_ADMIN.md**.
+
 ---
 
 ## 2. Planes y módulos (qué incluye cada plan)

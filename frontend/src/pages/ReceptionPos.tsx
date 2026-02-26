@@ -4,6 +4,7 @@ import { ShoppingCart, Trash2, Wallet, Banknote } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { FormOpenShift, FormCloseShift, FormExpense } from '../components/reception/ShiftForms'
+import { HardwareScanner } from '../components/reception/HardwareScanner'
 import {
   fetchPosProducts,
   fetchCurrentShift,
@@ -31,6 +32,7 @@ export const ReceptionPosPage = () => {
   const [closeModal, setCloseModal] = useState(false)
   const [openShiftModal, setOpenShiftModal] = useState(false)
   const [customerEmail, setCustomerEmail] = useState('')
+  const [barcodeBuffer, setBarcodeBuffer] = useState('')
 
   const total = useMemo(
     () => cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0),
@@ -82,6 +84,36 @@ export const ReceptionPosPage = () => {
 
   const clearCart = () => setCart([])
 
+  /** Lector de barras: busca producto por barcode y añade al carrito o notifica error. */
+  const handleBarcodeScan = (code: string) => {
+    const trimmed = code.trim()
+    if (!trimmed) return
+    if (!hasOpenShift) {
+      notifyError({ title: 'Abre un turno', description: 'Necesitas abrir turno para vender.' })
+      setBarcodeBuffer('')
+      return
+    }
+    const product = products.find((p) => p.barcode && p.barcode === trimmed)
+    if (!product) {
+      notifyError({ title: 'Producto no encontrado', description: `No existe ningún producto con código "${trimmed}".` })
+      setBarcodeBuffer('')
+      return
+    }
+    if (product.stock < 1) {
+      notifyError({ title: 'Sin stock', description: `${product.name} no tiene stock disponible.` })
+      setBarcodeBuffer('')
+      return
+    }
+    const inCart = cart.reduce((s, l) => (l.product.id === product.id ? s + l.quantity : s), 0)
+    if (inCart >= product.stock) {
+      notifyError({ title: 'Sin stock', description: `Ya tienes el stock máximo de ${product.name} en el carrito.` })
+      setBarcodeBuffer('')
+      return
+    }
+    addToCart(product)
+    setBarcodeBuffer('')
+  }
+
   const handleCheckout = async () => {
     if (!cart.length || !hasOpenShift) return
     const items = cart.map((l) => ({ productId: l.product.id, quantity: l.quantity }))
@@ -105,7 +137,7 @@ export const ReceptionPosPage = () => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-6rem)] bg-background text-foreground px-4 py-6">
+    <div className="min-h-[calc(100vh-6rem)] bg-background text-foreground px-4 py-6 relative">
       <div className="mx-auto max-w-6xl space-y-4">
         {/* Tarjeta de turno */}
         <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4 shadow-sm">
@@ -167,11 +199,21 @@ export const ReceptionPosPage = () => {
             <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 mb-2">
               POS rápido
             </h2>
-            <p className="text-xs text-zinc-500 mb-4">
+            <p className="text-xs text-zinc-500 mb-3">
               {hasOpenShift
-                ? 'Toca un producto para añadir al carrito.'
+                ? 'Escanea el código de barras o toca un producto para añadir al carrito.'
                 : 'Abre un turno para vender.'}
             </p>
+            <div className="mb-4">
+              <HardwareScanner
+                value={barcodeBuffer}
+                onChange={setBarcodeBuffer}
+                onSubmit={handleBarcodeScan}
+                pauseFocus={!!(openShiftModal || closeModal || expenseModal)}
+                visible
+                placeholder="Escanea o escribe el código de barras..."
+              />
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {products.map((product) => (
                 <button

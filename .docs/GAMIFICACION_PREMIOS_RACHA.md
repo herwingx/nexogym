@@ -10,10 +10,10 @@
 
 - **Ruta:** `/admin/rewards` (ítem **Gamificación** en el menú lateral, solo si el plan tiene `gamification`).
 - **API:**
-  - `GET /api/v1/gym/rewards-config` — devuelve `{ streak_rewards: [{ days, label }, ...] }`.
-  - `PATCH /api/v1/gym/rewards-config` — body `{ streak_rewards }`. Validación: días ≥ 1, label 1–120 caracteres, máx. 20 hitos, sin días duplicados.
+  - `GET /api/v1/gym/rewards-config` — devuelve `{ streak_rewards, streak_freeze_days }`.
+  - `PATCH /api/v1/gym/rewards-config` — body `{ streak_rewards?, streak_freeze_days? }`. `streak_freeze_days` (1–90, default 7): días de gracia para congelar la racha cuando el socio **no renovó a tiempo** (venció y renueva tarde). No aplica cuando el socio descongela (eligió congelar; no se protege racha). Validación de `streak_rewards`: días ≥ 1, label 1–120 caracteres, máx. 20 hitos, sin días duplicados.
 
-El backend guarda en `Gym.rewards_config.streak_rewards`. Se admite formato legacy (`rewards_config` con claves numéricas o `streak_bonus`); el helper unificado en `backend/src/utils/rewards-config.ts` interpreta ambos.
+El backend guarda en `Gym.rewards_config` (`streak_rewards`, `streak_freeze_days`). Además, `Gym.opening_config` (`closed_weekdays`, `closed_dates`) permite definir qué días cierra el gym (no afectan la racha). Ver `SUBSCRIPTION_EXPIRY_AND_RENEWAL.md` sección 7 para el flujo de congelar racha y días cerrados. Se admite formato legacy (`rewards_config` con claves numéricas o `streak_bonus`); el helper unificado en `backend/src/utils/rewards-config.ts` interpreta ambos.
 
 ## Portal del socio
 
@@ -33,8 +33,25 @@ El backend guarda en `Gym.rewards_config.streak_rewards`. Se admite formato lega
   "streak_rewards": [
     { "days": 7, "label": "Batido gratis" },
     { "days": 30, "label": "Mes gratis" }
-  ]
+  ],
+  "streak_freeze_days": 7
 }
 ```
+
+`streak_freeze_days`: días de gracia para congelar racha cuando el socio no renovó a tiempo (default 7; rango 1–90). No aplica al descongelar.
+
+### opening_config (días cerrados)
+
+```json
+{
+  "closed_weekdays": [0, 6],
+  "closed_dates": ["01-01", "12-25"]
+}
+```
+
+- `closed_weekdays`: 0=Dom, 1=Lun, ..., 6=Sab. Días de la semana que el gym cierra.
+- `closed_dates`: festivos anuales en formato MM-DD (ej. 01-01, 12-25); máx. 30.
+
+Si todos los días entre el último check-in y hoy fueron cerrados (por weekday o festivo), la racha se congela (no se reinicia). Admin lo configura en Gamificación → "Días que cierra el gym".
 
 El backend acepta además formato legacy (claves numéricas `"7": "Batido gratis"` o `streak_bonus: { streak_7: 50 }`) para compatibilidad; `streak_rewards` tiene prioridad cuando existe.

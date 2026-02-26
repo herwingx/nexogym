@@ -17,14 +17,16 @@ import { notifyError, notifySuccess } from '../lib/notifications'
 import { useAuthStore } from '../store/useAuthStore'
 import { cn } from '../lib/utils'
 import { TableRowSkeleton } from '../components/ui/Skeleton'
+import { STATUS_BADGE as PALETTE } from '../lib/statusColors'
 
 const PAGE_SIZE = 20
 
 const STATUS_BADGE: Record<string, string> = {
-  ACTIVE: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  FROZEN: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-  EXPIRED: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-  CANCELED: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20',
+  ACTIVE: PALETTE.success,
+  FROZEN: PALETTE.info,
+  EXPIRED: PALETTE.danger,
+  CANCELED: PALETTE.neutral,
+  PENDING_PAYMENT: PALETTE.warning,
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -32,6 +34,7 @@ const STATUS_LABELS: Record<string, string> = {
   FROZEN: 'Congelado',
   EXPIRED: 'Vencido',
   CANCELED: 'Cancelado',
+  PENDING_PAYMENT: 'Pendiente de pago',
 }
 
 function getMemberStatus(row: MemberUserRow): string {
@@ -40,6 +43,7 @@ function getMemberStatus(row: MemberUserRow): string {
   const s = sub.status as string
   if (s === 'ACTIVE') return 'ACTIVE'
   if (s === 'FROZEN') return 'FROZEN'
+  if (s === 'PENDING_PAYMENT') return 'PENDING_PAYMENT'
   if (s === 'CANCELED') return 'CANCELED'
   return 'EXPIRED'
 }

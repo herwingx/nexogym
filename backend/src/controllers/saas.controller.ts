@@ -19,6 +19,7 @@ import {
   resolveModulesConfig,
 } from '../utils/modules-config';
 import { DEFAULT_GYM_PRODUCTS } from '../data/default-products';
+import { DEFAULT_EXERCISES } from '../data/default-exercises';
 import { closeAllOpenShiftsForGym } from './shift.controller';
 
 // POST /saas/gym
@@ -71,6 +72,12 @@ export const createGym = async (req: Request, res: Response) => {
         price: p.price,
         stock: p.stock,
       })),
+    });
+
+    // Base de ejercicios (admin/coach pueden agregar más desde el panel)
+    await prisma.exercise.createMany({
+      data: DEFAULT_EXERCISES.map((e) => ({ gym_id: gym.id, name: e.name, category: e.category })),
+      skipDuplicates: true,
     });
 
     let adminCreated: { email: string } | null = null;
@@ -221,6 +228,7 @@ export const listGyms = async (req: Request, res: Response) => {
         select: {
           id: true,
           name: true,
+          logo_url: true,
           status: true,
           deleted_at: true,
           subscription_tier: true,

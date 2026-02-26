@@ -22,11 +22,24 @@ export type TenantTheme = {
   primaryHex: string
 }
 
+export type EffectiveStaffPermissions = {
+  can_use_pos: boolean
+  can_use_routines: boolean
+  can_use_reception: boolean
+  can_view_dashboard?: boolean
+  can_view_members_admin?: boolean
+  can_use_finance?: boolean
+  can_manage_staff?: boolean
+  can_view_audit?: boolean
+  can_use_gamification?: boolean
+}
+
 export type AuthUser = {
   id: string
   name: string
   email: string
   role: Role
+  effective_staff_permissions?: EffectiveStaffPermissions
 }
 
 export type AuthState = {
@@ -41,6 +54,7 @@ export type AuthState = {
   /** Si el usuario debe cambiar contraseña en primer login. */
   mustChangePassword: boolean
   isBootstrapped: boolean
+  setTenantTheme: (theme: TenantTheme) => void
   setAuthContext: (payload: {
     user: AuthUser
     token: string
@@ -78,6 +92,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   gymLogoUrl: null,
   mustChangePassword: false,
   isBootstrapped: false,
+  setTenantTheme: (theme) => set({ tenantTheme: theme }),
   setAuthContext: ({ user, token, modulesConfig, tenantTheme, gymName, gymLogoUrl, mustChangePassword }) =>
     set({
       user,

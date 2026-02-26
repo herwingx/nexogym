@@ -36,6 +36,7 @@ export const ROUTES_CONFIG: Record<string, RouteEntry> = {
 
   // Member
   '/member': { label: 'Inicio' },
+  '/member/classes': { label: 'Clases', parent: '/member' },
   '/member/rewards': { label: 'Premios', parent: '/member' },
   '/member/history': { label: 'Historial', parent: '/member' },
   '/member/profile': { label: 'Perfil', parent: '/member' },

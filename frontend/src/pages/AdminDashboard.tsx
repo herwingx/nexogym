@@ -40,7 +40,9 @@ export const AdminDashboard = () => {
   const now = new Date()
   const [occupancy, setOccupancy] = useState<OccupancyResponse | null>(null)
 
-  if (user?.role === 'COACH' || user?.role === 'INSTRUCTOR') {
+  const perms = user?.effective_staff_permissions
+  const canViewDashboard = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' || perms?.can_view_dashboard === true
+  if (!canViewDashboard && (user?.role === 'COACH' || user?.role === 'INSTRUCTOR')) {
     return <Navigate to="/admin/routines" replace />
   }
   const [finance, setFinance] = useState<FinanceReport | null>(null)

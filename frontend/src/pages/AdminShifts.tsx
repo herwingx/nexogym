@@ -9,6 +9,11 @@ import { Modal } from '../components/ui/Modal'
 import { useAuthStore } from '../store/useAuthStore'
 import { PlanRestrictionCard } from '../components/ui/PlanRestrictionCard'
 import { isPlanRestrictionError } from '../lib/apiErrors'
+import {
+  STATUS_BADGE,
+  STATUS_BADGE_BORDER,
+  BADGE_BASE,
+} from '../lib/statusColors'
 
 const fmt = (n: number) =>
   n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -26,22 +31,22 @@ function StatusBadge({ expected, actual }: { expected: number; actual: number })
   const diff = actual - expected
   if (diff === 0)
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-        <Minus className="h-3 w-3" />
+      <span className={`${BADGE_BASE} border ${STATUS_BADGE_BORDER.success} ${STATUS_BADGE.success}`}>
+        <Minus className="h-3 w-3 shrink-0" />
         {STATUS_LABELS.balanced}
       </span>
     )
   if (diff > 0)
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-        <TrendingUp className="h-3 w-3" />
-        {STATUS_LABELS.surplus} (+${fmt(diff)})
+      <span className={`${BADGE_BASE} border ${STATUS_BADGE_BORDER.warning} ${STATUS_BADGE.warning}`}>
+        <TrendingUp className="h-3 w-3 shrink-0" />
+        {STATUS_LABELS.surplus} +${fmt(diff)}
       </span>
     )
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-medium text-rose-600 dark:text-rose-400">
-      <TrendingDown className="h-3 w-3" />
-      {STATUS_LABELS.shortage} (${fmt(diff)})
+    <span className={`${BADGE_BASE} border ${STATUS_BADGE_BORDER.danger} ${STATUS_BADGE.danger}`}>
+      <TrendingDown className="h-3 w-3 shrink-0" />
+      {STATUS_LABELS.shortage} ${fmt(diff)}
     </span>
   )
 }
@@ -177,7 +182,7 @@ export const AdminShifts = () => {
                     <Wallet className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                     <span className="font-medium">{s.user?.name ?? 'Sin nombre'}</span>
                     <span className="text-zinc-500 text-xs">
-                      abierto {formatTime(s.opened_at)} · Fondo ${s.opening_balance.toFixed(2)}
+                      abierto {formatTime(s.opened_at)} · Fondo ${fmt(Number(s.opening_balance ?? 0))}
                     </span>
                   </div>
                   <Button
@@ -215,7 +220,7 @@ export const AdminShifts = () => {
               </Button>
               <Button
                 type="button"
-                className="border-rose-500 text-rose-600 hover:bg-rose-500/10"
+                variant="danger"
                 onClick={handleForceCloseConfirm}
                 disabled={forceClosing}
               >
@@ -315,6 +320,45 @@ export const AdminShifts = () => {
                   </div>
                   </>
                 )}
+                {(detailShift.inventory_movements ?? []).length ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                      Movimientos de inventario durante el turno
+                    </p>
+                    <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+                      <table className="min-w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-zinc-200 dark:border-zinc-700 text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-800/50">
+                            <th className="py-1.5 px-3 text-left font-medium">Hora</th>
+                            <th className="py-1.5 px-3 text-left font-medium">Tipo</th>
+                            <th className="py-1.5 px-3 text-left font-medium">Producto</th>
+                            <th className="py-1.5 px-3 text-right font-medium">Cant.</th>
+                            <th className="py-1.5 px-3 text-left font-medium">Motivo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(detailShift.inventory_movements ?? []).map((m) => (
+                            <tr key={m.id} className="border-b border-zinc-100 dark:border-zinc-700/40 last:border-0">
+                              <td className="py-1.5 px-3 text-zinc-600 dark:text-zinc-400">
+                                {formatTime(m.created_at)}
+                              </td>
+                              <td className="py-1.5 px-3">
+                                <span className={m.type === 'RESTOCK' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+                                  {m.type === 'RESTOCK' ? 'Reingreso' : 'Merma'}
+                                </span>
+                              </td>
+                              <td className="py-1.5 px-3 text-zinc-700 dark:text-zinc-300">{m.product_name}</td>
+                              <td className="py-1.5 px-3 text-right text-zinc-700 dark:text-zinc-300">
+                                  {m.type === 'RESTOCK' ? `+${m.quantity}` : `-${m.quantity}`}
+                                </td>
+                              <td className="py-1.5 px-3 text-zinc-500 text-xs">{m.reason ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="flex justify-end">
                   <Button variant="outline" size="sm" onClick={() => { setDetailShiftId(null); setDetailShift(null) }}>
                     Cerrar

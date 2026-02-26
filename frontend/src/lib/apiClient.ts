@@ -50,12 +50,20 @@ export const fetchWithAuth = async (
   }
 }
 
+export type EffectiveStaffPermissions = {
+  can_use_pos: boolean
+  can_use_routines: boolean
+  can_use_reception: boolean
+}
+
 export type UserContextResponse = {
   user: {
     id: string
     name: string
     role: string
     profile_picture_url?: string | null
+    staff_permissions?: Record<string, boolean> | null
+    effective_staff_permissions?: EffectiveStaffPermissions
   }
   gym: {
     id: string
@@ -101,6 +109,7 @@ export const fetchSaasMetrics = async (): Promise<SaasMetrics> => {
 export type GymSummary = {
   id: string
   name: string
+  logo_url?: string | null
   subscription_tier: 'BASIC' | 'PRO_QR' | 'PREMIUM_BIO'
   modules_config: Record<string, boolean>
 }
@@ -211,6 +220,8 @@ export type StreakRewardItem = { days: number; label: string }
 
 export type GymRewardsConfig = {
   streak_rewards: StreakRewardItem[]
+  /** Días de gracia para congelar racha cuando el socio no renovó o descongeló. Default 7. */
+  streak_freeze_days?: number
 }
 
 export const fetchGymRewardsConfig = async (): Promise<GymRewardsConfig> => {
@@ -218,6 +229,32 @@ export const fetchGymRewardsConfig = async (): Promise<GymRewardsConfig> => {
   const raw = (await response.json().catch(() => ({}))) as GymRewardsConfig & Record<string, unknown>
   if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
   return raw as GymRewardsConfig
+}
+
+export type GymOpeningConfig = {
+  /** 0=Dom, 1=Lun, ..., 6=Sab. Días que el gym cierra; no afectan la racha. */
+  closed_weekdays: number[]
+  /** Festivos anuales MM-DD; tampoco afectan la racha. */
+  closed_dates?: string[]
+}
+
+export const fetchGymOpeningConfig = async (): Promise<GymOpeningConfig> => {
+  const response = await fetchWithAuth('/gym/opening-config')
+  const raw = (await response.json().catch(() => ({}))) as GymOpeningConfig & Record<string, unknown>
+  if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
+  return raw as GymOpeningConfig
+}
+
+export const updateGymOpeningConfig = async (
+  body: GymOpeningConfig,
+): Promise<GymOpeningConfig> => {
+  const response = await fetchWithAuth('/gym/opening-config', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+  const raw = (await response.json().catch(() => ({}))) as GymOpeningConfig & Record<string, unknown>
+  if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
+  return raw as GymOpeningConfig
 }
 
 export const updateGymRewardsConfig = async (
@@ -230,6 +267,21 @@ export const updateGymRewardsConfig = async (
   const raw = (await response.json().catch(() => ({}))) as GymRewardsConfig & Record<string, unknown>
   if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
   return raw as GymRewardsConfig
+}
+
+/** Admin: actualiza el color de acento del gym (white-label). */
+export const updateGymThemeColors = async (
+  primary: string,
+): Promise<{ theme_colors: { primary: string } }> => {
+  const response = await fetchWithAuth('/gym/theme-colors', {
+    method: 'PATCH',
+    body: JSON.stringify({ primary }),
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new Error((data as { error?: string })?.error ?? `Error (${response.status})`)
+  }
+  return response.json() as Promise<{ theme_colors: { primary: string } }>
 }
 
 export type GymDetail = GymSummary & {
@@ -376,24 +428,95 @@ export const fetchAuditLog = async (params?: {
 export type GymClass = {
   id: string
   name: string
+  description?: string | null
   instructor_id: string
-  instructor_name?: string
+  instructor_name?: string | null
   capacity: number
   available_slots: number
   day_of_week: number
   start_time: string
   end_time: string
+  price?: number | string | null
 }
 
-type BackendGymClass = GymClass & { instructor?: { name: string } }
+type BackendGymClass = Omit<GymClass, 'instructor_name'> & { instructor?: { name: string } }
 
-export const fetchClasses = async (dayOfWeek?: number): Promise<GymClass[]> => {
-  const query = dayOfWeek !== undefined ? `?day=${dayOfWeek}` : ''
+export const fetchClasses = async (
+  dayOfWeek?: number,
+  date?: string,
+): Promise<GymClass[]> => {
+  const params = new URLSearchParams()
+  if (dayOfWeek !== undefined) params.set('day', String(dayOfWeek))
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) params.set('date', date)
+  const query = params.toString() ? `?${params.toString()}` : ''
   const response = await fetchWithAuth(`/bookings/classes${query}`)
   if (!response.ok) throw new Error(`Failed to load classes (${response.status})`)
   const raw = await response.json()
   const arr = (Array.isArray(raw) ? raw : raw.data) as BackendGymClass[]
-  return arr.map((c) => ({ ...c, instructor_name: c.instructor?.name }))
+  return arr.map((c) => ({ ...c, instructor_name: (c as { instructor?: { name: string } }).instructor?.name ?? null }))
+}
+
+export type CreateClassPayload = {
+  name: string
+  description?: string | null
+  instructorId: string
+  capacity: number
+  day_of_week: number
+  start_time: string
+  end_time: string
+  price?: number | null
+}
+
+export const createClass = async (payload: CreateClassPayload) => {
+  const response = await fetchWithAuth('/bookings/classes', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => null)
+    throw new Error((err?.message ?? err?.error) ?? `Create class failed (${response.status})`)
+  }
+  const data = await response.json()
+  return (data.data ?? data) as GymClass
+}
+
+export type UpdateClassPayload = Partial<CreateClassPayload>
+
+export const updateClass = async (id: string, payload: UpdateClassPayload) => {
+  const response = await fetchWithAuth(`/bookings/classes/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => null)
+    throw new Error((err?.message ?? err?.error) ?? `Update class failed (${response.status})`)
+  }
+  const data = await response.json()
+  return (data.data ?? data) as GymClass
+}
+
+export const deleteClass = async (id: string) => {
+  const response = await fetchWithAuth(`/bookings/classes/${id}`, { method: 'DELETE' })
+  if (!response.ok) {
+    const err = await response.json().catch(() => null)
+    throw new Error((err?.message ?? err?.error) ?? `Delete class failed (${response.status})`)
+  }
+}
+
+export type ClassBooking = {
+  id: string
+  class_id: string
+  user_id: string
+  booking_date: string
+  status: string
+  class: { name: string; start_time: string; end_time: string; day_of_week: number; price?: number | string | null }
+}
+
+export const fetchMyBookings = async (): Promise<ClassBooking[]> => {
+  const response = await fetchWithAuth('/bookings/me')
+  if (!response.ok) throw new Error(`Failed to load bookings (${response.status})`)
+  const data = await response.json()
+  return (data.data ?? data) as ClassBooking[]
 }
 
 export type CreateBookingPayload = { classId: string; date: string }
@@ -433,8 +556,8 @@ export type WorkoutExercise = {
 
 export type Routine = {
   id: string
-  user_id: string
-  user_name?: string
+  user_id: string | null
+  user_name?: string | null
   name: string
   description?: string | null
   exercises: WorkoutExercise[]
@@ -448,7 +571,7 @@ export const fetchRoutines = async (): Promise<Routine[]> => {
 }
 
 export type CreateRoutinePayload = {
-  userId: string
+  userId?: string | null
   name: string
   description?: string
   exercises: Omit<WorkoutExercise, 'id'>[]
@@ -480,6 +603,96 @@ export const addExerciseToRoutine = async (
   return response.json()
 }
 
+export const removeExerciseFromRoutine = async (
+  routineId: string,
+  exerciseId: string,
+) => {
+  const response = await fetchWithAuth(
+    `/routines/${routineId}/exercises/${exerciseId}`,
+    { method: 'DELETE' },
+  )
+  if (!response.ok) throw new Error(`Remove exercise failed (${response.status})`)
+}
+
+export type UpdateExercisePayload = Partial<Omit<WorkoutExercise, 'id'>>
+
+export const updateExerciseInRoutine = async (
+  routineId: string,
+  exerciseId: string,
+  payload: UpdateExercisePayload,
+) => {
+  const response = await fetchWithAuth(
+    `/routines/${routineId}/exercises/${exerciseId}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  )
+  if (!response.ok) throw new Error(`Update exercise failed (${response.status})`)
+  return response.json()
+}
+
+export type UpdateRoutinePayload = { name?: string; description?: string }
+
+export const updateRoutine = async (
+  routineId: string,
+  payload: UpdateRoutinePayload,
+) => {
+  const response = await fetchWithAuth(`/routines/${routineId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) throw new Error(`Update routine failed (${response.status})`)
+  return response.json()
+}
+
+export const deleteRoutine = async (routineId: string) => {
+  const response = await fetchWithAuth(`/routines/${routineId}`, {
+    method: 'DELETE',
+  })
+  if (!response.ok) throw new Error(`Delete routine failed (${response.status})`)
+}
+
+export const duplicateRoutineToMembers = async (
+  routineId: string,
+  userIds: string[],
+): Promise<Routine[]> => {
+  const response = await fetchWithAuth(`/routines/${routineId}/duplicate`, {
+    method: 'POST',
+    body: JSON.stringify({ userIds }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => null)
+    throw new Error((err?.message ?? err?.error) ?? `Duplicate routine failed (${response.status})`)
+  }
+  const json = await response.json()
+  return (json.data ?? []) as Routine[]
+}
+
+export type ExerciseCatalogItem = { id: string; name: string; category: string | null }
+
+export const fetchExercises = async (
+  q?: string,
+  category?: string,
+): Promise<ExerciseCatalogItem[]> => {
+  const params = new URLSearchParams()
+  if (q?.trim()) params.set('q', q.trim())
+  if (category?.trim()) params.set('category', category.trim())
+  const response = await fetchWithAuth(`/exercises?${params.toString()}`)
+  if (!response.ok) throw new Error(`Failed to load exercises (${response.status})`)
+  const data = await response.json()
+  return (data.data ?? data) as ExerciseCatalogItem[]
+}
+
+export const createCatalogExercise = async (payload: {
+  name: string
+  category?: string | null
+}) => {
+  const response = await fetchWithAuth('/exercises', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  if (!response.ok) throw new Error(`Create exercise failed (${response.status})`)
+  return response.json()
+}
+
 // ────────────────────────────────────────────────
 // Portal del Socio
 // ────────────────────────────────────────────────
@@ -490,7 +703,7 @@ export type MemberProfile = {
   name: string
   email: string
   profile_picture_url?: string | null
-  membership_status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED'
+  membership_status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED' | 'PENDING_PAYMENT'
   membership_type?: string | null
   expiry_date?: string | null
   current_streak: number
@@ -814,9 +1027,20 @@ export type ShiftSaleRow = {
   items: Array<{ product_name: string; quantity: number; price: number; line_total: number }>
 }
 
+export type ShiftInventoryMovement = {
+  id: string
+  type: 'RESTOCK' | 'LOSS'
+  product_name: string
+  quantity: number
+  reason: string | null
+  created_at: string
+  user_name: string | null
+}
+
 export type ShiftSalesResponse = {
   data: ShiftSaleRow[]
   shift: { id: string; opened_at: string; closed_at: string | null; status: string }
+  inventory_movements: ShiftInventoryMovement[]
 }
 
 export const fetchShiftSales = async (shiftId: string): Promise<ShiftSalesResponse> => {
@@ -1015,7 +1239,8 @@ export const createStaff = async (payload: CreateStaffPayload): Promise<CreateSt
   })
   if (!res.ok) {
     const err = await res.json().catch(() => null)
-    throw new Error((err?.error ?? err?.detail ?? err?.message) ?? `Create staff failed (${res.status})`)
+    const msg = (err?.detail ?? err?.error ?? err?.message) ?? `Create staff failed (${res.status})`
+    throw new Error(msg)
   }
   return res.json()
 }
@@ -1028,7 +1253,35 @@ export type StaffUserRow = {
   role: string
   auth_user_id?: string | null
   deleted_at: string | null
+  staff_permissions?: Record<string, boolean> | null
   created_at: string
+}
+
+export type StaffPermissionsPayload = {
+  can_use_pos?: boolean
+  can_use_routines?: boolean
+  can_use_reception?: boolean
+  can_view_dashboard?: boolean
+  can_view_members_admin?: boolean
+  can_use_finance?: boolean
+  can_manage_staff?: boolean
+  can_view_audit?: boolean
+  can_use_gamification?: boolean
+}
+
+export const updateStaffPermissions = async (
+  userId: string,
+  payload: StaffPermissionsPayload,
+): Promise<{ message: string; staff_permissions: Record<string, boolean> | null }> => {
+  const res = await fetchWithAuth(`/users/${userId}/staff-permissions`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Update permissions failed (${res.status})`)
+  }
+  return res.json()
 }
 
 export type StaffStatus = 'active' | 'inactive' | 'all'
@@ -1049,6 +1302,14 @@ export const fetchStaffUsers = async (
   return res.json()
 }
 
+/** Instructores (COACH/INSTRUCTOR) para dropdown en clases. Usa requireCanUseRoutines (Coach sin recepción también). */
+export const fetchInstructors = async (): Promise<StaffUserRow[]> => {
+  const res = await fetchWithAuth('/users/instructors')
+  if (!res.ok) throw new Error(`Failed to load instructors (${res.status})`)
+  const json = await res.json()
+  return json.data ?? []
+}
+
 export const restoreUser = async (id: string): Promise<{ message: string }> => {
   const res = await fetchWithAuth(`/users/${id}/restore`, { method: 'PATCH' })
   if (!res.ok) {
@@ -1063,6 +1324,16 @@ export const deleteUser = async (id: string): Promise<{ message: string }> => {
   if (!res.ok) {
     const err = await res.json().catch(() => null)
     throw new Error((err?.error ?? err?.message) ?? `Delete failed (${res.status})`)
+  }
+  return res.json()
+}
+
+/** Admin obtiene el username (email) de login del staff. La contraseña no se puede recuperar. */
+export const fetchStaffLogin = async (userId: string): Promise<{ username: string }> => {
+  const res = await fetchWithAuth(`/users/${userId}/staff-login`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Failed to get staff login (${res.status})`)
   }
   return res.json()
 }

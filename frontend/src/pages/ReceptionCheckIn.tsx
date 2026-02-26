@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Camera, Keyboard } from 'lucide-react'
+import { Camera, ScanLine } from 'lucide-react'
 import { sileo } from 'sileo'
 import {
   submitCheckin,
@@ -13,10 +13,12 @@ import {
 import { CardSkeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
 import { HardwareScanner } from '../components/reception/HardwareScanner'
+import { CameraScanner } from '../components/reception/CameraScanner'
 import { CheckInModal, type CheckInModalState } from '../components/reception/CheckInModal'
 import { FormOpenShift, FormCloseShift } from '../components/reception/ShiftForms'
 import { Button } from '../components/ui/Button'
 import { useAuthStore } from '../store/useAuthStore'
+import { STATUS_BADGE } from '../lib/statusColors'
 
 type CheckinResult = CheckinSuccessResponse | null
 type ModalState = {
@@ -40,6 +42,7 @@ export const ReceptionCheckInPage = () => {
   const [lastResult, setLastResult] = useState<CheckinResult>(null)
   const [modal, setModal] = useState<ModalState | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
 
   const loadShift = useCallback(async () => {
     try {
@@ -172,7 +175,7 @@ export const ReceptionCheckInPage = () => {
     }
   }, [])
 
-  const modalOpen = modal !== null || openShiftModal || closeShiftModal
+  const modalOpen = modal !== null || openShiftModal || closeShiftModal || cameraOpen
 
   if (isLoading) {
     return (
@@ -211,30 +214,26 @@ export const ReceptionCheckInPage = () => {
                   Escáner USB como teclado. Solo apunta y dispara.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1 rounded-full border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-1 text-[11px] text-zinc-500">
-                <Keyboard className="h-3.5 w-3.5" />
-                Foco infinito
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400"
+                title="El input mantiene el foco para que el escáner USB escriba sin tocar nada"
+              >
+                <ScanLine className="h-3.5 w-3.5" />
+                Listo para escanear
               </span>
             </div>
 
-            <div className="mt-6 space-y-3 text-xs text-zinc-500">
-              <p>
-                El lector QR USB escribe el código completo seguido de{' '}
-                <span className="font-mono text-zinc-700 dark:text-zinc-300">Enter</span>. Este
-                panel captura y procesa cada lectura sin que el recepcionista tenga que tocar nada.
-              </p>
-            </div>
+            <p className="mt-4 text-xs text-zinc-500">
+              El lector QR USB escribe el código completo seguido de{' '}
+              <span className="font-mono text-zinc-700 dark:text-zinc-300">Enter</span>. Este
+              panel captura y procesa cada lectura sin que el recepcionista tenga que tocar nada.
+            </p>
 
             <div className="mt-4">
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-white/10 bg-transparent hover:bg-zinc-100 dark:hover:bg-white/5 px-2.5 py-1.5 text-[11px] text-zinc-500 transition-colors"
-                onClick={() =>
-                  sileo.info({
-                    title: 'Cámara',
-                    description: 'En un sprint posterior integraremos html5-qrcode como opción secundaria.',
-                  })
-                }
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-white/10 bg-transparent hover:bg-zinc-100 dark:hover:bg-white/5 px-2.5 py-1.5 text-[11px] text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
+                onClick={() => setCameraOpen(true)}
               >
                 <Camera className="h-3.5 w-3.5" />
                 Usar cámara
@@ -248,31 +247,46 @@ export const ReceptionCheckInPage = () => {
               Último check-in
             </h2>
             {lastResult ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-4">
                 {lastResult.user.profile_picture_url ? (
                   <img
                     src={lastResult.user.profile_picture_url}
                     alt={lastResult.user.name}
-                    className="h-12 w-12 rounded-full object-cover border border-zinc-200 dark:border-white/10"
+                    className="h-14 w-14 rounded-full object-cover border-2 border-zinc-200 dark:border-white/10 shrink-0"
                   />
                 ) : (
-                  <div className="h-12 w-12 rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800" />
+                  <div className="h-14 w-14 rounded-full border-2 border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center text-lg font-semibold text-zinc-400">
+                    {lastResult.user.name?.charAt(0) ?? '?'}
+                  </div>
                 )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                     {lastResult.user.name}
                   </p>
-                  <p className="text-xs text-zinc-500 truncate">{lastResult.message}</p>
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${STATUS_BADGE.success}`}
+                  >
+                    Acceso concedido
+                  </span>
+                  {lastResult.streak_updated && (
+                    <p className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                      <span role="img" aria-hidden="true">🔥</span>
+                      <span>Racha: {lastResult.newStreak} días</span>
+                    </p>
+                  )}
+                  {!lastResult.streak_updated && lastResult.newStreak > 0 && (
+                    <p className="text-xs text-zinc-500">Racha: {lastResult.newStreak} días</p>
+                  )}
                 </div>
-                <span className="inline-flex items-center rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                  Racha: <span className="font-semibold ml-1">{lastResult.newStreak}</span>
-                </span>
               </div>
             ) : (
-              <p className="text-xs text-zinc-500">
-                Aún no hay check-ins en esta sesión. El próximo escaneo mostrará aquí los datos del
-                socio.
-              </p>
+              <div className="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-6 text-center">
+                <ScanLine className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-2" />
+                <p className="text-xs text-zinc-500">
+                  Aún no hay check-ins en esta sesión. El próximo escaneo mostrará aquí los datos del
+                  socio.
+                </p>
+              </div>
             )}
           </div>
         </section>
@@ -337,6 +351,13 @@ export const ReceptionCheckInPage = () => {
         </aside>
       </div>
 
+      <CameraScanner
+        isOpen={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onScan={handleSubmit}
+        mode="qr"
+        title="Escanear QR del socio"
+      />
       {modal && (
         <CheckInModal
           isOpen

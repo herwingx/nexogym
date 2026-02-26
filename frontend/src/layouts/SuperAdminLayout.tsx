@@ -16,8 +16,8 @@ export const SuperAdminLayout = () => {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="shrink-0 border-b border-zinc-200 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95">
+    <div className="h-screen overflow-hidden bg-background text-foreground flex flex-col">
+      <header className="shrink-0 border-b border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-950">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-3 min-w-0">
             <Link
@@ -53,7 +53,7 @@ export const SuperAdminLayout = () => {
           </div>
         </div>
       </header>
-      <main className="flex-1 min-h-0">
+      <main className="flex-1 min-h-0 overflow-y-auto">
         <Outlet />
       </main>
     </div>

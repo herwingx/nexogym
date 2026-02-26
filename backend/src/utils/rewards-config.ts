@@ -91,6 +91,18 @@ export function getRewardMessageForStreak(parsed: ParsedRewardsConfig, streak: n
   return parsed.streakToLabel[streak] ?? null;
 }
 
+/** Días de gracia para congelar racha cuando el socio no renovó o descongeló su suscripción. Default 7. */
+const DEFAULT_STREAK_FREEZE_DAYS = 7;
+
+/** Lee streak_freeze_days de rewards_config (1–30). Por defecto 7. */
+export function getStreakFreezeDays(rewardsConfig: unknown): number {
+  if (!rewardsConfig || typeof rewardsConfig !== 'object') return DEFAULT_STREAK_FREEZE_DAYS;
+  const raw = (rewardsConfig as Record<string, unknown>).streak_freeze_days;
+  const n = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
+  if (!Number.isNaN(n) && n >= 1 && n <= 90) return Math.round(n);
+  return DEFAULT_STREAK_FREEZE_DAYS;
+}
+
 /**
  * Dado el listado de hitos, devuelve el próximo hito y su label (para next_reward del socio).
  */

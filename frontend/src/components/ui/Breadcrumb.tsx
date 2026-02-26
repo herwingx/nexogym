@@ -30,7 +30,7 @@ export const Breadcrumb = ({ className, compact }: BreadcrumbProps) => {
     <nav
       aria-label="Breadcrumb"
       className={cn(
-        'flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400',
+        'flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400 min-w-0',
         compact ? 'px-3 py-2' : 'px-4 py-3',
         className
       )}

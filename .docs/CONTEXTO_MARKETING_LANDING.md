@@ -93,7 +93,7 @@ Dolor del cliente + solución NexoGym. Usar estos puntos para los textos del Her
 ## 5. Diferenciadores Clave (Killer Features — resumen)
 
 - **Seguridad Anti-Passback y Validación Visual:** No más préstamos de membresía. El código QR estático bloquea entradas dobles por 4 horas y lanza una foto gigante del socio en la pantalla de recepción.
-- **Check-in "Hardware-First":** Optimizado para la vida real. Recepción ultrarrápida con pistolas lectoras USB; cero clics, cero retrasos en horas pico.
+- **Check-in "Hardware-First":** Optimizado para la vida real. Recepción ultrarrápida con pistolas lectoras USB; cero clics, cero retrasos en horas pico. Si no tienes lector físico, puedes usar la cámara del teléfono o tablet para escanear el QR del socio.
 - **Cero Robo Hormiga (AuditLog):** Registro inborrable de mermas de inventario, descuadres de caja y accesos de "cortesía" dados por el staff.
 - **Automatización por WhatsApp:** Bienvenidas, recordatorios y premios de gamificación enviados automáticamente al WhatsApp del cliente (Powered by n8n).
 
@@ -214,8 +214,8 @@ Objetivo: que el dueño del gimnasio sienta **urgencia** y **confianza**.
 1. **¿Qué pasa si me quedo sin internet?**  
    NexoGym es un sistema en la nube de alta velocidad. Requiere conexión a internet estable. Para accesos biométricos de emergencia, recomendamos hardware con memoria caché interna temporal.
 
-2. **¿Necesito comprar webcams caras para leer los códigos QR?**  
-   No. NexoGym está diseñado con arquitectura "Hardware-First". Recomendamos pistolas lectoras de QR por USB (menos de ~20 USD). Son más rápidas, no requieren configuración compleja y el sistema las lee al instante.
+2. **¿Necesito comprar webcams o lectores caros para leer los códigos QR?**  
+   No. NexoGym está diseñado con arquitectura "Hardware-First". Recomendamos pistolas lectoras de QR por USB (menos de ~20 USD). Son más rápidas y no requieren configuración compleja. Si operas desde el móvil o no tienes lector, la app incluye la opción "Usar cámara" para escanear el QR con la cámara del dispositivo.
 
 3. **¿El sistema avisa si alguien le pasa su código a un amigo?**  
    Sí. Tecnología Anti-Passback: bloquea reingresos antes de 4 horas. Además, la foto de perfil del socio se muestra en pantalla en recepción para validación visual.

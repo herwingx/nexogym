@@ -1,6 +1,6 @@
 import type { ReactNode, KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { ModalCloseButton } from './ModalCloseButton'
 import { cn } from '../../lib/utils'
 
 export interface ModalProps {
@@ -58,14 +58,7 @@ export const Modal = ({
               </p>
             )}
           </div>
-          <button
-            type="button"
-            aria-label="Close"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 dark:border-white/10 bg-white/80 dark:bg-zinc-900/80 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-            onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <ModalCloseButton onClose={onClose} variant="default" />
         </div>
         <div className="mt-4">{children}</div>
       </div>

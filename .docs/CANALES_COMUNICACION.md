@@ -2,6 +2,8 @@
 
 Estrategia de canales: **Email** solo para bienvenida y recuperación de contraseña; **WhatsApp** para QR, cumpleaños y mensajes al socio.
 
+> **Setup operativo:** Proveedores de correo para n8n, estrategia de dominios y checklist de configuración en **EMAIL_N8N_Y_DOMINIOS.md**.
+
 ---
 
 ## 1. Resumen por canal
@@ -106,7 +108,18 @@ El staff (Recep, Coach, Instructor) son personal que rota. **No usamos correo pe
 
 ---
 
-## 6. Variables de entorno
+## 6. Supabase SMTP vs n8n
+
+| Quién envía | Qué |
+|-------------|-----|
+| **Supabase** (SMTP en Dashboard) | Solo "olvidé contraseña" en el login. No hay API para otros correos. |
+| **n8n** (con Resend, SendGrid, etc.) | Bienvenidas, comprobantes, reset staff, y todos los demás emails transaccionales. |
+
+Ver **EMAIL_N8N_Y_DOMINIOS.md** para proveedores recomendados, dominio y checklist.
+
+---
+
+## 7. Variables de entorno
 
 | Variable | Uso |
 |----------|-----|
@@ -116,7 +129,7 @@ El staff (Recep, Coach, Instructor) son personal que rota. **No usamos correo pe
 
 ---
 
-## 7. Webhooks n8n
+## 8. Webhooks n8n
 
 | Webhook | Evento | Canal | Payload principal |
 |---------|--------|-------|-------------------|

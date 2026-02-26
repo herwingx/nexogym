@@ -54,7 +54,7 @@ En plan **Basic**, los socios no tienen acceso al portal; ven una pantalla de bl
 
 #### Check-in
 - Check-in manual (búsqueda por nombre/teléfono).
-- Check-in por QR (si el plan tiene `qr_access`).
+- Check-in por QR (si el plan tiene `qr_access`): con pistola USB/Bluetooth o con la cámara del dispositivo (botón "Usar cámara").
 - Check-in de cortesía (acceso temporal para vencidos/cancelados).
 
 #### POS (ventas)
@@ -112,7 +112,7 @@ Solo disponible en planes **PRO_QR** y **PREMIUM_BIO**. En plan Basic: bloqueado
 
 ## 5. Notas técnicas para la documentación de usuario
 
-- **Códigos de barras:** Admite escáner USB tipo teclado; el código se escribe en el campo correspondiente.
+- **Códigos de barras:** Admite escáner USB tipo teclado; el código se escribe automáticamente. (En sprint posterior: opción de escanear con cámara del dispositivo.)
 - **Productos con mismo barcode:** Todas las unidades comparten el mismo código (ej. 15 botellas de agua = 1 producto, stock 15).
 - **Inputs numéricos:** Los campos de monto (fondo inicial, efectivo contado) aceptan decimales con punto o coma.
 

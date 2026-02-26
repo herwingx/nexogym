@@ -2,7 +2,7 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import { Loader2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
-type ButtonVariant = 'primary' | 'outline'
+type ButtonVariant = 'primary' | 'outline' | 'danger'
 type ButtonSize = 'sm' | 'md' | 'lg'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -22,6 +22,8 @@ const variantClasses: Record<ButtonVariant, string> = {
     'bg-primary text-primary-foreground shadow-sm hover:opacity-90 transition-opacity',
   outline:
     'bg-transparent border border-zinc-200 dark:border-white/10 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors',
+  danger:
+    'bg-rose-500 text-white border border-rose-500 shadow-sm hover:bg-rose-600 hover:border-rose-600 transition-colors',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

@@ -1,0 +1,35 @@
+/**
+ * Ejercicios base que se crean al dar de alta un gym.
+ * Admin y coaches pueden agregar más desde el panel.
+ */
+export const DEFAULT_EXERCISES: { name: string; category: string }[] = [
+  { name: 'Press Banca Plano', category: 'Pecho' },
+  { name: 'Press Inclinado con Mancuernas', category: 'Pecho' },
+  { name: 'Press Declive', category: 'Pecho' },
+  { name: 'Aperturas con Mancuernas', category: 'Pecho' },
+  { name: 'Fondos en Paralelas', category: 'Pecho' },
+  { name: 'Dominadas', category: 'Espalda' },
+  { name: 'Remo con Barra', category: 'Espalda' },
+  { name: 'Jalón al Pecho', category: 'Espalda' },
+  { name: 'Remo con Mancuerna', category: 'Espalda' },
+  { name: 'Peso Muerto', category: 'Espalda' },
+  { name: 'Press Militar', category: 'Hombros' },
+  { name: 'Elevaciones Laterales', category: 'Hombros' },
+  { name: 'Face Pull', category: 'Hombros' },
+  { name: 'Encogimientos', category: 'Hombros' },
+  { name: 'Curl con Barra', category: 'Brazos' },
+  { name: 'Curl con Mancuernas', category: 'Brazos' },
+  { name: 'Curl Concentrado', category: 'Brazos' },
+  { name: 'Extensión de Tríceps', category: 'Brazos' },
+  { name: 'Fondos de Tríceps', category: 'Brazos' },
+  { name: 'Press Francés', category: 'Brazos' },
+  { name: 'Sentadilla Libre', category: 'Piernas' },
+  { name: 'Prensa 45°', category: 'Piernas' },
+  { name: 'Peso Muerto Rumano', category: 'Piernas' },
+  { name: 'Extensión de Cuádriceps', category: 'Piernas' },
+  { name: 'Curl Femoral', category: 'Piernas' },
+  { name: 'Zancadas', category: 'Piernas' },
+  { name: 'Plancha', category: 'Core' },
+  { name: 'Crunch Abdominal', category: 'Core' },
+  { name: 'Elevación de Piernas', category: 'Core' },
+];

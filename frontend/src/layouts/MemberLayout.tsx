@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
-import { Home, Trophy, History, LogOut, User } from 'lucide-react'
+import { Home, Trophy, History, LogOut, User, CalendarDays } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { cn } from '../lib/utils'
 import { logout } from '../lib/logout'
@@ -8,6 +8,7 @@ import { ThemeToggle } from '../components/ui/ThemeToggle'
 
 const navItems = [
   { label: 'Inicio', to: '/member', icon: Home },
+  { label: 'Clases', to: '/member/classes', icon: CalendarDays, moduleKey: 'classes' as const },
   { label: 'Premios', to: '/member/rewards', icon: Trophy },
   { label: 'Historial', to: '/member/history', icon: History },
   { label: 'Perfil', to: '/member/profile', icon: User },
@@ -16,7 +17,13 @@ const navItems = [
 export const MemberLayout = () => {
   const navigate = useNavigate()
   const gymName = useAuthStore((state) => state.gymName)
+  const gymLogoUrl = useAuthStore((state) => state.gymLogoUrl)
+  const modules = useAuthStore((state) => state.modulesConfig)
   const brandName = gymName ?? 'NexoGym'
+  const filteredNav = navItems.filter((item) => {
+    if (!('moduleKey' in item) || !item.moduleKey) return true
+    return Boolean(modules[item.moduleKey])
+  })
 
   const handleLogout = () => {
     logout().then(() => navigate('/login', { replace: true }))
@@ -25,10 +32,17 @@ export const MemberLayout = () => {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Barra superior con Salir */}
-      <header className="sticky top-0 z-30 border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl px-4 py-2 flex items-center justify-between">
-        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">
-          {brandName}
-        </span>
+      <header className="sticky top-0 z-30 border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl px-4 py-2.5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {gymLogoUrl ? (
+            <div className="shrink-0 h-8 w-8 rounded-lg border border-zinc-200/80 dark:border-white/10 flex items-center justify-center overflow-hidden bg-white dark:bg-zinc-900">
+              <img src={gymLogoUrl} alt="" className="h-full w-full object-contain p-0.5" />
+            </div>
+          ) : null}
+          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate">
+            {brandName}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           <ThemeToggle size="sm" />
           <button
@@ -52,7 +66,7 @@ export const MemberLayout = () => {
       {/* Bottom Navigation Bar — glassmorphism, light/dark */}
       <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl pb-safe">
         <div className="flex items-center justify-around px-2 py-2 max-w-md mx-auto">
-          {navItems.map((item) => {
+          {filteredNav.map((item) => {
             const Icon = item.icon
             return (
               <NavLink

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuthStore } from '../store/useAuthStore'
 import { Search, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   searchMembers,
@@ -17,18 +18,16 @@ import { Button } from '../components/ui/Button'
 import { TableRowSkeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
 import { EditMemberForm } from '../components/members/EditMemberForm'
+import { STATUS_BADGE as PALETTE } from '../lib/statusColors'
 
-type MemberStatus = 'ACTIVE' | 'FROZEN' | 'EXPIRED' | 'CANCELED'
+type MemberStatus = 'ACTIVE' | 'FROZEN' | 'EXPIRED' | 'CANCELED' | 'PENDING_PAYMENT'
 
 const STATUS_BADGE: Record<MemberStatus, string> = {
-  ACTIVE:
-    'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  FROZEN:
-    'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-  EXPIRED:
-    'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-  CANCELED:
-    'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20',
+  ACTIVE: PALETTE.success,
+  FROZEN: PALETTE.info,
+  EXPIRED: PALETTE.danger,
+  CANCELED: PALETTE.neutral,
+  PENDING_PAYMENT: PALETTE.warning,
 }
 
 const STATUS_LABELS: Record<MemberStatus, string> = {
@@ -36,6 +35,7 @@ const STATUS_LABELS: Record<MemberStatus, string> = {
   FROZEN: 'Congelado',
   EXPIRED: 'Expirado',
   CANCELED: 'Cancelado',
+  PENDING_PAYMENT: 'Pendiente de pago',
 }
 
 function getMemberStatus(row: MemberUserRow): MemberStatus {
@@ -44,6 +44,7 @@ function getMemberStatus(row: MemberUserRow): MemberStatus {
   const s = sub.status as string
   if (s === 'ACTIVE') return 'ACTIVE'
   if (s === 'FROZEN') return 'FROZEN'
+  if (s === 'PENDING_PAYMENT') return 'PENDING_PAYMENT'
   if (s === 'CANCELED') return 'CANCELED'
   return 'EXPIRED'
 }
@@ -51,6 +52,7 @@ function getMemberStatus(row: MemberUserRow): MemberStatus {
 const PAGE_SIZE = 20
 
 export const AdminMembers = () => {
+  const isAdmin = useAuthStore((s) => s.user?.role === 'ADMIN' || s.user?.role === 'SUPERADMIN')
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<MemberSummary[]>([])
   const [searching, setSearching] = useState(false)
@@ -326,7 +328,7 @@ export const AdminMembers = () => {
                                 </Button>
                               </>
                             )}
-                            {(status === 'ACTIVE' || status === 'FROZEN') && (
+                            {isAdmin && (status === 'ACTIVE' || status === 'FROZEN') && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -430,7 +432,7 @@ export const AdminMembers = () => {
               void load(meta.page)
             }}
             onCancel={() => setEditMember(null)}
-            canRegenerateQr
+            canRegenerateQr={isAdmin}
           />
         </Modal>
       )}

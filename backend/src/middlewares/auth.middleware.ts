@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Role } from '@prisma/client';
 import { supabase } from '../lib/supabase';
 import { prisma } from '../db';
+import { getEffectiveStaffPermissions } from '../utils/staff-permissions';
 
 const ACTIVE_STATUS = 'ACTIVE';
 
@@ -30,13 +31,13 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     const supabaseUserId = data.user.id;
 
-    // Fetch internal user and gym status in one go
+    // Fetch internal user and gym status in one go (staff_permissions for effective permissions)
     const user = await prisma.user.findFirst({
       where: {
         deleted_at: null,
         OR: [{ id: supabaseUserId }, { auth_user_id: supabaseUserId }],
       },
-      select: { id: true, gym_id: true, role: true },
+      select: { id: true, gym_id: true, role: true, staff_permissions: true },
     });
 
     if (!user) {
@@ -61,6 +62,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     req.authUserId = supabaseUserId;
     req.gymId = user.gym_id;
     req.userRole = user.role;
+    req.effectiveStaffPermissions = getEffectiveStaffPermissions(user.role, user.staff_permissions);
 
     next();
   } catch (err) {

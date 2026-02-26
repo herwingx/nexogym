@@ -72,6 +72,7 @@ export const LoginPage = () => {
               name: context.user.name,
               email,
               role: context.user.role as any,
+              effective_staff_permissions: context.user.effective_staff_permissions ?? undefined,
             },
             token: data.session.access_token,
             mustChangePassword: mustChange,

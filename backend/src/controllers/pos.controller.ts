@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
-import { ShiftStatus, TransactionType } from '@prisma/client';
+import { Role, ShiftStatus, TransactionType } from '@prisma/client';
 import { saleSchema, expenseSchema } from '../schemas/pos.schema';
 import { handleControllerError } from '../utils/http';
 import { getNextSaleFolio } from '../utils/receipt-folio';
@@ -67,7 +67,8 @@ export const createSale = async (req: Request, res: Response) => {
     const result = await prisma.$transaction(async (tx) => {
       let totalAmount = 0;
       const saleItemsData: { gym_id: string; product_id: string; quantity: number; price: any }[] = [];
-      const inventoryTxData: { gym_id: string; product_id: string; type: TransactionType; quantity: number; reason: string }[] = [];
+      const sellerIdForTx = sellerId || actorId;
+      const inventoryTxData: { gym_id: string; product_id: string; user_id: string | null; type: TransactionType; quantity: number; reason: string }[] = [];
 
       for (const item of items) {
         const product = await tx.product.findFirst({
@@ -97,6 +98,7 @@ export const createSale = async (req: Request, res: Response) => {
         inventoryTxData.push({
           gym_id: gymId,
           product_id: product.id,
+          user_id: sellerIdForTx ?? null,
           type: TransactionType.SALE,
           quantity: item.quantity,
           reason: `POS Sale — Shift #${openShift.id}`,
@@ -307,14 +309,23 @@ export const getCurrentShift = async (req: Request, res: Response) => {
   }
 };
 
-// GET /pos/shifts?page=1&limit=20
+// GET /pos/shifts?page=1&limit=20 — Admin ve todos; staff con can_use_pos solo sus propios cortes
 export const getShifts = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
+    const userId = req.user?.id;
+    const userRole = req.userRole;
     if (!gymId) {
       res.status(401).json({ error: 'Unauthorized: Gym context missing' });
       return;
     }
+
+    const isAdmin = userRole === Role.ADMIN || userRole === Role.SUPERADMIN;
+    const where = {
+      gym_id: gymId,
+      status: ShiftStatus.CLOSED,
+      ...(!isAdmin && userId ? { user_id: userId } : {}),
+    };
 
     const { page = '1', limit = '20' } = req.query;
     const take = Math.min(Number(limit) || 20, 100);
@@ -322,13 +333,13 @@ export const getShifts = async (req: Request, res: Response) => {
 
     const [shifts, total] = await Promise.all([
       prisma.cashShift.findMany({
-        where: { gym_id: gymId, status: ShiftStatus.CLOSED },
+        where,
         include: { user: { select: { id: true, name: true } } },
         orderBy: { closed_at: 'desc' },
         take,
         skip,
       }),
-      prisma.cashShift.count({ where: { gym_id: gymId, status: ShiftStatus.CLOSED } }),
+      prisma.cashShift.count({ where }),
     ]);
 
     res.status(200).json({
@@ -361,7 +372,7 @@ export const getOpenShifts = async (req: Request, res: Response) => {
   }
 };
 
-// GET /pos/shifts/:id/sales — Admin: ventas (transacciones) de un corte con folios para auditoría
+// GET /pos/shifts/:id/sales — Admin: ventas (transacciones) de un corte + movimientos de inventario del turno
 export const getShiftSales = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
@@ -384,14 +395,40 @@ export const getShiftSales = async (req: Request, res: Response) => {
       return;
     }
 
-    const sales = await prisma.sale.findMany({
-      where: { gym_id: gymId, cash_shift_id: shift.id },
-      include: {
-        items: { include: { product: { select: { name: true } } } },
-        seller: { select: { id: true, name: true } },
-      },
-      orderBy: { created_at: 'asc' },
-    });
+    // Staff con can_use_pos solo ve el detalle de sus propios turnos; Admin ve cualquiera
+    const userId = req.user?.id;
+    const userRole = req.userRole;
+    const isAdmin = userRole === Role.ADMIN || userRole === Role.SUPERADMIN;
+    if (!isAdmin && shift.user_id !== userId) {
+      res.status(403).json({ error: 'Solo puedes ver el detalle de tus propios cortes.' });
+      return;
+    }
+
+    const shiftEnd = shift.closed_at ?? new Date();
+
+    const [sales, inventoryMovements] = await Promise.all([
+      prisma.sale.findMany({
+        where: { gym_id: gymId, cash_shift_id: shift.id },
+        include: {
+          items: { include: { product: { select: { name: true } } } },
+          seller: { select: { id: true, name: true } },
+        },
+        orderBy: { created_at: 'asc' },
+      }),
+      prisma.inventoryTransaction.findMany({
+        where: {
+          gym_id: gymId,
+          user_id: shift.user_id,
+          type: { in: ['RESTOCK', 'LOSS'] },
+          created_at: { gte: shift.opened_at, lte: shiftEnd },
+        },
+        include: {
+          product: { select: { name: true } },
+          user: { select: { name: true } },
+        },
+        orderBy: { created_at: 'asc' },
+      }),
+    ]);
 
     res.status(200).json({
       data: sales.map((s) => ({
@@ -413,6 +450,15 @@ export const getShiftSales = async (req: Request, res: Response) => {
         closed_at: shift.closed_at,
         status: shift.status,
       },
+      inventory_movements: inventoryMovements.map((m) => ({
+        id: m.id,
+        type: m.type,
+        product_name: m.product.name,
+        quantity: m.quantity,
+        reason: m.reason,
+        created_at: m.created_at,
+        user_name: m.user?.name ?? null,
+      })),
     });
   } catch (error) {
     handleControllerError(req, res, error, '[getShiftSales Error]', 'Failed to retrieve shift sales.');

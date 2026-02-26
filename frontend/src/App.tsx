@@ -27,6 +27,7 @@ import { ReceptionMembersPage } from './pages/ReceptionMembers'
 import { ReceptionRoute } from './components/auth/ReceptionRoute'
 import { MemberLayout } from './layouts/MemberLayout'
 import { MemberHome } from './pages/MemberHome'
+import { MemberClasses } from './pages/MemberClasses'
 import { MemberRewards } from './pages/MemberRewards'
 import { MemberHistory } from './pages/MemberHistory'
 import { MemberRoute } from './components/auth/MemberRoute'
@@ -137,6 +138,7 @@ function App() {
         <Route element={<MemberRoute />}>
           <Route element={<MemberLayout />}>
             <Route path="/member" element={<MemberHome />} />
+            <Route path="/member/classes" element={<MemberClasses />} />
             <Route path="/member/rewards" element={<MemberRewards />} />
             <Route path="/member/history" element={<MemberHistory />} />
             <Route path="/member/profile" element={<ProfileSettings />} />

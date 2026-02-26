@@ -3,7 +3,7 @@ import { getProducts, createSale, registerExpense, getSales, getCurrentShift, ge
 import { openShift, closeShift, forceCloseShift } from '../controllers/shift.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
-import { requireAdminOrSuperAdmin, requireStaff } from '../middlewares/admin.middleware';
+import { requireAdminOrSuperAdmin, requireCanUsePos } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ const router = Router();
 
 router.use(requireAuth);
 router.use(requireModuleEnabled('pos'));
-router.use(requireStaff); // POS: solo Admin o Recepcionista (no Coach/Instructor)
+router.use(requireCanUsePos); // POS: Admin/SuperAdmin o staff con permiso "puede vender" (configurable en Personal)
 
 /**
  * @swagger
@@ -225,7 +225,7 @@ router.get('/shifts/open', requireAdminOrSuperAdmin, getOpenShifts);
  * @swagger
  * /api/v1/pos/shifts/{id}/sales:
  *   get:
- *     summary: "[Admin] Ventas (transacciones) de un corte con folios para auditoría"
+ *     summary: "Ventas (transacciones) de un corte. Admin ve cualquiera; staff solo sus propios turnos."
  *     tags: [Shifts]
  *     parameters:
  *       - in: path
@@ -235,16 +235,18 @@ router.get('/shifts/open', requireAdminOrSuperAdmin, getOpenShifts);
  *     responses:
  *       200:
  *         description: Lista de ventas del turno con receipt_folio, items, seller
+ *       403:
+ *         description: Staff intentando ver corte ajeno
  *       404:
  *         description: Turno no encontrado
  */
-router.get('/shifts/:id/sales', requireAdminOrSuperAdmin, getShiftSales);
+router.get('/shifts/:id/sales', getShiftSales);
 
 /**
  * @swagger
  * /api/v1/pos/shifts:
  *   get:
- *     summary: List closed shift history with pagination
+ *     summary: "List closed shifts. Admin ve todos; staff con can_use_pos solo sus propios cortes."
  *     tags: [Shifts]
  *     parameters:
  *       - in: query
@@ -259,7 +261,7 @@ router.get('/shifts/:id/sales', requireAdminOrSuperAdmin, getShiftSales);
  *           default: 20
  *     responses:
  *       200:
- *         description: List of closed shifts
+ *         description: List of closed shifts (filtrados por usuario si staff)
  */
 router.get('/shifts', getShifts);
 

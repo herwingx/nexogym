@@ -14,14 +14,22 @@ const CRITICAL_ACTIONS = new Set([
 /** Todas las etiquetas de auditoría en español (normalización UI). */
 const ACTION_LABELS: Record<string, string> = {
   // Turnos y caja
+  SHIFT_OPENED: 'Turno abierto',
   SHIFT_CLOSED: 'Turno cerrado',
   SHIFT_FORCE_CLOSED: 'Turno cerrado forzosamente',
+  // Inventario
+  PRODUCT_CREATED: 'Producto creado',
+  PRODUCT_DELETED: 'Producto eliminado',
+  PRODUCT_UPDATED: 'Producto actualizado',
+  INVENTORY_RESTOCKED: 'Stock repuesto',
+  INVENTORY_LOSS_REPORTED: 'Merma reportada',
   // Personal
   STAFF_CREATED: 'Personal dado de alta',
   STAFF_RESTORED: 'Personal restaurado',
   STAFF_PASSWORD_RESET: 'Contraseña de personal restablecida',
   USER_SOFT_DELETED: 'Usuario dado de baja',
   USER_UPDATED: 'Usuario actualizado',
+  STAFF_PERMISSIONS_UPDATED: 'Permisos de personal actualizados',
   QR_RESENT: 'QR reenviado',
   QR_REGENERATED: 'QR regenerado',
   // Socios y suscripciones
@@ -32,12 +40,12 @@ const ACTION_LABELS: Record<string, string> = {
   SUBSCRIPTIONS_SYNC_EXPIRED: 'Suscripciones marcadas vencidas (sync)',
   // Otros
   COURTESY_ACCESS_GRANTED: 'Cortesía otorgada',
-  INVENTORY_LOSS_REPORTED: 'Merma reportada',
   USER_DATA_EXPORTED: 'Exportación de datos de usuario',
   USER_DATA_ANONYMIZED: 'Datos de usuario anonimizados',
   CHECKIN_SUCCESS: 'Check-in exitoso',
   MEMBER_CREATED: 'Socio creado',
   MEMBER_UPDATED: 'Socio actualizado',
+  MEMBER_PORTAL_ACCESS_SENT: 'Acceso al portal enviado',
   SALE_CREATED: 'Venta registrada',
 }
 

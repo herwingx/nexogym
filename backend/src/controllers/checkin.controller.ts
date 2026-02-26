@@ -6,7 +6,8 @@ import { logAuditEvent } from '../utils/audit.logger';
 import { checkinSchema } from '../schemas/checkin.schema';
 import { handleControllerError } from '../utils/http';
 import { resolveModulesConfig } from '../utils/modules-config';
-import { parseRewardsConfig, getRewardMessageForStreak } from '../utils/rewards-config';
+import { parseRewardsConfig, getRewardMessageForStreak, getStreakFreezeDays } from '../utils/rewards-config';
+import { wereAllGapDaysClosed } from '../utils/opening-config';
 
 export const processCheckin = async (req: Request, res: Response) => {
   try {
@@ -55,9 +56,13 @@ export const processCheckin = async (req: Request, res: Response) => {
 
     if (!subscription) {
       // Congelar racha: si renueva en los próximos días, no pierde el progreso
-      const STREAK_FREEZE_DAYS = 7;
+      const gymForFreeze = await prisma.gym.findUnique({
+        where: { id: gymId },
+        select: { rewards_config: true },
+      });
+      const streakFreezeDays = getStreakFreezeDays(gymForFreeze?.rewards_config ?? null);
       const freezeUntil = new Date();
-      freezeUntil.setDate(freezeUntil.getDate() + STREAK_FREEZE_DAYS);
+      freezeUntil.setDate(freezeUntil.getDate() + streakFreezeDays);
       await prisma.user.update({
         where: { id: userId },
         data: { streak_freeze_until: freezeUntil },
@@ -133,6 +138,7 @@ export const processCheckin = async (req: Request, res: Response) => {
         subscription_tier: true,
         rewards_config: true,
         last_reactivated_at: true,
+        opening_config: true,
       },
     });
 
@@ -180,15 +186,19 @@ export const processCheckin = async (req: Request, res: Response) => {
           streakUpdated = true;
           newLastCheckinDate = todayStart;
         } else {
-          // diffDays > 1: normalmente rompe racha. Excepciones: Streak Freeze (gym reactivado 48h) o vencimiento reciente (streak_freeze_until)
-          const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-          const reactivatedWithin48h =
-            gym.last_reactivated_at != null && gym.last_reactivated_at >= fortyEightHoursAgo;
+          // diffDays > 1: normalmente rompe racha. Excepciones: (1) gym reactivado 7d, (2) socio vencimiento/renovación, (3) todos los días gap fueron días cerrados
+          const STREAK_FREEZE_DAYS_GYM = 7;
+          const gymReactivationCutoff = new Date(now.getTime() - STREAK_FREEZE_DAYS_GYM * 24 * 60 * 60 * 1000);
+          const reactivatedWithinFreezeWindow =
+            gym.last_reactivated_at != null && gym.last_reactivated_at >= gymReactivationCutoff;
           const withinExpiryFreeze =
             user.streak_freeze_until != null && now <= user.streak_freeze_until;
-          if (reactivatedWithin48h || withinExpiryFreeze) {
-            newStreak = user.current_streak + 1;
-            streakUpdated = true;
+          const allGapDaysWereClosed =
+            wereAllGapDaysClosed(user.last_checkin_date, todayStart, gym.opening_config);
+          if (reactivatedWithinFreezeWindow || withinExpiryFreeze || allGapDaysWereClosed) {
+            // Congelar: mantener racha, no sumar (físicamente no fueron esos días)
+            newStreak = user.current_streak;
+            streakUpdated = false;
             newLastCheckinDate = todayStart;
             if (withinExpiryFreeze) clearStreakFreezeUntil = true;
           } else {

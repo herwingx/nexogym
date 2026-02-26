@@ -1,4 +1,13 @@
 import { useEffect, useState } from 'react'
+import {
+  Building2,
+  Layers,
+  ShieldCheck,
+  Plus,
+  RefreshCw,
+  Settings2,
+  Puzzle,
+} from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import {
   fetchGyms,
@@ -42,15 +51,6 @@ type PendingTierChange = {
 }
 
 const GYM_LOGOS_BUCKET = 'gym-logos'
-const PRESET_COLORS = [
-  { value: '#2563eb', label: 'Azul' },
-  { value: '#dc2626', label: 'Rojo' },
-  { value: '#059669', label: 'Verde' },
-  { value: '#7c3aed', label: 'Violeta' },
-  { value: '#f97316', label: 'Naranja' },
-  { value: '#6366f1', label: 'Indigo' },
-]
-
 const MODULE_KEYS = [
   { key: 'pos' as const, label: 'POS / Caja' },
   { key: 'qr_access' as const, label: 'Check-in QR' },
@@ -72,8 +72,6 @@ export const SuperAdminDashboard = () => {
   const [createGymName, setCreateGymName] = useState('')
   const [createGymTier, setCreateGymTier] = useState<Tier>('BASIC')
   const [createGymLogoUrl, setCreateGymLogoUrl] = useState('')
-  const [createGymPrimaryColor, setCreateGymPrimaryColor] = useState('#2563eb')
-  const [createGymSecondaryColor, setCreateGymSecondaryColor] = useState('')
   const [createAdminEmail, setCreateAdminEmail] = useState('')
   const [createAdminPassword, setCreateAdminPassword] = useState('')
   const [createAdminName, setCreateAdminName] = useState('')
@@ -83,8 +81,6 @@ export const SuperAdminDashboard = () => {
   const [editingGym, setEditingGym] = useState<GymDetail | null>(null)
   const [editGymName, setEditGymName] = useState('')
   const [editGymLogoUrl, setEditGymLogoUrl] = useState('')
-  const [editGymPrimaryColor, setEditGymPrimaryColor] = useState('#2563eb')
-  const [editGymSecondaryColor, setEditGymSecondaryColor] = useState('')
   const [savingEditGym, setSavingEditGym] = useState(false)
   const [uploadingEditLogo, setUploadingEditLogo] = useState(false)
   const [pendingTierChange, setPendingTierChange] = useState<PendingTierChange | null>(null)
@@ -270,8 +266,6 @@ export const SuperAdminDashboard = () => {
       setEditingGym(detail)
       setEditGymName(detail.name)
       setEditGymLogoUrl(detail.logo_url ?? '')
-      setEditGymPrimaryColor((detail.theme_colors as { primary?: string })?.primary ?? '#2563eb')
-      setEditGymSecondaryColor((detail.theme_colors as { secondary?: string })?.secondary ?? '')
     } catch (err) {
       notifyError({
         title: 'No se pudo cargar',
@@ -292,13 +286,11 @@ export const SuperAdminDashboard = () => {
       const result = await updateGym(editingGym.id, {
         name,
         logo_url: editGymLogoUrl.trim() || undefined,
-        theme_colors: {
-          primary: editGymPrimaryColor,
-          ...(editGymSecondaryColor.trim() && { secondary: editGymSecondaryColor }),
-        },
       })
       setGyms((prev) =>
-        prev.map((g) => (g.id === editingGym.id ? { ...g, name: result.gym.name } : g)),
+        prev.map((g) =>
+          g.id === editingGym.id ? { ...g, name: result.gym.name, logo_url: result.gym.logo_url } : g,
+        ),
       )
       setEditingGym(null)
       notifySuccess({
@@ -334,10 +326,6 @@ export const SuperAdminDashboard = () => {
       const payload: Parameters<typeof createGym>[0] = {
         name,
         subscription_tier: createGymTier,
-        theme_colors: {
-          primary: createGymPrimaryColor,
-          ...(createGymSecondaryColor.trim() && { secondary: createGymSecondaryColor }),
-        },
       }
       if (createGymLogoUrl.trim()) payload.logo_url = createGymLogoUrl.trim()
       if (hasAdmin) {
@@ -351,8 +339,6 @@ export const SuperAdminDashboard = () => {
       setCreateGymName('')
       setCreateGymTier('BASIC')
       setCreateGymLogoUrl('')
-      setCreateGymPrimaryColor('#2563eb')
-      setCreateGymSecondaryColor('')
       setCreateAdminEmail('')
       setCreateAdminPassword('')
       setCreateAdminName('')
@@ -389,137 +375,197 @@ export const SuperAdminDashboard = () => {
     )
   }
 
-  return (
-    <div className="p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-5xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Master Dashboard · SuperAdmin
-          </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
-            Visión global del SaaS y control de gimnasios.
-          </p>
-        </div>
+  const handleRefresh = async () => {
+    try {
+      setIsLoading(true)
+      const [m, g] = await Promise.all([fetchSaasMetrics(), fetchGyms()])
+      setMetrics(m)
+      setGyms(g)
+      notifySuccess({
+        title: 'Dashboard actualizado',
+        description: 'Se recargaron gimnasios y métricas.',
+      })
+    } catch (error: any) {
+      notifyError({
+        title: 'No pudimos refrescar',
+        description: error?.message ?? 'Inténtalo de nuevo en unos segundos.',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  const getModuleLabel = (key: string) =>
+    MODULE_KEYS.find((m) => m.key === key)?.label ?? key
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+        {/* Hero header — identidad Super Admin */}
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+                <ShieldCheck className="h-3 w-3" />
+                Super Admin
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+              Panel de control
+            </h1>
+            <p className="text-sm text-zinc-500 mt-0.5">
+              Visión global del SaaS y gestión de gimnasios.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void handleRefresh()}
+            disabled={isLoading}
+          >
+            <span className="inline-flex items-center gap-2">
+              <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </span>
+          </Button>
+        </header>
+
+        {/* KPIs — scaneables con iconos */}
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {isLoading ? (
             <CardSkeleton count={3} lines={2} />
           ) : (
             <>
-              <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm flex flex-col justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
-                    Gimnasios activos
-                  </p>
-                  <p className="text-3xl font-semibold text-zinc-50">
-                    {metrics?.total_active_gyms ?? '0'}
-                  </p>
+              <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                      Gimnasios activos
+                    </p>
+                    <p className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50 mt-1">
+                      {metrics?.total_active_gyms ?? 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800/80 p-2.5">
+                    <Building2 className="h-5 w-5 text-zinc-500 dark:text-zinc-400" />
+                  </div>
                 </div>
                 <p className="mt-3 text-xs text-zinc-500">
-                  Conteo global de tenants listos para operar en producción.
+                  Tenants en producción
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm flex flex-col justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
-                    Planes disponibles
-                  </p>
-                  <p className="text-3xl font-semibold text-zinc-50">3</p>
+              <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                      Planes
+                    </p>
+                    <p className="text-3xl font-semibold text-zinc-900 dark:text-zinc-50 mt-1">
+                      3
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-zinc-100 dark:bg-zinc-800/80 p-2.5">
+                    <Layers className="h-5 w-5 text-zinc-500 dark:text-zinc-400" />
+                  </div>
                 </div>
                 <p className="mt-3 text-xs text-zinc-500">
-                  BASIC, PRO_QR y PREMIUM_BIO resuelven módulos automáticamente.
+                  Basic, Pro QR y Premium Biométrico
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm flex flex-col justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">
-                    Estado
-                  </p>
-                  <p className="text-sm text-zinc-200">
-                    Todo listo para operar. Sigue creando gyms y asignando tiers.
-                  </p>
+              <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">
+                      Estado del sistema
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                        En línea
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-emerald-500/10 p-2.5">
+                    <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
                 </div>
-                <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Sistema en línea
-                </div>
+                <p className="mt-3 text-xs text-zinc-500">
+                  Operativo y listo para uso
+                </p>
               </div>
             </>
           )}
         </section>
 
-        <section className="rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-2 mb-4">
+        {/* Tabla de gimnasios */}
+        <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-5 border-b border-zinc-200 dark:border-white/10">
             <div>
-              <h2 className="text-sm font-semibold text-zinc-50">
-                Gimnasios y Tiers
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+                Gimnasios y planes
               </h2>
-              <p className="text-xs text-zinc-500">
-                Cambia el tier para activar módulos según el plan contratado.
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Cambia el tier o edita configuración. Los módulos se ajustan según el plan.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                onClick={() => setShowCreateGymModal(true)}
-              >
+            <Button
+              type="button"
+              onClick={() => setShowCreateGymModal(true)}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Plus className="h-4 w-4" />
                 Crear gimnasio
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  void (async () => {
-                    try {
-                      setIsLoading(true)
-                      const [m, g] = await Promise.all([
-                        fetchSaasMetrics(),
-                        fetchGyms(),
-                      ])
-                      setMetrics(m)
-                      setGyms(g)
-                      notifySuccess({
-                        title: 'Dashboard actualizado',
-                        description: 'Se recargaron gimnasios y métricas.',
-                      })
-                    } catch (error: any) {
-                      notifyError({
-                        title: 'No pudimos refrescar',
-                        description:
-                          error?.message ?? 'Inténtalo de nuevo en unos segundos.',
-                      })
-                    } finally {
-                      setIsLoading(false)
-                    }
-                  })()
-                }}
-              >
-                Refrescar datos
-              </Button>
-            </div>
+              </span>
+            </Button>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[calc(100vh-18rem)]">
             <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
-                  <th className="py-2 pr-4 text-left font-medium">Gimnasio</th>
-                  <th className="py-2 px-4 text-left font-medium">Tier</th>
-                  <th className="py-2 px-4 text-left font-medium">Módulos</th>
-                  <th className="py-2 pl-4 text-right font-medium">Acciones</th>
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-zinc-200 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-900 shadow-[0_1px_0_0_rgba(0,0,0,0.05)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.05)]">
+                  <th className="py-3 px-4 text-center font-medium text-zinc-500 text-xs uppercase tracking-wide">
+                    Gimnasio
+                  </th>
+                  <th className="py-3 px-4 text-center font-medium text-zinc-500 text-xs uppercase tracking-wide">
+                    Plan
+                  </th>
+                  <th className="py-3 px-4 text-center font-medium text-zinc-500 text-xs uppercase tracking-wide hidden sm:table-cell">
+                    Módulos activos
+                  </th>
+                  <th className="py-3 px-4 text-center font-medium text-zinc-500 text-xs uppercase tracking-wide">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && <TableRowSkeleton columns={4} rows={5} />}
                 {!isLoading && gyms.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={4}
-                      className="py-6 text-center text-xs text-zinc-500"
-                    >
-                      Aún no hay gimnasios registrados.
+                    <td colSpan={4} className="py-16 text-center">
+                      <div className="flex flex-col items-center gap-3 max-w-xs mx-auto">
+                        <div className="rounded-full bg-zinc-100 dark:bg-zinc-800/80 p-4">
+                          <Building2 className="h-8 w-8 text-zinc-400 dark:text-zinc-500" />
+                        </div>
+                        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                          No hay gimnasios aún
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          Crea tu primer gimnasio para empezar a operar.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => setShowCreateGymModal(true)}
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <Plus className="h-3.5 w-3.5" />
+                            Crear gimnasio
+                          </span>
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -527,23 +573,37 @@ export const SuperAdminDashboard = () => {
                   gyms.map((gym) => (
                     <tr
                       key={gym.id}
-                      className="border-t border-zinc-200 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      className="border-t border-zinc-200 dark:border-zinc-800/60 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors"
                     >
-                      <td className="py-3 pr-4 align-middle text-zinc-100">
-                        <div className="font-medium">{gym.name}</div>
-                        <div className="text-xs text-zinc-500">
-                          {gym.id.slice(0, 8)}…
+                      <td className="py-3 px-4 align-middle">
+                        <div className="flex items-center gap-3">
+                          <div className="shrink-0 h-10 w-10 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-800/80 flex items-center justify-center overflow-hidden">
+                            {gym.logo_url ? (
+                              <img
+                                src={gym.logo_url}
+                                alt={gym.name}
+                                className="h-full w-full object-contain"
+                              />
+                            ) : (
+                              <Building2 className="h-5 w-5 text-zinc-400 dark:text-zinc-500" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-zinc-900 dark:text-zinc-100">
+                              {gym.name}
+                            </div>
+                            <div className="text-[11px] text-zinc-500 font-mono">
+                              {gym.id.slice(0, 8)}…
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td className="py-3 px-4 align-middle">
                         <select
-                          className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-xs text-zinc-700 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 min-w-[140px]"
                           value={gym.subscription_tier}
-                          onChange={(event) =>
-                            handleTierChange(
-                              gym.id,
-                              event.target.value as Tier,
-                            )
+                          onChange={(e) =>
+                            handleTierChange(gym.id, e.target.value as Tier)
                           }
                           disabled={updatingGymId === gym.id}
                         >
@@ -553,23 +613,33 @@ export const SuperAdminDashboard = () => {
                             </option>
                           ))}
                         </select>
+                        {updatingGymId === gym.id && (
+                          <span className="text-[10px] text-zinc-500 mt-1 block">
+                            Actualizando…
+                          </span>
+                        )}
                       </td>
-                      <td className="py-3 px-4 align-middle">
+                      <td className="py-3 px-4 align-middle hidden sm:table-cell">
                         <div className="flex flex-wrap gap-1.5">
                           {Object.entries(gym.modules_config)
                             .filter(([, enabled]) => enabled)
                             .map(([key]) => (
                               <span
                                 key={key}
-                                className="rounded-full border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-900/80 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-600 dark:text-zinc-300"
+                                className="inline-flex rounded-md border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300 whitespace-nowrap"
                               >
-                                {key}
+                                {getModuleLabel(key)}
                               </span>
                             ))}
+                          {Object.values(gym.modules_config).every((v) => !v) && (
+                            <span className="text-[10px] text-zinc-400 italic">
+                              Ninguno
+                            </span>
+                          )}
                         </div>
                       </td>
-                      <td className="py-3 pl-4 align-middle text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-3 px-4 align-middle text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           <Button
                             type="button"
                             size="sm"
@@ -577,7 +647,10 @@ export const SuperAdminDashboard = () => {
                             onClick={() => openEditGymModal(gym)}
                             disabled={updatingGymId === gym.id || savingEditGym}
                           >
-                            Editar gym
+                            <span className="inline-flex items-center gap-1.5">
+                              <Settings2 className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Editar</span>
+                            </span>
                           </Button>
                           <Button
                             type="button"
@@ -586,13 +659,11 @@ export const SuperAdminDashboard = () => {
                             onClick={() => openModulesModal(gym)}
                             disabled={updatingGymId === gym.id}
                           >
-                            Módulos
+                            <span className="inline-flex items-center gap-1.5">
+                              <Puzzle className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Módulos</span>
+                            </span>
                           </Button>
-                          <span className="text-[11px] text-zinc-500">
-                            {updatingGymId === gym.id
-                              ? 'Actualizando...'
-                              : ''}
-                          </span>
                         </div>
                       </td>
                     </tr>
@@ -696,13 +767,13 @@ export const SuperAdminDashboard = () => {
           )}
         </Modal>
 
-        {/* Modal: editar gym (nombre, logo, colores) */}
+        {/* Modal: editar gym (nombre, logo). Color lo configura Admin en Mi perfil. */}
         <Modal
           isOpen={!!editingGym}
           title="Editar gimnasio"
           description={
             editingGym
-              ? `Actualiza nombre, logo y colores de ${editingGym.name}.`
+              ? `Actualiza nombre y logo de ${editingGym.name}. El color de acento lo configura el Admin en su perfil.`
               : undefined
           }
           onClose={() => !savingEditGym && setEditingGym(null)}
@@ -756,49 +827,6 @@ export const SuperAdminDashboard = () => {
                   </button>
                 </div>
               )}
-            </div>
-            <div>
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
-                Colores
-              </label>
-              <div className="flex flex-wrap gap-3">
-                <div>
-                  <span className="text-[11px] text-zinc-500 block mb-1">Principal</span>
-                  <div className="flex gap-1">
-                    <input
-                      type="color"
-                      value={editGymPrimaryColor}
-                      onChange={(e) => setEditGymPrimaryColor(e.target.value)}
-                      className="h-8 w-12 rounded border border-zinc-200 dark:border-white/10 cursor-pointer"
-                    />
-                    <Input
-                      type="text"
-                      value={editGymPrimaryColor}
-                      onChange={(e) => setEditGymPrimaryColor(e.target.value)}
-                      className="w-24 text-xs"
-                      placeholder="#2563eb"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <span className="text-[11px] text-zinc-500 block mb-1">Secundario (opc.)</span>
-                  <div className="flex gap-1">
-                    <input
-                      type="color"
-                      value={editGymSecondaryColor || '#3b82f6'}
-                      onChange={(e) => setEditGymSecondaryColor(e.target.value)}
-                      className="h-8 w-12 rounded border border-zinc-200 dark:border-white/10 cursor-pointer"
-                    />
-                    <Input
-                      type="text"
-                      value={editGymSecondaryColor}
-                      onChange={(e) => setEditGymSecondaryColor(e.target.value)}
-                      className="w-24 text-xs"
-                      placeholder="#3b82f6"
-                    />
-                  </div>
-                </div>
-              </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button
@@ -892,61 +920,6 @@ export const SuperAdminDashboard = () => {
                   </button>
                 </div>
               )}
-            </div>
-            <div>
-              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 block mb-1.5">
-                Colores (white-label)
-              </label>
-              <div className="flex flex-wrap gap-3">
-                <div>
-                  <span className="text-[11px] text-zinc-500 block mb-1">Principal</span>
-                  <div className="flex gap-1">
-                    <input
-                      type="color"
-                      value={createGymPrimaryColor}
-                      onChange={(e) => setCreateGymPrimaryColor(e.target.value)}
-                      className="h-8 w-12 rounded border border-zinc-200 dark:border-white/10 cursor-pointer"
-                    />
-                    <Input
-                      type="text"
-                      value={createGymPrimaryColor}
-                      onChange={(e) => setCreateGymPrimaryColor(e.target.value)}
-                      className="w-24 text-xs"
-                      placeholder="#2563eb"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <span className="text-[11px] text-zinc-500 block mb-1">Secundario (opc.)</span>
-                  <div className="flex gap-1">
-                    <input
-                      type="color"
-                      value={createGymSecondaryColor || '#3b82f6'}
-                      onChange={(e) => setCreateGymSecondaryColor(e.target.value)}
-                      className="h-8 w-12 rounded border border-zinc-200 dark:border-white/10 cursor-pointer"
-                    />
-                    <Input
-                      type="text"
-                      value={createGymSecondaryColor}
-                      onChange={(e) => setCreateGymSecondaryColor(e.target.value)}
-                      className="w-24 text-xs"
-                      placeholder="#3b82f6"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1 items-end">
-                  {PRESET_COLORS.map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => setCreateGymPrimaryColor(c.value)}
-                      className="h-6 w-6 rounded border border-zinc-200 dark:border-white/10 hover:ring-2 hover:ring-primary/50"
-                      style={{ backgroundColor: c.value }}
-                      title={c.label}
-                    />
-                  ))}
-                </div>
-              </div>
             </div>
             <div className="border-t border-zinc-200 dark:border-white/10 pt-4 mt-4">
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-3">

@@ -1,28 +1,56 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
-import { classSchema, bookingSchema } from '../schemas/booking.schema';
+import { classSchema, updateClassSchema, bookingSchema } from '../schemas/booking.schema';
 import { BookingStatus, SubscriptionStatus } from '@prisma/client';
 import { handleControllerError } from '../utils/http';
 
 export const getClasses = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
-    const { day } = req.query;
+    const { day, date: dateParam } = req.query;
 
     if (!gymId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const dayOfWeek = day !== undefined && day !== '' ? parseInt(day as string) : undefined;
 
     const classes = await prisma.gymClass.findMany({
       where: {
         gym_id: gymId,
-        day_of_week: day ? parseInt(day as string) : undefined,
+        day_of_week: dayOfWeek,
       },
       include: {
-        instructor: { select: { name: true } },
+        instructor: { select: { id: true, name: true } },
       },
-      orderBy: { start_time: 'asc' },
+      orderBy: [{ day_of_week: 'asc' }, { start_time: 'asc' }],
     });
 
-    res.status(200).json({ data: classes });
+    const dateStr = typeof dateParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : null;
+    const bookingDate = dateStr ? new Date(dateStr) : null;
+
+    const withSlots = await Promise.all(
+      classes.map(async (c) => {
+        let available_slots = c.capacity;
+        if (bookingDate !== null && c.day_of_week === bookingDate.getDay()) {
+          const booked = await prisma.classBooking.count({
+            where: {
+              class_id: c.id,
+              gym_id: gymId,
+              booking_date: bookingDate,
+              status: { not: BookingStatus.CANCELLED },
+            },
+          });
+          available_slots = Math.max(0, c.capacity - booked);
+        }
+        const { instructor, ...rest } = c;
+        return {
+          ...rest,
+          instructor_name: instructor?.name ?? null,
+          available_slots,
+        };
+      }),
+    );
+
+    res.status(200).json({ data: withSlots });
   } catch (error) {
     handleControllerError(req, res, error, '[getClasses Error]', 'Failed to fetch classes');
   }
@@ -36,13 +64,14 @@ export const createClass = async (req: Request, res: Response) => {
     const validation = classSchema.safeParse(req.body);
     if (!validation.success) return res.status(400).json({ error: validation.error.issues[0].message });
 
-    const { instructorId, ...rest } = validation.data;
+    const { instructorId, price, ...rest } = validation.data;
 
     const newClass = await prisma.gymClass.create({
       data: {
         ...rest,
         instructor_id: instructorId,
         gym_id: gymId,
+        price: price ?? null,
       },
     });
 
@@ -162,7 +191,7 @@ export const getMyBookings = async (req: Request, res: Response) => {
       },
       include: {
         class: {
-          select: { name: true, start_time: true, end_time: true, day_of_week: true },
+          select: { name: true, start_time: true, end_time: true, day_of_week: true, price: true },
         },
       },
       orderBy: { booking_date: 'asc' },
@@ -214,7 +243,9 @@ export const updateClass = async (req: Request, res: Response) => {
     if (!gymId) return res.status(401).json({ error: 'Unauthorized' });
 
     const id = req.params.id as string;
-    const { name, description, capacity, day_of_week, start_time, end_time, instructorId } = req.body;
+
+    const validation = updateClassSchema.safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ error: validation.error.issues[0].message });
 
     const existing = await prisma.gymClass.findFirst({ where: { id, gym_id: gymId } });
     if (!existing) {
@@ -222,17 +253,14 @@ export const updateClass = async (req: Request, res: Response) => {
       return;
     }
 
+    const { instructorId, price, ...rest } = validation.data;
+    const data: Record<string, unknown> = { ...rest };
+    if (instructorId !== undefined) data.instructor_id = instructorId;
+    if (price !== undefined) data.price = price;
+
     const updated = await prisma.gymClass.update({
       where: { id },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(description !== undefined && { description }),
-        ...(capacity !== undefined && { capacity }),
-        ...(day_of_week !== undefined && { day_of_week }),
-        ...(start_time !== undefined && { start_time }),
-        ...(end_time !== undefined && { end_time }),
-        ...(instructorId !== undefined && { instructor_id: instructorId }),
-      },
+      data,
     });
 
     res.status(200).json({ message: 'Class updated.', data: updated });

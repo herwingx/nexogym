@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { processCheckin, processCourtesyAccess, listVisits } from '../controllers/checkin.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
-import { requireStaff } from '../middlewares/admin.middleware';
+import { requireCanUseReception } from '../middlewares/admin.middleware';
 
 const router = Router();
 
@@ -14,7 +14,7 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/visits', requireStaff, listVisits);
+router.get('/visits', requireCanUseReception, listVisits);
 
 /**
  * @swagger
@@ -42,7 +42,7 @@ router.get('/visits', requireStaff, listVisits);
  *       403:
  *         description: Forbidden (No active subscription or not Staff)
  */
-router.post('/', requireStaff, processCheckin);
+router.post('/', requireCanUseReception, processCheckin);
 
 /**
  * @swagger

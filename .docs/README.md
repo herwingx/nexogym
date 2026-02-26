@@ -18,6 +18,7 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 |-----------|-----------|
 | **ARCHITECTURE.md** | Visión general del sistema, capas, multitenancy. |
 | **ARCHITECTURE_REVIEW_NEXOGYM.md** | Revisión de arquitectura del producto. |
+| **DOMINIO_Y_URL_PRODUCCION.md** | Dominio, URL y marca en producción: arquitectura recomendada, white-label, opciones futuras (subdominios, dominios propios). |
 | **PRD.md** | Product Requirements Document. |
 | **DATABASE_SCHEMA.md** | Modelo de datos Prisma: enums, tablas, acciones auditadas. Incluye **ExpenseType**, **Expense**, **CashShift** (expected_balance), **SHIFT_CLOSED** / **SHIFT_FORCE_CLOSED** / **USER_SOFT_DELETED**. |
 
@@ -45,8 +46,10 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 | Documento | Contenido |
 |-----------|-----------|
 | **SUPABASE_AUTH_EN_EL_PROYECTO.md** | Cómo interactúa Supabase Auth con el proyecto: flujo login → token → backend, enlace `auth_user_id`, ventajas frente a implementar login propio, variables de entorno. |
+| **SUPABASE_STORAGE_BUCKETS.md** | Buckets `gym-logos` y `profile-pictures`: crear buckets públicos, políticas (INSERT para authenticated), errores frecuentes y checklist por entorno. |
 | **BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md** | Primer arranque con DB vacía en producción: **bootstrap-superadmin** (recomendado), seed para desarrollo, cómo crear SuperAdmin y admin de un gym. Incluye funcionamiento del script y checklist. |
 | **CANALES_COMUNICACION.md** | Email vs WhatsApp: bienvenida (credenciales), reset contraseña, QR, cumpleaños. Staff: admin resetea, nueva contraseña al correo del admin. |
+| **EMAIL_N8N_Y_DOMINIOS.md** | Setup operativo: Supabase SMTP (solo "olvidé contraseña"), n8n + proveedor (Resend/SendGrid/Brevo), estrategia de dominios, checklist, roadmap marketing. |
 
 ---
 
@@ -107,6 +110,7 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 - **Plan BASIC — Socios sin portal:** Miembros en plan Basic no tienen acceso al portal (QR, premios, historial); ven pantalla de bloqueo y pueden cerrar sesión.
 - **Ocupación / aforo:** El semáforo de ocupación en Dashboard admin y el bloque "Aforo actual" en Check-in (recepción) **solo se muestran cuando el gym tiene Check-in QR** (`qr_access`). En plan Basic el front no llama a `/api/v1/analytics/occupancy`; el admin ve solo Ventas del mes y Ganancia neta.
 - **Inputs turno:** Corregida la edición en Abrir turno (fondo inicial) y Cerrar turno (efectivo contado); HardwareScanner no roba foco cuando modales de turno están abiertos.
+- **Check-in por cámara:** Botón "Usar cámara" en recepción permite escanear el QR del socio con la cámara del dispositivo (móvil, tablet o PC) cuando no hay pistola USB. Componente `CameraScanner` con `html5-qrcode`; flujo sin fricción (escaneo → check-in automático).
 - **Cierre ciego:** Recepcionista no ve saldo esperado; solo envía efectivo contado; backend no devuelve reconciliación si rol RECEPTIONIST.
 - **Tipos de egreso:** SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP; descripción obligatoria para los dos primeros.
 - **Forzar cierre:** Admin puede cerrar un turno abierto desde Cortes de caja (PATCH /pos/shifts/:id/force-close).

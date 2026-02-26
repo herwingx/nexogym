@@ -30,6 +30,7 @@ enum SubscriptionStatus {
   EXPIRED
   CANCELED
   FROZEN
+  PENDING_PAYMENT   // Alta sin pago; requiere renovación (turno abierto) para activar
 }
 
 enum ShiftStatus {
@@ -81,8 +82,9 @@ model Gym {
   modules_config     Json?            // Feature Flags por nivel de suscripción (trigger aplicado con db:push o db:trigger)
   n8n_config         Json?            // Configuración de mensajería por gym (sender/template/webhook overrides)
   rewards_config     Json?            // Portal de Gamificación: Reglas y recompensas
+  opening_config     Json?            // Días cerrados: { closed_weekdays: [0,6], closed_dates: ["01-01","12-25"] } no afectan racha
   api_key_hardware   String?          @unique // Sprint B9 hardware auth
-  last_reactivated_at DateTime?       // Streak freeze: cuando pasó de SUSPENDED a ACTIVE (perdón 48h)
+  last_reactivated_at DateTime?       // Streak freeze: cuando pasó de SUSPENDED a ACTIVE (perdón 7 días para rachas)
 
   // Relaciones inversas
   users                  User[]
@@ -98,6 +100,7 @@ model Gym {
   classes                GymClass[]
   bookings               ClassBooking[]
   routines               Routine[]
+  exercises              Exercise[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -112,6 +115,7 @@ model User {
   profile_picture_url String?
   pin_hash            String? // Control de Acceso Manual / Biométrico
   role                Role      @default(MEMBER)
+  staff_permissions   Json?     // Overrides por usuario: { can_use_pos?, can_use_routines?, can_use_reception? }. Null = defaults por rol.
   current_streak       Int       @default(0) // Gamificación (solo se incrementa 1 vez por día calendario)
   last_visit_at        DateTime? // Última visita (anti-passback 2h)
   last_checkin_date    DateTime? @db.Date // Último día calendario con check-in (para racha)
@@ -130,6 +134,7 @@ model User {
   bookings           ClassBooking[]
   routines           Routine[]
   sales_made         Sale[]         @relation("SellerSales")
+  inventory_transactions InventoryTransaction[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -178,15 +183,16 @@ model Visit {
 }
 
 model GymClass {
-  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id       String @db.Uuid
-  instructor_id String @db.Uuid
-  name         String
-  description  String?
-  capacity     Int
-  day_of_week  Int // 0-6 (Domingo-Sábado)
-  start_time   String // HH:mm
-  end_time     String // HH:mm
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id        String   @db.Uuid
+  instructor_id String   @db.Uuid
+  name          String
+  description   String?
+  capacity      Int
+  day_of_week   Int      // 0-6 (Domingo-Sábado)
+  start_time    String   // HH:mm
+  end_time      String   // HH:mm
+  price         Decimal? @db.Decimal(10, 2) // Costo opcional para clases externas o especiales
 
   gym        Gym            @relation(fields: [gym_id], references: [id], onDelete: Cascade)
   instructor User           @relation("InstructorClasses", fields: [instructor_id], references: [id])
@@ -214,15 +220,31 @@ model ClassBooking {
   @@index([user_id])
 }
 
+model Exercise {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id   String  @db.Uuid
+  name     String
+  category String? // e.g. "Pecho", "Piernas", "Espalda", "Hombros", "Brazos", "Core"
+
+  gym Gym @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([gym_id, name])
+  @@index([gym_id])
+  @@index([gym_id, category])
+}
+
 model Routine {
-  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id      String  @db.Uuid
-  user_id     String  @db.Uuid
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id      String   @db.Uuid
+  user_id     String?  @db.Uuid // null = plantilla base; set = asignada a socio
   name        String
   description String?
 
   gym       Gym                @relation(fields: [gym_id], references: [id], onDelete: Cascade)
-  user      User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user      User?              @relation(fields: [user_id], references: [id], onDelete: SetNull)
   exercises WorkoutExercise[]
 
   created_at DateTime @default(now())
@@ -269,6 +291,7 @@ model InventoryTransaction {
   id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   gym_id     String          @db.Uuid
   product_id String          @db.Uuid
+  user_id    String?         @db.Uuid // Quién realizó el movimiento (restock, merma, venta)
   type       TransactionType
   quantity   Int
   reason     String?
@@ -276,11 +299,13 @@ model InventoryTransaction {
   // Relaciones
   gym     Gym     @relation(fields: [gym_id], references: [id], onDelete: Cascade)
   product Product @relation(fields: [product_id], references: [id])
+  user    User?   @relation(fields: [user_id], references: [id])
 
   created_at DateTime @default(now())
 
   @@index([gym_id])
   @@index([product_id])
+  @@index([user_id])
 }
 
 model Sale {

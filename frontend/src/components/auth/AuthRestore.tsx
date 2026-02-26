@@ -52,6 +52,7 @@ export const AuthRestore = ({ children }: { children: React.ReactNode }) => {
             name: context.user.name ?? '',
             email: session.user?.email ?? '',
             role: context.user.role as import('../../store/useAuthStore').Role,
+            effective_staff_permissions: context.user.effective_staff_permissions ?? undefined,
           },
           token: session.access_token,
           mustChangePassword: mustChange,

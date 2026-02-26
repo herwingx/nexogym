@@ -367,7 +367,7 @@ Todo lo que no se puede “completar” solo con código en este repo aparece aq
 |-----------------|----------------|----------------------------|
 | **Branch protection** (PR obligatorio, aprobaciones, checks) | GitHub → Settings → Branches | Son reglas de la plataforma; se documentan en `.docs/BRANCH_PROTECTION.md` pero se activan en la UI de GitHub. |
 | **Secrets y variables de entorno** (DB, Supabase, CORS, etc.) | GitHub Actions Secrets; panel del hosting (Railway, Render, etc.) para prod | No deben estar en el repo por seguridad; cada entorno se configura aparte. |
-| **Proyectos Supabase (dev / staging / prod)** | Dashboard Supabase: crear proyectos y copiar URLs/keys | Un proyecto por entorno; la creación y la configuración (Redirect URLs, Storage buckets) es en el dashboard. |
+| **Proyectos Supabase (dev / staging / prod)** | Dashboard Supabase: crear proyectos y copiar URLs/keys | Un proyecto por entorno; la creación y la configuración (Redirect URLs, Storage buckets) es en el dashboard. Ver **SUPABASE_STORAGE_BUCKETS.md** para buckets y políticas. |
 | **Vincular JWT (auth_user_id) en dev** | Si el seed se ejecutó con `SUPABASE_SERVICE_ROLE_KEY`, ya creó los usuarios en Supabase Auth y vinculó `auth_user_id`. Si no, manual en Prisma Studio o volver a ejecutar el seed (ver “Reset completo” más abajo). |
 | **Cron para sync de suscripciones vencidas** | Scheduler del hosting, GitHub Actions scheduled workflow, o script externo que llame `POST /users/sync-expired-subscriptions` | El endpoint existe; quién lo llama y cada cuánto se configura en la infra, no en el código de la API. Ver `.docs/SUBSCRIPTION_EXPIRY_AND_RENEWAL.md`. |
 

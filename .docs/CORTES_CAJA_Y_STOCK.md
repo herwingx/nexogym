@@ -37,16 +37,17 @@ Todos vienen con precio 0 y stock alto (99.999). El **admin** solo debe entrar a
 
 ---
 
-## 4. Admin: visión global y auditoría por corte
+## 4. Admin vs Staff: visión de cortes
 
-- **Cortes de caja (AdminShifts):** El admin ve el **historial de todos los turnos cerrados** de todos los recepcionistas (tabla con usuario, apertura, cierre, fondo, esperado, real, estado Cuadrado/Sobrante/Faltante).
-- **Transacciones del corte:** Por cada turno, botón **"Transacciones"** → ventas del corte **agrupadas por folio** (cada bloque es un ticket/recibo); **dentro de cada folio**, desglose por producto (nombre, cantidad, precio unitario, subtotal). Encabezado de cada bloque: Folio (V-YYYY-NNNNNN), fecha, cajero, total.
+- **Admin/SuperAdmin:** Ve el **historial de todos los turnos cerrados** de todos los recepcionistas (tabla con usuario, apertura, cierre, fondo, esperado, real, estado Cuadrado/Sobrante/Faltante). Puede ver las transacciones de cualquier corte.
+- **Staff con can_use_pos** (recepcionista, coach con permiso de vender): Ve **solo sus propios cortes pasados**. Puede abrir el detalle (Transacciones) de sus propios turnos; no puede ver cortes de otros usuarios.
+- **Transacciones del corte:** Por cada turno, botón **"Transacciones"** → ventas del corte **agrupadas por folio** (cada bloque es un ticket/recibo); **dentro de cada folio**, desglose por producto (nombre, cantidad, precio unitario, subtotal). Encabezado de cada bloque: Folio (V-YYYY-NNNNNN), fecha, cajero, total. Además se muestran los **movimientos de inventario durante el turno** (restock y mermas) realizados por el cajero, con hora, tipo, producto, cantidad y motivo.
 - **Ingresos:** Los ingresos “engloban” todos los turnos en el sentido de que cada fila es un corte cerrado; la suma de todos los cortes da el total de caja por período.
 - **Turnos abiertos:** El admin ve una sección **“Turnos abiertos (sin corte)”** con la lista de recepcionistas que tienen turno abierto y aún no han hecho corte, para poder recordarles que cierren antes de salir.
 
 **Auditoría vs Cortes de caja vs Finanzas:** **Auditoría** = registro de acciones (quién hizo qué y cuándo); no muestra desglose de ventas ni folios. **Cortes de caja** = turnos cerrados y, por turno, Transacciones con folio y desglose por venta (recibos emitidos). **Finanzas** = reporte de ingresos/gastos por período.
 
-**Admin en recepción:** Si el admin entra a recepción (Check-in → `/reception`), en la barra superior verá el enlace **"Panel admin"** para volver al panel de administración. Todas las acciones que haga ahí (ventas, cierre de turno, egresos, check-in) quedan registradas a su usuario: cada venta guarda `seller_id`, el cierre de turno se registra en **Auditoría** (SHIFT_CLOSED) y las transacciones del corte se ven en **Cortes de caja** con su nombre como cajero.
+**Admin en recepción:** Si el admin entra a recepción (Check-in → `/reception`), en la barra superior verá el enlace **"Panel admin"** para volver al panel de administración. Todas las acciones que haga ahí (ventas, cierre de turno, egresos, check-in) quedan registradas a su usuario: cada venta guarda `seller_id`, el turno abierto se registra en **Auditoría** (SHIFT_OPENED), el cierre de turno se registra en **Auditoría** (SHIFT_CLOSED) y las transacciones del corte se ven en **Cortes de caja** con su nombre como cajero.
 
 ---
 
@@ -67,6 +68,7 @@ Todos vienen con precio 0 y stock alto (99.999). El **admin** solo debe entrar a
 
 ## 7. Admin: controles adicionales
 
+- **Eventos de auditoría (turnos):** Al abrir turno se registra `SHIFT_OPENED`; al cerrar normalmente `SHIFT_CLOSED`; al forzar cierre `SHIFT_FORCE_CLOSED`. Todas las etiquetas se muestran en español en la vista Auditoría (`/admin/audit`).
 - **Forzar cierre:** En "Turnos abiertos (sin corte)" cada fila tiene un botón **"Forzar Cierre"** (solo Admin/SuperAdmin). Cierra el turno de forma forzada (ej. empleado salió sin corte). Auditoría: `SHIFT_FORCE_CLOSED`. Endpoint: `PATCH /api/v1/pos/shifts/:id/force-close`.
 - **Super Admin — downgrade:** Al bajar de plan se muestra un **modal de confirmación** con las acciones que se ejecutarán (cierre automático de turnos abiertos, actualización de módulos, etc.). Al aceptar, el backend cierra todos los turnos abiertos del gym y aplica el nuevo tier. No hay botón «Cerrar turnos» en el dashboard Super Admin. **Upgrade** (subir de plan) no afecta los turnos; solo da acceso a más opciones (QR, gamificación, clases, biométrico). **Quitar POS en Módulos:** al desactivar el módulo POS, el backend cierra automáticamente los turnos abiertos antes de aplicar el cambio.
 - **Personal (/admin/staff):** Listado de staff (usuarios con rol distinto de MEMBER). **Dar de baja** = soft delete (`deleted_at`). Usuarios inactivos: badge INACTIVO, sin acciones. Endpoint: `DELETE /api/v1/users/:id` (Admin/SuperAdmin).
@@ -95,7 +97,8 @@ Todos vienen con precio 0 y stock alto (99.999). El **admin** solo debe entrar a
 
 | Pregunta | Respuesta |
 |----------|-----------|
-| ¿El admin ve ingresos de todos los turnos? | Sí: en Cortes de caja ve todos los turnos **cerrados** de todos los recepcionistas. |
+| ¿El admin ve ingresos de todos los turnos? | Sí: en Cortes de caja ve todos los turnos **cerrados** de todos los usuarios. |
+| ¿Recepcionista/coach con permiso de vender ve sus cortes? | Sí: solo sus propios cortes pasados y el detalle (transacciones) de cada uno. |
 | ¿No hacer corte afecta el stock? | No. El stock se actualiza al vender, no al cerrar turno. |
 | ¿Afecta al turno del otro recep? | No. Cada recep tiene su turno; el stock es común y ya queda actualizado con cada venta. |
 | ¿Se puede cerrar sesión sin hacer corte? | No. Si tiene turno abierto, se bloquea el logout hasta que haga corte (modal + “Ir a cerrar turno”). |
@@ -104,6 +107,6 @@ Todos vienen con precio 0 y stock alto (99.999). El **admin** solo debe entrar a
 
 ## 10. Referencia técnica (archivos)
 
-- **Backend:** `shift.controller.ts` (open/close, **forceCloseShift**), `pos.controller.ts` (createSale con `receipt_folio`, **getShiftSales** para transacciones de un corte, getCurrentShift, getShifts, getOpenShifts). Cierre ciego: en `closeShift` se comprueba `req.userRole === RECEPTIONIST` y se responde solo `{ message }` sin reconciliación.
+- **Backend:** `shift.controller.ts` (open/close con `logAuditEvent` SHIFT_OPENED y SHIFT_CLOSED, **forceCloseShift**), `pos.controller.ts` (createSale con `receipt_folio`, **getShiftSales** para transacciones de un corte + movimientos de inventario, getCurrentShift, getShifts, getOpenShifts). `getShifts` filtra por `user_id` si el caller no es Admin/SuperAdmin; `getShiftSales` devuelve 403 si staff intenta ver un corte ajeno. Cierre ciego: en `closeShift` se comprueba `req.userRole === RECEPTIONIST` y se responde solo `{ message }` sin reconciliación.
 - **Frontend:** `ReceptionLayout.tsx` (bloqueo de logout + modal), `ReceptionPos.tsx` / `ReceptionCheckIn.tsx` (abrir/cerrar turno; **FormCloseShift** con `showExpectedBalance` según rol), **FormExpense** con select de tipo y validación de descripción, `AdminShifts.tsx` (historial + turnos abiertos + **Forzar Cierre** + **Transacciones** por corte: ventas agrupadas por folio con desglose por producto; estados Cuadrado/Sobrante/Faltante), `AdminStaffView.tsx` (personal, dar de baja).
 - **Schema:** Enum `ExpenseType` (SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP); modelo `Expense` con `type` y `description` opcional. Ver **DATABASE_SCHEMA.md** y **API_SPEC.md**.
