@@ -64,8 +64,12 @@ export const AdminAudit = () => {
   const [page, setPage] = useState(1)
   const [actionFilter, setActionFilter] = useState('')
   const [userIdFilter, setUserIdFilter] = useState('')
-  const [fromDate, setFromDate] = useState('')
-  const [toDate, setToDate] = useState('')
+  const getToday = () => {
+    const d = new Date()
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+  }
+  const [fromDate, setFromDate] = useState(getToday)
+  const [toDate, setToDate] = useState(getToday)
   const [staff, setStaff] = useState<StaffUserRow[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)

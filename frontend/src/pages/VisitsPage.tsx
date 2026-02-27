@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, UserCheck } from 'lucide-react'
-import { fetchVisits, fetchStaffUsers, type VisitRow, type StaffUserRow } from '../lib/apiClient'
+import { ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react'
+import { fetchVisits, type VisitRow } from '../lib/apiClient'
 import { notifyError } from '../lib/notifications'
 import { TableRowSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
@@ -18,26 +18,20 @@ const ROLE_LABELS: Record<string, string> = {
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })
 
-export const AdminStaffAttendance = () => {
+/**
+ * Vista de visitas por día: socios y staff que hicieron check-in.
+ * Accesible desde Admin (/admin/visits) y Recepción (/reception/visits).
+ */
+export const VisitsPage = () => {
   const [visits, setVisits] = useState<VisitRow[]>([])
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 20, total_pages: 1 })
-  const [staff, setStaff] = useState<StaffUserRow[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [page, setPage] = useState(1)
-  const getToday = () => {
+  const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date()
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
-  }
-  const [fromDate, setFromDate] = useState(getToday)
-  const [toDate, setToDate] = useState(getToday)
-  const [userIdFilter, setUserIdFilter] = useState('')
-  const PAGE_SIZE = 20
-
-  useEffect(() => {
-    fetchStaffUsers(1, 200, 'all')
-      .then((r) => setStaff(r.data))
-      .catch(() => {})
-  }, [])
+  })
+  const PAGE_SIZE = 30
 
   useEffect(() => {
     const load = async () => {
@@ -46,16 +40,14 @@ export const AdminStaffAttendance = () => {
         const data = await fetchVisits({
           page,
           limit: PAGE_SIZE,
-          staff_only: true,
-          from_date: fromDate || undefined,
-          to_date: toDate || undefined,
-          user_id: userIdFilter || undefined,
+          from_date: selectedDate,
+          to_date: selectedDate,
         })
         setVisits(data.data)
         setMeta(data.meta)
       } catch (error: unknown) {
         notifyError({
-          title: 'No pudimos cargar asistencia',
+          title: 'No pudimos cargar visitas',
           description: (error as Error)?.message ?? 'Intenta de nuevo.',
         })
       } finally {
@@ -63,69 +55,35 @@ export const AdminStaffAttendance = () => {
       }
     }
     void load()
-  }, [page, fromDate, toDate, userIdFilter])
+  }, [page, selectedDate])
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-4 py-6 space-y-5">
         <header>
           <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
-            <UserCheck className="h-5 w-5" />
-            Asistencia de personal
+            <ClipboardList className="h-5 w-5" />
+            Visitantes por día
           </h1>
           <p className="text-sm text-zinc-500">
-            Checadas de entrada del personal (staff). Filtra por fecha y usuario para puntualidad.
+            Lista de socios y personal que llegaron en el día seleccionado (check-in QR, manual o biométrico).
           </p>
         </header>
 
         <div className="flex flex-wrap gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
-              Desde
+              Fecha
             </label>
             <input
               type="date"
-              value={fromDate}
+              value={selectedDate}
               onChange={(e) => {
-                setFromDate(e.target.value)
+                setSelectedDate(e.target.value)
                 setPage(1)
               }}
               className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm"
             />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
-              Hasta
-            </label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value)
-                setPage(1)
-              }}
-              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
-              Usuario
-            </label>
-            <select
-              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm text-zinc-700 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
-              value={userIdFilter}
-              onChange={(e) => {
-                setUserIdFilter(e.target.value)
-                setPage(1)
-              }}
-            >
-              <option value="">Todos</option>
-              {staff.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name ?? u.phone ?? u.id.slice(0, 8)}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 
@@ -134,7 +92,7 @@ export const AdminStaffAttendance = () => {
             <thead>
               <tr className="border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
                 <th className="py-2 pr-4 text-left font-medium">Fecha y hora</th>
-                <th className="py-2 px-4 text-left font-medium">Usuario</th>
+                <th className="py-2 px-4 text-left font-medium">Nombre</th>
                 <th className="py-2 px-4 text-left font-medium">Rol</th>
                 <th className="py-2 px-4 text-left font-medium">Método</th>
                 <th className="py-2 pl-4 text-left font-medium">Tipo</th>
@@ -145,7 +103,7 @@ export const AdminStaffAttendance = () => {
               {!isLoading && visits.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-xs text-zinc-500">
-                    Sin checadas para el filtro seleccionado.
+                    No hay visitas registradas para este día.
                   </td>
                 </tr>
               )}
@@ -168,7 +126,7 @@ export const AdminStaffAttendance = () => {
           {meta.total_pages > 1 && (
             <div className="flex items-center justify-between pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800">
               <p className="text-xs text-zinc-500">
-                {meta.total} checada{meta.total !== 1 ? 's' : ''} · Página {meta.page} de {meta.total_pages}
+                {meta.total} visita{meta.total !== 1 ? 's' : ''} · Página {meta.page} de {meta.total_pages}
               </p>
               <div className="flex gap-2">
                 <Button

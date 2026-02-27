@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
-import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet, User, LayoutDashboard, Medal, CalendarDays, Dumbbell, Menu, X } from 'lucide-react'
+import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet, User, LayoutDashboard, Medal, CalendarDays, Dumbbell, Menu, X, ClipboardList } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { ThemeToggle } from '../components/ui/ThemeToggle'
 import { cn } from '../lib/utils'
@@ -12,6 +12,7 @@ import { Button } from '../components/ui/Button'
 
 const navItems: { label: string; to: string; icon: typeof ScanQrCode; moduleKey?: 'pos' | 'gamification' | 'classes'; staffPermission?: 'leaderboard' | 'routines' }[] = [
   { label: 'Check-in', to: '/reception', icon: ScanQrCode },
+  { label: 'Visitas', to: '/reception/visits', icon: ClipboardList },
   { label: 'POS', to: '/reception/pos', icon: CreditCard, moduleKey: 'pos' },
   { label: 'Socios', to: '/reception/members', icon: Users },
   { label: 'Alta', to: '/reception/members/new', icon: UserPlus },

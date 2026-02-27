@@ -82,3 +82,12 @@ Todo se hace en una transacción Prisma (Visit + User) para consistencia.
 | Biométrico| 4                           |
 
 El biométrico usa 4h porque el torniquete físico es más estricto. Ambos usan `last_visit_at` para calcular el tiempo transcurrido.
+
+---
+
+## 7. Vista de visitantes por día
+
+- **Admin:** `/admin/visits` — Lista de socios y staff que llegaron en el día seleccionado. Selector de fecha, paginación.
+- **Recepción:** `/reception/visits` — Misma vista, accesible desde el menú de recepción.
+- **API:** `GET /checkin/visits?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD` (sin `staff_only` = incluye socios y staff).
+- **Permisos:** Admin, SuperAdmin o staff con `can_use_reception` para ver la vista.

@@ -111,6 +111,12 @@ Las visitas se guardan en `Visit` con `user_id`. Como el staff es un `User` del 
 
 En la pantalla de **Auditoría** (`/admin/audit`) se registran acciones críticas (incluido `CHECKIN_SUCCESS`). Para ver el historial de checadas del staff de forma estructurada, usar la vista **Asistencia de personal**.
 
+### 4.4 Vista de visitantes por día (socios + staff)
+
+**Visitas** (`/admin/visits` o `/reception/visits`): Lista de **socios y staff** que llegaron en el día seleccionado. Selector de fecha, paginación (30 por página). Columnas: fecha/hora, nombre, rol, método de acceso, tipo. Accesible por Admin y staff con `can_use_reception`. Útil para saber quién llegó en un día concreto (reporte de visitas).
+
+**API:** `GET /checkin/visits?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD` (sin `staff_only` = incluye socios y staff).
+
 ---
 
 ## 5. Implementación técnica (resumen)

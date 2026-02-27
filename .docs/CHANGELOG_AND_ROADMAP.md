@@ -6,6 +6,25 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 
 ## Cambios implementados
 
+### Filtros de fecha: día actual por defecto
+
+| Área | Cambio |
+|------|--------|
+| **Asistencia de personal** | Desde/Hasta por defecto = hoy. Evita cargar todos los días al abrir; los filtros permiten ver otros rangos. |
+| **Cortes de caja** | Desde/Hasta por defecto = hoy. |
+| **Auditoría** | Desde/Hasta por defecto = hoy. |
+| **Visitas** | Fecha por defecto = hoy (ya estaba así). |
+
+### Vista de visitantes por día (Admin y Recepción)
+
+| Área | Cambio |
+|------|--------|
+| **VisitsPage** | Componente compartido: lista de visitas (socios + staff) por día. Selector de fecha, paginación (30 por página). Muestra nombre, rol, hora, método de acceso. |
+| **Admin** | Ruta `/admin/visits` en menú lateral. Visible para Admin y staff con `can_use_reception`. |
+| **Recepción** | Ruta `/reception/visits` en tabs. Accesible por recepcionista y quien tenga acceso a recepción. |
+| **API** | Usa `GET /checkin/visits` con `from_date`, `to_date` (sin `staff_only` = incluye socios y staff). |
+| **routes.config** | Breadcrumb para `/admin/visits` y `/reception/visits`. |
+
 ### Check-in biométrico: alineación con racha y last_checkin_date
 
 | Área | Cambio |

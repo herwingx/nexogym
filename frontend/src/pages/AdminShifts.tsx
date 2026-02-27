@@ -66,8 +66,12 @@ export const AdminShifts = () => {
   const [detailShiftId, setDetailShiftId] = useState<string | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [accessDeniedByPlan, setAccessDeniedByPlan] = useState(false)
-  const [fromDate, setFromDate] = useState('')
-  const [toDate, setToDate] = useState('')
+  const getToday = () => {
+    const d = new Date()
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+  }
+  const [fromDate, setFromDate] = useState(getToday)
+  const [toDate, setToDate] = useState(getToday)
   const [userIdFilter, setUserIdFilter] = useState('')
   const [staff, setStaff] = useState<StaffUserRow[]>([])
 

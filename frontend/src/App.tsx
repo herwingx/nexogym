@@ -14,6 +14,7 @@ import { AdminMembers } from './pages/AdminMembers'
 import { AdminFinance } from './pages/AdminFinance'
 import { AdminAudit } from './pages/AdminAudit'
 import { AdminStaffAttendance } from './pages/AdminStaffAttendance'
+import { VisitsPage } from './pages/VisitsPage'
 import { AdminClasses } from './pages/AdminClasses'
 import { AdminRoutines } from './pages/AdminRoutines'
 import { AdminInventory } from './pages/AdminInventory'
@@ -149,6 +150,7 @@ function App() {
             <Route path="/admin/staff" element={<AdminStaffView />} />
             <Route path="/admin/audit" element={<AdminAudit />} />
             <Route path="/admin/attendance" element={<AdminStaffAttendance />} />
+            <Route path="/admin/visits" element={<VisitsPage />} />
             <Route path="/admin/profile" element={<ProfileSettings />} />
           </Route>
         </Route>
@@ -159,6 +161,7 @@ function App() {
             <Route path="/reception/pos" element={<ReceptionPosPage />} />
             <Route path="/reception/members" element={<ReceptionMembersPage />} />
             <Route path="/reception/members/new" element={<ReceptionMemberNewPage />} />
+            <Route path="/reception/visits" element={<VisitsPage />} />
             <Route path="/reception/leaderboard" element={<AdminLeaderboard />} />
             <Route path="/reception/classes" element={<AdminClasses />} />
             <Route path="/reception/routines" element={<AdminRoutines />} />
