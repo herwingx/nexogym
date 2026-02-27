@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processCheckin } from './checkin.controller';
 import { prisma } from '../db';
 import { sendRewardMessage } from '../services/n8n.service';
-import { AccessMethod, SubscriptionStatus } from '@prisma/client';
+import { AccessMethod, Role, SubscriptionStatus } from '@prisma/client';
 
 // Mock the prisma client
 vi.mock('../db', () => ({
@@ -19,6 +19,7 @@ vi.mock('../db', () => ({
       findUnique: vi.fn(),
     },
     visit: {
+      findFirst: vi.fn(),
       create: vi.fn(),
     },
     $transaction: vi.fn((promises) => Promise.all(promises)),
@@ -60,9 +61,12 @@ describe('Checkin Controller - Gamification Engine', () => {
       name: 'Test',
       phone: '123456789',
       profile_picture_url: null,
+      role: Role.MEMBER,
+      deleted_at: null,
       current_streak: 5,
       last_visit_at: yesterday,
       last_checkin_date: lastCheckinDate,
+      streak_freeze_until: null,
     });
 
     (prisma.gym.findUnique as any).mockResolvedValue({
@@ -71,6 +75,7 @@ describe('Checkin Controller - Gamification Engine', () => {
       modules_config: { gamification: true, qr_access: true },
       rewards_config: {},
       last_reactivated_at: null,
+      opening_config: null,
     });
 
     await processCheckin(mockReq, mockRes);
@@ -106,9 +111,12 @@ describe('Checkin Controller - Gamification Engine', () => {
       name: null,
       phone: null,
       profile_picture_url: null,
+      role: Role.MEMBER,
+      deleted_at: null,
       current_streak: 10,
       last_visit_at: threeDaysAgo,
       last_checkin_date: new Date(threeDaysAgoStr + 'T00:00:00.000Z'),
+      streak_freeze_until: null,
     });
     (prisma.gym.findUnique as any).mockResolvedValue({
       id: gymId,
@@ -116,6 +124,7 @@ describe('Checkin Controller - Gamification Engine', () => {
       modules_config: { gamification: true, qr_access: true },
       rewards_config: {},
       last_reactivated_at: null,
+      opening_config: null,
     });
 
     await processCheckin(mockReq, mockRes);
@@ -138,6 +147,14 @@ describe('Checkin Controller - Gamification Engine', () => {
 
     // Mock subscription NOT found (meaning expired or inactive based on controller logic)
     (prisma.subscription.findFirst as any).mockResolvedValue(null);
+    (prisma.user.findUnique as any).mockResolvedValue({
+      id: '6f9619ff-8b86-4d01-b42d-00cf4fc964ff',
+      name: 'Test',
+      role: Role.MEMBER,
+      deleted_at: null,
+    });
+    (prisma.gym.findUnique as any).mockResolvedValue({ rewards_config: null });
+    (prisma.user.update as any).mockResolvedValue({}); // streak_freeze_until update in expired path
 
     await processCheckin(mockReq, mockRes);
 
@@ -165,9 +182,12 @@ describe('Checkin Controller - Gamification Engine', () => {
       id: userId,
       name: 'Usuario QR',
       profile_picture_url: 'https://cdn.test/qr.png',
+      role: Role.MEMBER,
+      deleted_at: null,
       current_streak: 2,
       last_visit_at: yesterday,
       last_checkin_date: lastCheckinDate,
+      streak_freeze_until: null,
       phone: '+573001112233',
     });
     (prisma.gym.findUnique as any).mockResolvedValue({
@@ -176,6 +196,7 @@ describe('Checkin Controller - Gamification Engine', () => {
       modules_config: { gamification: true, qr_access: true },
       rewards_config: { '3': 'Batido gratis' },
       last_reactivated_at: null,
+      opening_config: null,
     });
 
     await processCheckin(mockReq, mockRes);
@@ -220,9 +241,12 @@ describe('Checkin Controller - Gamification Engine', () => {
       id: userId,
       name: null,
       profile_picture_url: null,
+      role: Role.MEMBER,
+      deleted_at: null,
       current_streak: 1,
       last_visit_at: null,
       last_checkin_date: null,
+      streak_freeze_until: null,
       phone: '+573001112233',
     });
     (prisma.gym.findUnique as any).mockResolvedValue({
@@ -231,6 +255,7 @@ describe('Checkin Controller - Gamification Engine', () => {
       modules_config: { qr_access: false, gamification: false },
       rewards_config: {},
       last_reactivated_at: null,
+      opening_config: null,
     });
 
     await processCheckin(mockReq, mockRes);
@@ -259,9 +284,12 @@ describe('Checkin Controller - Gamification Engine', () => {
       id: userId,
       name: null,
       profile_picture_url: null,
+      role: Role.MEMBER,
+      deleted_at: null,
       current_streak: 2,
       last_visit_at: new Date(Date.now() - 86400000),
       last_checkin_date: new Date(new Date(Date.now() - 86400000).toISOString().split('T')[0] + 'T00:00:00.000Z'),
+      streak_freeze_until: null,
       phone: '+573001112233',
     });
     (prisma.gym.findUnique as any).mockResolvedValue({
@@ -270,6 +298,7 @@ describe('Checkin Controller - Gamification Engine', () => {
       modules_config: { gamification: true, qr_access: true },
       rewards_config: {},
       last_reactivated_at: null,
+      opening_config: null,
     });
 
     await processCheckin(mockReq, mockRes);

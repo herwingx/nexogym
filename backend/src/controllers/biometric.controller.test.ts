@@ -78,18 +78,25 @@ describe('Biometric Controller - Smoke', () => {
       },
     } as any;
 
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
     (prisma.user.findFirst as any).mockResolvedValue({
       id: userId,
       gym_id: gymId,
       pin_hash: 'fp-001',
       current_streak: 2,
       last_visit_at: yesterday,
+      last_checkin_date: new Date(yesterdayStr + 'T00:00:00.000Z'),
+      streak_freeze_until: null,
       phone: '+573001112233',
     });
     (prisma.subscription.findFirst as any).mockResolvedValue({ id: 'sub-1', status: SubscriptionStatus.ACTIVE });
     (prisma.gym.findUnique as any).mockResolvedValue({
       id: gymId,
       rewards_config: { '3': 'Toalla gratis' },
+      modules_config: { gamification: true },
+      subscription_tier: 'PRO_QR',
+      last_reactivated_at: null,
+      opening_config: null,
     });
 
     await biometricCheckIn(mockReq, mockRes);

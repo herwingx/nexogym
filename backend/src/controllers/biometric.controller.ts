@@ -3,6 +3,8 @@ import { prisma } from '../db';
 import { SubscriptionStatus, AccessMethod, AccessType } from '@prisma/client';
 import { sendRewardMessage } from '../services/n8n.service';
 import { parseRewardsConfig, getRewardMessageForStreak } from '../utils/rewards-config';
+import { resolveModulesConfig } from '../utils/modules-config';
+import { wereAllGapDaysClosed } from '../utils/opening-config';
 
 export const biometricCheckIn = async (req: Request, res: Response) => {
   try {
@@ -61,7 +63,13 @@ export const biometricCheckIn = async (req: Request, res: Response) => {
 
     const gym = await prisma.gym.findUnique({
       where: { id: gymId },
-      select: { rewards_config: true },
+      select: {
+        rewards_config: true,
+        modules_config: true,
+        subscription_tier: true,
+        last_reactivated_at: true,
+        opening_config: true,
+      },
     });
 
     if (!gym) {
@@ -70,36 +78,66 @@ export const biometricCheckIn = async (req: Request, res: Response) => {
     }
 
     const now = new Date();
+    const modulesConfig = resolveModulesConfig(gym.modules_config, gym.subscription_tier);
+    const gamificationEnabled = modulesConfig.gamification;
 
-    // Gamification: streak calculation (mirrors processCheckin logic)
+    // Streak: misma lógica que check-in (usa last_checkin_date para consistencia con streak-reset job)
     const todayStr = now.toISOString().split('T')[0];
-    const todayStart = new Date(todayStr);
+    const todayStart = new Date(todayStr + 'T00:00:00.000Z');
     let newStreak = user.current_streak;
+    let newLastCheckinDate: Date | null = user.last_checkin_date;
 
-    if (user.last_visit_at) {
-      const lastVisitStr = user.last_visit_at.toISOString().split('T')[0];
-      const lastVisitStart = new Date(lastVisitStr);
-      const diffDays = Math.ceil(
-        Math.abs(todayStart.getTime() - lastVisitStart.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      if (diffDays === 1) {
-        newStreak += 1;
-      } else if (diffDays > 1) {
+    if (gamificationEnabled) {
+      if (!user.last_checkin_date) {
         newStreak = 1;
+        newLastCheckinDate = todayStart;
+      } else {
+        const lastStr = user.last_checkin_date.toISOString().split('T')[0];
+        const lastStart = new Date(lastStr + 'T00:00:00.000Z');
+        const diffTime = todayStart.getTime() - lastStart.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+          // Mismo día: no incrementa racha
+          newLastCheckinDate = user.last_checkin_date;
+        } else if (diffDays === 1) {
+          newStreak = user.current_streak + 1;
+          newLastCheckinDate = todayStart;
+        } else {
+          // diffDays > 1: excepciones (gym reactivado, streak_freeze_until, días cerrados)
+          const STREAK_FREEZE_DAYS_GYM = 7;
+          const gymReactivationCutoff = new Date(
+            now.getTime() - STREAK_FREEZE_DAYS_GYM * 24 * 60 * 60 * 1000
+          );
+          const reactivatedWithinFreezeWindow =
+            gym.last_reactivated_at != null && gym.last_reactivated_at >= gymReactivationCutoff;
+          const withinExpiryFreeze =
+            user.streak_freeze_until != null && now <= user.streak_freeze_until;
+          const allGapDaysWereClosed = wereAllGapDaysClosed(
+            user.last_checkin_date,
+            todayStart,
+            gym.opening_config
+          );
+          if (reactivatedWithinFreezeWindow || withinExpiryFreeze || allGapDaysWereClosed) {
+            newStreak = user.current_streak;
+            newLastCheckinDate = todayStart;
+          } else {
+            newStreak = 1;
+            newLastCheckinDate = todayStart;
+          }
+        }
       }
-    } else {
-      newStreak = 1;
     }
 
     let rewardUnlocked = false;
     let rewardMessage: string | null = null;
-    if (gym.rewards_config) {
+    if (gamificationEnabled && gym.rewards_config) {
       const parsed = parseRewardsConfig(gym.rewards_config);
       rewardMessage = getRewardMessageForStreak(parsed, newStreak);
       if (rewardMessage) rewardUnlocked = true;
     }
 
-    // Transaction: register visit + update streak
+    // Transaction: Visit + User (last_visit_at siempre; last_checkin_date y current_streak si gamificación)
     await prisma.$transaction([
       prisma.visit.create({
         data: {
@@ -112,7 +150,13 @@ export const biometricCheckIn = async (req: Request, res: Response) => {
       }),
       prisma.user.update({
         where: { id: user.id },
-        data: { current_streak: newStreak, last_visit_at: now },
+        data: {
+          last_visit_at: now,
+          ...(gamificationEnabled && {
+            current_streak: newStreak,
+            last_checkin_date: newLastCheckinDate,
+          }),
+        },
       }),
     ]);
 

@@ -6,6 +6,14 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 
 ## Cambios implementados
 
+### Check-in biométrico: alineación con racha y last_checkin_date
+
+| Área | Cambio |
+|------|--------|
+| **biometric.controller.ts** | Actualiza `last_checkin_date` en cada check-in (antes solo actualizaba `last_visit_at` y `current_streak`). Necesario para que el job streak-reset no resetee incorrectamente a socios que solo usan biométrico. |
+| **biometric.controller.ts** | Misma lógica de racha que check-in QR: usa `last_checkin_date`, excepciones (gym reactivado, streak_freeze_until, días cerrados) y respeta `gamificationEnabled` (modules_config). |
+| **FLUJO_CHECKIN_ASISTENCIA_RACHA.md** | Documento de revisión: flujo de escáner/asistencia/racha, qué estados se actualizan en cada check-in y comportamiento con varios socios. |
+
 ### Cron de reset de rachas
 
 | Área | Cambio |
