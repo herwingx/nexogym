@@ -118,7 +118,7 @@ Las vistas se ocultan o muestran dinámicamente evaluando el store global `gym.m
 
 | Pantalla | Descripción | Ruta sugerida |
 |---|---|---|
-| **Dashboard / Check-in** | Flujo Hardware-First para registrar entrada de socios. Aforo actual visible si el gym tiene Check-in QR (ocupación accesible para recepcionistas). | `/reception` |
+| **Dashboard / Check-in** | Flujo Hardware-First para registrar entrada de socios. Aforo actual y "Check-ins de hoy" visibles si el gym tiene Check-in QR. Ambos se actualizan automáticamente tras cada check-in exitoso o cortesía. | `/reception` |
 | **POS** | Catálogo de productos (grid táctil), input para escáner USB o escribir código, botón "Usar cámara" para escanear códigos de barras con la cámara (móvil/tablet), carrito y botón "Confirmar Venta" | `/reception/pos` |
 | **Socios** | Búsqueda, listado y alta. Botón **Nuevo socio** en cabecera. Tabla y resultados: Renovar, Congelar, Descongelar, **Cancelar** (ACTIVE/FROZEN). | `/reception/members`, `/reception/members/new` |
 | **Clases** | Misma vista que en Admin. Solo visible si el staff tiene `can_use_routines` y el gym tiene módulo `classes`. | `/reception/classes` |

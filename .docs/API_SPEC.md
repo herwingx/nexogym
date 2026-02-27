@@ -87,6 +87,15 @@ Reporte de ventas por staff para pago de comisiones.
 }
 ```
 
+**Sin suscripción activa (403):** Si la suscripción está congelada o vencida, se devuelve 403. El frontend distingue por `code` para mostrar "Membresía congelada" o "Membresía vencida".
+```json
+// Response 403 (Congelado)
+{ "error": "Forbidden: Membership is frozen...", "code": "SUBSCRIPTION_FROZEN", "user_id": "uuid", "user": { "name": "...", "profile_picture_url": "..." } }
+
+// Response 403 (Vencido/cancelado)
+{ "error": "Forbidden: No active subscription found.", "code": "NO_ACTIVE_SUBSCRIPTION", "user_id": "uuid", "user": { "name": "...", "profile_picture_url": "..." } }
+```
+
 **Entrada opcional (QR):**
 ```json
 { "userId": "uuid", "accessMethod": "QR" }

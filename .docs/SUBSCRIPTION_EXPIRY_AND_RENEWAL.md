@@ -59,19 +59,25 @@ Resumen: “se va y regresa” = siempre desde hoy; “sigue activo y paga otro 
 ## 3. Congelar (`PATCH /users/:id/freeze`)
 
 - Solo suscripciones **ACTIVE**.
-- Se guarda en `frozen_days_left` los días que faltaban hasta `expires_at`.
-- Estado pasa a **FROZEN**; `expires_at` no se modifica.
+- Se guarda en `frozen_days_left` los días que faltaban hasta `expires_at` (redondeo al alza).
+- Estado pasa a **FROZEN**; `expires_at` **no se modifica** (la fecha original queda igual; los días se guardan aparte).
+
+**Ejemplo:** Socio con vencimiento 16 de marzo. Congela el 1 de marzo (15 días restantes).
+→ `frozen_days_left = 15`, `status = FROZEN`, `expires_at` sigue siendo 16 marzo.
 
 ---
 
 ## 4. Descongelar (`PATCH /users/:id/unfreeze`)
 
 - Solo suscripciones **FROZEN**.
-- Nueva fecha de vencimiento: **hoy + `frozen_days_left`**.
+- Nueva fecha de vencimiento: **hoy + `frozen_days_left`**. El socio recupera exactamente los días que tenía guardados al congelar.
 - Estado → **ACTIVE**, `expires_at` actualizada, `frozen_days_left` = null.
 - **Racha:** Al descongelar **no** se protege la racha. El socio eligió congelar; es justo que pierda la racha frente a quienes siguieron yendo. Solo se protege cuando no renovó a tiempo (7.1), gym no pagó (7.2) o días cerrados (7.3).
 
-Cuando el socio vuelve a entrenar sin pagar de nuevo, se usa **Descongelar**. Cuando paga de nuevo, se usa **Renovar** (nuevo periodo desde hoy).
+**Ejemplo:** Socio congelado con 15 días guardados. Descongela el 15 de marzo.
+→ Nueva `expires_at = 15 marzo + 15 días = 30 marzo`. El socio conserva sus 15 días; solo cambia desde cuándo se cuentan (desde el día que descongela).
+
+Cuando el socio vuelve a entrenar sin pagar de nuevo, se usa **Descongelar**. Cuando paga de nuevo, se usa **Renovar** (nuevo periodo desde hoy; pierde los días congelados).
 
 ---
 
@@ -111,7 +117,7 @@ Para que **no se pierda la racha** cuando hay un hueco de días sin check-in por
 - **Campo en User:** `streak_freeze_until` (DateTime, opcional). Si está seteo y el próximo check-in cae **antes o en** esa fecha, y han pasado más de 1 día desde el último check-in (`diffDays > 1`), la racha **se congela**: ni se reinicia ni se suma 1 (físicamente no fueron esos días; es lo justo).
 - **Cuándo se setea:**
   1. **Sync de vencidas:** al marcar una suscripción como EXPIRED, se setea `user.streak_freeze_until = expires_at + streak_freeze_days`.
-  2. **Check-in 403 (NO_ACTIVE_SUBSCRIPTION):** si intentan entrar sin suscripción activa, se setea `user.streak_freeze_until = hoy + streak_freeze_days` (por si el sync aún no corrió).
+  2. **Check-in 403 (NO_ACTIVE_SUBSCRIPTION o SUBSCRIPTION_FROZEN):** si intentan entrar sin suscripción activa, se setea `user.streak_freeze_until = hoy + streak_freeze_days` (por si el sync aún no corrió). El backend devuelve `code: 'SUBSCRIPTION_FROZEN'` cuando la suscripción está congelada (pausa voluntaria); `code: 'NO_ACTIVE_SUBSCRIPTION'` cuando está vencida o cancelada. El frontend muestra "Membresía congelada" vs "Membresía vencida" según el caso.
 - **Días configurables:** `streak_freeze_days` está en `rewards_config` del gym. El admin lo configura en **Gamificación** (`/admin/rewards`). Default 7; rango 1–90.
 - **Cuándo se limpia:** en el primer check-in exitoso donde se aplica el “streak freeze” (diffDays > 1 y `now <= streak_freeze_until`), tras actualizar la racha se pone `streak_freeze_until = null`.
 
@@ -159,7 +165,7 @@ Así, si el socio renueva uno o dos días después de vencer y vuelve a entrar, 
 |-----------|--------|-----------|
 | Venció la fecha, vuelve a pagar | **Renovar** | ACTIVE, vence **hoy + 30**. |
 | Estaba congelado, vuelve a pagar | **Renovar** | ACTIVE, vence **hoy + 30**; se limpia congelado. |
-| Estaba congelado, vuelve a entrenar sin pagar | **Descongelar** | ACTIVE, vence **hoy + días guardados**. |
+| Estaba congelado, vuelve a entrenar sin pagar | **Descongelar** | ACTIVE, vence **hoy + frozen_days_left** (ej. 15 días guardados → hoy + 15). Conserva los días; la fecha de vencimiento se actualiza desde el día que descongela. |
 | Sigue activo, paga otro mes | **Renovar** | ACTIVE, vence **expires_at actual + 30**. |
 | Baja voluntaria (activo o congelado) | **Cancelar** | CANCELED; opcional reembolso (egreso REFUND, requiere turno). |
 | Listados/BD con fechas vencidas | **Sync vencidas** | ACTIVE con `expires_at` pasada → EXPIRED. |

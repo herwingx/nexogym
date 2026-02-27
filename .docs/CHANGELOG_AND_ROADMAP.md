@@ -53,11 +53,12 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 | **CheckInModal antipassback** | Muestra foto y nombre del socio cuando el backend los envía. |
 | **MemberRewards** | Foto de perfil del socio en la tarjeta de racha y en el ranking de racha. |
 
-### Check-ins de hoy (Recepción)
+### Check-ins de hoy y Aforo (Recepción)
 
 | Área | Cambio |
 |------|--------|
-| **ReceptionCheckIn** | "Check-ins de hoy": lista hasta 10 check-ins del día desde la API `GET /checkin/visits` (from_date, to_date, limit). El primero destacado con foto, nombre, hora y racha (si aplica); el resto en lista compacta. Se refresca tras cada check-in exitoso. |
+| **ReceptionCheckIn** | "Check-ins de hoy": lista hasta 10 check-ins del día desde `GET /checkin/visits`. El primero destacado con foto, nombre, hora y racha (si aplica); el resto en lista compacta. **Aforo actual**: se muestra si el gym tiene Check-in QR (`qr_access`). |
+| **Actualización tras escanear** | Tras cada check-in exitoso o cortesía, se refrescan **Check-ins de hoy** y **Aforo actual** sin recargar la página. |
 | **checkin.controller.ts** | `listVisits` incluye `user_profile_picture_url` en cada item de la respuesta. |
 | **apiClient** | `VisitRow` con campo opcional `user_profile_picture_url`. |
 
