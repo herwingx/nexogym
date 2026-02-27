@@ -17,7 +17,7 @@ export function ThemeToggle({ className = '', size = 'md' }: ThemeToggleProps) {
       onClick={toggle}
       className={
         className ||
-        `inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors ${size === 'sm' ? 'h-8 w-8' : ''}`
+        `inline-flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors touch-manipulation ${size === 'sm' ? 'min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:h-8 md:w-8' : 'min-h-[44px] min-w-[44px] md:h-9 md:w-9 md:min-h-0 md:min-w-0'}`
       }
       title={isDark ? 'Usar tema claro' : 'Usar tema oscuro'}
       aria-label={isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}

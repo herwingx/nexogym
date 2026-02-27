@@ -57,6 +57,9 @@ const PAGE_SIZE = 20
 export const AdminMembers = () => {
   const navigate = useNavigate()
   const isAdmin = useAuthStore((s) => s.user?.role === 'ADMIN' || s.user?.role === 'SUPERADMIN')
+  const canRegenerateQr = useAuthStore((s) =>
+    s.user?.role === 'ADMIN' || s.user?.role === 'SUPERADMIN' || s.user?.effective_staff_permissions?.can_regenerate_member_qr === true
+  )
   const canCancel = useAuthStore((s) => {
     if (s.user?.role === 'ADMIN' || s.user?.role === 'SUPERADMIN') return true
     const p = s.user?.effective_staff_permissions
@@ -381,7 +384,7 @@ export const AdminMembers = () => {
                         <td className="py-2.5 px-4 align-middle">
                           <span
                             className={cn(
-                              'inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide',
+                              'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide',
                               STATUS_BADGE[status],
                             )}
                           >
@@ -562,7 +565,7 @@ export const AdminMembers = () => {
           member={detailMember}
           onClose={() => setDetailMember(null)}
           onEdit={handleDetailEdit}
-          canRegenerateQr={isAdmin}
+          canRegenerateQr={canRegenerateQr}
           hasQrAccess={hasQrAccess ?? false}
           onRefresh={() => void load(meta.page)}
         />
@@ -577,7 +580,7 @@ export const AdminMembers = () => {
               void load(meta.page)
             }}
             onCancel={() => setEditMember(null)}
-            canRegenerateQr={isAdmin}
+            canRegenerateQr={canRegenerateQr}
           />
         </Modal>
       )}

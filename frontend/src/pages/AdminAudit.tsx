@@ -253,7 +253,7 @@ export const AdminAudit = () => {
                           <summary className="cursor-pointer text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 select-none">
                             {isExpanded ? 'Ocultar' : 'Ver detalles'}
                           </summary>
-                          <pre className="mt-1 rounded-md border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-900/80 p-2 text-[10px] text-zinc-700 dark:text-zinc-300 overflow-x-auto max-w-xs md:max-w-sm">
+                          <pre className="mt-1 rounded-md border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-900/80 p-2 text-xs text-zinc-700 dark:text-zinc-300 overflow-x-auto max-w-xs md:max-w-sm">
                             {JSON.stringify(entry.details, null, 2)}
                           </pre>
                         </details>

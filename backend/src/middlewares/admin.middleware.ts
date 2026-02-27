@@ -271,6 +271,25 @@ export const requireCanUseGamification = (req: Request, res: Response, next: Nex
   res.status(403).json({ error: 'Forbidden: No tienes permiso para gamificación.' });
 };
 
+/** Permiso efectivo: puede regenerar QR de socios (Admin/SuperAdmin o staff con can_regenerate_member_qr). */
+export const requireCanRegenerateMemberQr = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    res.status(403).json({ error: 'Forbidden: Authentication required.' });
+    return;
+  }
+  if (req.userRole === Role.ADMIN || req.userRole === Role.SUPERADMIN) {
+    next();
+    return;
+  }
+  if (req.effectiveStaffPermissions?.can_regenerate_member_qr) {
+    next();
+    return;
+  }
+  res.status(403).json({
+    error: 'Forbidden: No tienes permiso para regenerar el QR de socios. El admin puede activarlo en Personal.',
+  });
+};
+
 /** Permiso efectivo: puede ver leaderboard de rachas (Admin/SuperAdmin siempre; staff si can_view_leaderboard). */
 export const requireCanViewLeaderboard = (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {

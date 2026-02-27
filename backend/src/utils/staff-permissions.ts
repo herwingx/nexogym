@@ -11,6 +11,8 @@ export type StaffPermissionsOverrides = {
   can_view_audit?: boolean;
   can_use_gamification?: boolean;
   can_view_leaderboard?: boolean;
+  can_view_member_qr?: boolean;
+  can_regenerate_member_qr?: boolean;
 };
 
 export type EffectiveStaffPermissions = {
@@ -24,6 +26,8 @@ export type EffectiveStaffPermissions = {
   can_view_audit: boolean;
   can_use_gamification: boolean;
   can_view_leaderboard: boolean;
+  can_view_member_qr: boolean;
+  can_regenerate_member_qr: boolean;
 };
 
 const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
@@ -38,6 +42,8 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_view_audit: true,
     can_use_gamification: true,
     can_view_leaderboard: true,
+    can_view_member_qr: true,
+    can_regenerate_member_qr: true,
   },
   [Role.ADMIN]: {
     can_use_pos: true,
@@ -50,6 +56,8 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_view_audit: true,
     can_use_gamification: true,
     can_view_leaderboard: true,
+    can_view_member_qr: true,
+    can_regenerate_member_qr: true,
   },
   [Role.RECEPTIONIST]: {
     can_use_pos: true,
@@ -62,6 +70,8 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_view_audit: false,
     can_use_gamification: false,
     can_view_leaderboard: false,
+    can_view_member_qr: false,
+    can_regenerate_member_qr: false,
   },
   [Role.COACH]: {
     can_use_pos: false,
@@ -74,6 +84,8 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_view_audit: false,
     can_use_gamification: false,
     can_view_leaderboard: false,
+    can_view_member_qr: false,
+    can_regenerate_member_qr: false,
   },
   [Role.INSTRUCTOR]: {
     can_use_pos: false,
@@ -86,6 +98,8 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_view_audit: false,
     can_use_gamification: false,
     can_view_leaderboard: false,
+    can_view_member_qr: false,
+    can_regenerate_member_qr: false,
   },
   [Role.CLEANER]: {
     can_use_pos: false,
@@ -98,6 +112,8 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_view_audit: false,
     can_use_gamification: false,
     can_view_leaderboard: false,
+    can_view_member_qr: false,
+    can_regenerate_member_qr: false,
   },
   [Role.MEMBER]: {
     can_use_pos: false,
@@ -110,6 +126,8 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_view_audit: false,
     can_use_gamification: false,
     can_view_leaderboard: false,
+    can_view_member_qr: false,
+    can_regenerate_member_qr: false,
   },
 };
 
@@ -128,6 +146,8 @@ function parseOverrides(raw: unknown): StaffPermissionsOverrides | null {
     'can_view_audit',
     'can_use_gamification',
     'can_view_leaderboard',
+    'can_view_member_qr',
+    'can_regenerate_member_qr',
   ];
   for (const k of keys) {
     if (typeof o[k] === 'boolean') out[k] = o[k];
@@ -157,5 +177,7 @@ export function getEffectiveStaffPermissions(
     can_view_audit: overrides.can_view_audit ?? defaults.can_view_audit,
     can_use_gamification: overrides.can_use_gamification ?? defaults.can_use_gamification,
     can_view_leaderboard: overrides.can_view_leaderboard ?? defaults.can_view_leaderboard,
+    can_view_member_qr: overrides.can_view_member_qr ?? defaults.can_view_member_qr,
+    can_regenerate_member_qr: overrides.can_regenerate_member_qr ?? defaults.can_regenerate_member_qr,
   };
 }

@@ -209,7 +209,7 @@ export const MemberClasses = () => {
                 setViewDate(d.toISOString().slice(0, 10))
                 setSelectedDay(idx)
               }}
-              className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
                 selectedDay === idx
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/80 text-zinc-500 dark:text-zinc-400'
@@ -243,12 +243,12 @@ export const MemberClasses = () => {
                         {gymClass.name}
                       </span>
                       {isFull && (
-                        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-400">
+                        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-xs font-medium text-rose-400">
                           Lleno
                         </span>
                       )}
                       {price != null && price > 0 && (
-                        <span className="rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-400">
+                        <span className="rounded-full border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-400">
                           ${price.toFixed(0)}
                         </span>
                       )}

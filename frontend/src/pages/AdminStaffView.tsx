@@ -34,6 +34,8 @@ const PERM_KEYS = [
   'can_view_audit',
   'can_use_gamification',
   'can_view_leaderboard',
+  'can_view_member_qr',
+  'can_regenerate_member_qr',
 ] as const
 
 type PermKey = (typeof PERM_KEYS)[number]
@@ -80,6 +82,8 @@ export const AdminStaffView = () => {
   const [permCanViewAudit, setPermCanViewAudit] = useState(false)
   const [permCanUseGamification, setPermCanUseGamification] = useState(false)
   const [permCanViewLeaderboard, setPermCanViewLeaderboard] = useState(false)
+  const [permCanViewMemberQr, setPermCanViewMemberQr] = useState(false)
+  const [permCanRegenerateMemberQr, setPermCanRegenerateMemberQr] = useState(false)
   const [permissionsSaving, setPermissionsSaving] = useState(false)
   const [detailStaff, setDetailStaff] = useState<StaffUserRow | null>(null)
 
@@ -212,6 +216,8 @@ export const AdminStaffView = () => {
     setPermCanViewAudit(getEffectivePerm(u, 'can_view_audit'))
     setPermCanUseGamification(getEffectivePerm(u, 'can_use_gamification'))
     setPermCanViewLeaderboard(getEffectivePerm(u, 'can_view_leaderboard'))
+    setPermCanViewMemberQr(getEffectivePerm(u, 'can_view_member_qr'))
+    setPermCanRegenerateMemberQr(getEffectivePerm(u, 'can_regenerate_member_qr'))
   }
 
   const handleSavePermissions = async () => {
@@ -229,6 +235,8 @@ export const AdminStaffView = () => {
         can_view_audit: permCanViewAudit,
         can_use_gamification: permCanUseGamification,
         can_view_leaderboard: permCanViewLeaderboard,
+        can_view_member_qr: permCanViewMemberQr,
+        can_regenerate_member_qr: permCanRegenerateMemberQr,
       })
       notifySuccess({ title: 'Permisos actualizados', description: 'El personal verá los cambios al recargar o en el próximo inicio de sesión.' })
       setPermissionsTarget(null)
@@ -343,7 +351,7 @@ export const AdminStaffView = () => {
                       {u.deleted_at ? (
                         <span
                           className={cn(
-                            'inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                            'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
                             STATUS_BADGE.inactive,
                           )}
                         >
@@ -576,6 +584,30 @@ export const AdminStaffView = () => {
                     <div>
                       <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Leaderboard</span>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">Ver ranking de rachas.</p>
+                    </div>
+                  </label>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanViewMemberQr}
+                      onChange={(e) => setPermCanViewMemberQr(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Ver QR de socios</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Mostrar QR en detalle del socio (ej. socio sin teléfono).</p>
+                    </div>
+                  </label>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanRegenerateMemberQr}
+                      onChange={(e) => setPermCanRegenerateMemberQr(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Regenerar QR de socios</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Regenerar código QR (invalida el anterior).</p>
                     </div>
                   </label>
                 </div>

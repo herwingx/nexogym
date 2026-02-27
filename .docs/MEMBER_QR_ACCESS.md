@@ -1,6 +1,6 @@
 # QR de acceso del socio (único y estable)
 
-El QR que identifica al socio es **único y estable**. Para el **personal (staff)**, ver **STAFF_QR_ACCESS_AND_ATTENDANCE.md**. Se envía por **WhatsApp** (n8n). El canal de email se reserva para bienvenida (credenciales) y recuperación de contraseña. Ver **CANALES_COMUNICACION.md**. Si borró el chat o lo perdió, se puede **reenviar** el mismo QR por WhatsApp. Solo Admin puede **regenerar** un QR nuevo (invalida el anterior), por ejemplo si hubo fraude o cambio de teléfono.
+El QR que identifica al socio es **único y estable**. Para el **personal (staff)**, ver **STAFF_QR_ACCESS_AND_ATTENDANCE.md**. Se envía por **WhatsApp** (n8n). El canal de email se reserva para bienvenida (credenciales) y recuperación de contraseña. Ver **CANALES_COMUNICACION.md**. Si borró el chat o lo perdió, se puede **reenviar** el mismo QR por WhatsApp. Admin/SuperAdmin puede **regenerar** un QR nuevo (invalida el anterior); el admin puede dar permiso `can_regenerate_member_qr` a staff para delegar (ej. cuando el admin no está). Ver QR de socios en la ficha del detalle requiere permiso `can_view_member_qr` (por defecto Admin/SuperAdmin); útil cuando un socio no lleva teléfono y recepción puede mostrar el QR en pantalla.
 
 ---
 
@@ -24,9 +24,13 @@ El backend resuelve `code` → `userId` por `qr_token` y hace el check-in con `a
 4. **Reenviar el mismo QR** (borró el chat, lo perdió, etc.):
    - **Desde el socio:** en la app (MemberHome o MemberQR), botón "Recibir mi QR por WhatsApp" → `POST /members/me/send-qr` → backend llama a n8n con `event: 'resend_qr'` y el mismo `qrData`.
    - **Desde recepción/admin:** en la ficha del socio (Recepción → Socios → Editar socio), botón "Reenviar QR por WhatsApp" → `POST /users/:id/send-qr` → mismo flujo n8n.
-5. **Regenerar QR** (solo Admin):
-   - En la ficha del socio (Editar socio), botón "Regenerar QR" → `POST /users/:id/regenerate-qr` con opcional `sendToWhatsApp: true`.
+5. **Regenerar QR** (Admin/SuperAdmin o staff con `can_regenerate_member_qr`):
+   - En la ficha del socio (detalle o Editar socio), botón "Regenerar QR" → `POST /users/:id/regenerate-qr` con opcional `sendToWhatsApp: true`.
    - Genera nuevo `qr_token`, invalida el anterior. Si `sendToWhatsApp` y hay teléfono, se envía el nuevo código por WhatsApp.
+   - El admin puede dar permiso `can_regenerate_member_qr` al staff en Personal → Permisos.
+6. **Ver QR en detalle del socio** (Admin/SuperAdmin o staff con `can_view_member_qr`):
+   - En la ficha del socio (Recepción o Admin Socios), si el usuario tiene permiso, se muestra la imagen del QR en el modal de detalle.
+   - Útil cuando un socio no lleva teléfono: recepción abre la ficha, muestra el QR en pantalla y se escanea desde ahí. El admin puede dar permiso `can_view_member_qr` en Personal → Permisos.
 
 ---
 
@@ -41,7 +45,7 @@ El backend resuelve `code` → `userId` por `qr_token` y hace el check-in con `a
 
 - **QR único y estable:** no rota por defecto. Es como la huella de acceso del socio.
 - **Reenviar = mismo código:** "Recibir mi QR por WhatsApp" o "Reenviar QR" desde staff vuelven a enviar el mismo `GYM_QR_<qr_token>` por WhatsApp.
-- **Regenerar = nuevo código:** solo Admin/SuperAdmin puede regenerar. El anterior queda invalidado de inmediato.
+- **Regenerar = nuevo código:** Admin/SuperAdmin o staff con `can_regenerate_member_qr`. El anterior queda invalidado de inmediato.
 - **Escaneo = llegada:** código válido + suscripción activa + horario/anti-passback OK → el sistema considera que llegó al gym y actualiza la racha sin abrir la web.
 - **Anti-passback:** el mismo código no puede usarse de nuevo antes de 4 horas (backend).
 
@@ -54,4 +58,5 @@ El backend resuelve `code` → `userId` por `qr_token` y hace el check-in con `a
 | `POST /members/me/send-qr` | POST | Socio (portal) | Reenviar mi QR por WhatsApp |
 | `POST /users/:id/send-qr` | POST | Staff | Reenviar QR del socio por WhatsApp |
 | `POST /users/:id/send-portal-access` | POST | Staff | Enviar acceso al portal a un socio sin cuenta (ej. subida BASIC→QR). Body: `{ email: string }` |
-| `POST /users/:id/regenerate-qr` | POST | Admin/SuperAdmin | Regenerar QR (invalida el anterior). Body opcional: `{ sendToWhatsApp: boolean }` |
+| `POST /users/:id/regenerate-qr` | POST | Admin/SuperAdmin o `can_regenerate_member_qr` | Regenerar QR (invalida el anterior). Body opcional: `{ sendToWhatsApp: boolean }` |
+| `GET /users/:id` (socio) | GET | Staff con `can_view_members` | Detalle del socio. Devuelve `qr_payload` solo si el usuario tiene `can_view_member_qr` o es Admin/SuperAdmin. |

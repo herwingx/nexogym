@@ -178,7 +178,7 @@ export const AdminDashboard = () => {
                 )
               })}
             </div>
-            <p className="mt-2 text-[10px] text-zinc-600">
+            <p className="mt-2 text-xs text-zinc-600">
               Cada barra representa el total de ventas de ese día.
             </p>
           </section>

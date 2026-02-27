@@ -175,6 +175,20 @@ sileo.success({
 
 ---
 
+## Override z-index para modales
+
+Si los modales usan `backdrop-blur` o alto z-index, los toasts de Sileo pueden quedar detrás. Solución: añadir `toast-override.css` con:
+
+```css
+[data-sileo-viewport] {
+  z-index: 9999 !important;
+}
+```
+
+Importar este CSS después de los estilos de Sileo.
+
+---
+
 ## Notas
 
 - No requiere configuración de estilos — Sileo lo maneja internamente.

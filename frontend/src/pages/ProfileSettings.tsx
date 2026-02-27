@@ -113,7 +113,7 @@ export const ProfileSettings = () => {
             </p>
             <div className="flex flex-wrap gap-3 items-end">
               <div>
-                <span className="text-[11px] text-zinc-500 block mb-1">Vista previa</span>
+                <span className="text-xs text-zinc-500 block mb-1">Vista previa</span>
                 <div
                   className="h-9 px-4 rounded-md font-medium shadow-sm flex items-center justify-center text-sm"
                   style={{
@@ -125,7 +125,7 @@ export const ProfileSettings = () => {
                 </div>
               </div>
               <div>
-                <span className="text-[11px] text-zinc-500 block mb-1">Color</span>
+                <span className="text-xs text-zinc-500 block mb-1">Color</span>
                 <div className="flex gap-1">
                   <input
                     type="color"

@@ -130,7 +130,7 @@ export const ReceptionMemberNewPage = () => {
               placeholder="ejemplo@correo.com"
               autoComplete="email"
             />
-            <p className="text-[11px] text-zinc-500 mt-0.5">
+            <p className="text-xs text-zinc-500 mt-0.5">
               {hasPortal
                 ? 'Si lo indicas, recibirá credenciales del portal por correo. Si no (ej. no quiere o no usa correo), podrás enviarle acceso después desde Socios → Editar socio → Enviar acceso al portal.'
                 : 'Para portal (gamificación) y promociones. Recibirá credenciales por correo.'}
@@ -172,7 +172,7 @@ export const ReceptionMemberNewPage = () => {
                 <Camera className="h-3.5 w-3.5" />
                 {uploadingPhoto ? 'Subiendo...' : 'Cámara o archivo'}
               </Button>
-              <span className="text-[11px] text-zinc-500">o</span>
+              <span className="text-xs text-zinc-500">o</span>
               <input
                 type="url"
                 value={profilePictureUrl}
@@ -191,7 +191,7 @@ export const ReceptionMemberNewPage = () => {
                 <button
                   type="button"
                   onClick={() => setProfilePictureUrl('')}
-                  className="text-[11px] text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                  className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                 >
                   Quitar foto
                 </button>

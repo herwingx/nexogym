@@ -36,6 +36,8 @@ export default defineConfig({
     },
   },
   server: {
+    host: true, // permite acceso desde LAN (móvil, tablet) para probar QR/cámara
+    allowedHosts: true, // permite ngrok y otros túneles (Host header distinto a localhost)
     proxy: {
       '/api/v1': {
         target: process.env.VITE_API_BASE_URL

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -43,8 +45,7 @@
 
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Inter', 'Geist',
-      sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     margin: 0;
   }
 
@@ -87,5 +88,10 @@
 
   .dark *::-webkit-scrollbar-thumb:hover {
     background: hsl(0 0% 45%);
+  }
+
+  /* Safe area para dispositivos con notch / home indicator */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 }

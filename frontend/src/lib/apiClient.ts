@@ -54,6 +54,8 @@ export type EffectiveStaffPermissions = {
   can_use_pos: boolean
   can_use_routines: boolean
   can_use_reception: boolean
+  can_view_member_qr?: boolean
+  can_regenerate_member_qr?: boolean
 }
 
 export type UserContextResponse = {
@@ -888,6 +890,7 @@ export type VisitRow = {
   user_name: string | null
   user_phone: string | null
   user_role?: string
+  user_profile_picture_url?: string | null
   check_in_time: string
   access_method: string
   access_type: string
@@ -1300,6 +1303,8 @@ export type MemberDetail = MemberUserRow & {
   birth_date?: string | null
   total_visits?: number
   last_visits?: Array<{ id: string; checked_in_at: string; access_method: string }>
+  /** Presente solo si el usuario tiene permiso can_view_member_qr o es Admin/SuperAdmin */
+  qr_payload?: string | null
 }
 
 export const fetchMemberDetail = async (userId: string): Promise<MemberDetail> => {
@@ -1390,6 +1395,8 @@ export type StaffPermissionsPayload = {
   can_view_audit?: boolean
   can_use_gamification?: boolean
   can_view_leaderboard?: boolean
+  can_view_member_qr?: boolean
+  can_regenerate_member_qr?: boolean
 }
 
 export const updateStaffPermissions = async (

@@ -58,7 +58,8 @@ Documento de referencia para decidir **qué sí** y **qué no** puede hacer el r
 | **Alta de nuevo socio** | ✅ Sí | ✅ Sí | Necesario cuando admin no está; alta con nombre, teléfono, PIN. |
 | **Editar nombre / teléfono del socio** | ✅ Sí | ✅ Sí | Correcciones de datos sin tocar suscripción. |
 | Reenviar QR por WhatsApp | ✅ Sí | ✅ Sí | Mismo código; útil si el socio borró el chat. |
-| Regenerar QR (invalida el anterior) | ❌ No | ✅ Sí | Solo admin; por fraude o pérdida de control. |
+| Ver QR del socio en detalle | ⚠️ Si permiso `can_view_member_qr` | ✅ Sí | Útil cuando el socio no lleva teléfono; recepción muestra el QR en pantalla para escanear. Admin puede activar en Personal → Permisos. |
+| Regenerar QR (invalida el anterior) | ⚠️ Si permiso `can_regenerate_member_qr` | ✅ Sí | Por defecto solo admin; el admin puede dar permiso al staff para delegar (ej. cuando no está). |
 | Listar / buscar socios | ✅ Sí | ✅ Sí | Para consultas y check-in manual. |
 | Renovar suscripción (días) | ⚠️ Recomendado Sí | ✅ Sí | Operación de ventanilla; puede limitarse a “X días” sin cambiar planes. |
 | Congelar / descongelar | ⚠️ Recomendado Sí | ✅ Sí | Muy operativo; el admin define política. |

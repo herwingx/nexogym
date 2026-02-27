@@ -70,7 +70,7 @@ export const AdminLeaderboard = () => {
         />
       </div>
 
-      <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
+      <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 shadow-sm overflow-x-auto">
         {loading ? (
           <table className="min-w-full text-sm">
             <thead>

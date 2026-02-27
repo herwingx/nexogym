@@ -162,7 +162,7 @@ export function StaffDetailModal({
         subtitle={ROLE_LABELS[data.role] ?? data.role}
         statusBadge={
           isInactive ? (
-            <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium', PALETTE.inactive)}>
+            <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-xs font-medium', PALETTE.inactive)}>
               INACTIVO
             </span>
           ) : undefined

@@ -414,7 +414,7 @@ export const SuperAdminDashboard = () => {
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider text-primary">
                 <ShieldCheck className="h-3 w-3" />
                 Super Admin
               </span>
@@ -601,7 +601,7 @@ export const SuperAdminDashboard = () => {
                             <div className="font-medium text-zinc-900 dark:text-zinc-100">
                               {gym.name}
                             </div>
-                            <div className="text-[11px] text-zinc-500 font-mono">
+                            <div className="text-xs text-zinc-500 font-mono">
                               {gym.id.slice(0, 8)}…
                             </div>
                           </div>
@@ -623,7 +623,7 @@ export const SuperAdminDashboard = () => {
                           ))}
                         </select>
                         {updatingGymId === gym.id && (
-                          <span className="text-[10px] text-zinc-500 mt-1 block">
+                          <span className="text-xs text-zinc-500 mt-1 block">
                             Actualizando…
                           </span>
                         )}
@@ -635,13 +635,13 @@ export const SuperAdminDashboard = () => {
                             .map(([key]) => (
                               <span
                                 key={key}
-                                className="inline-flex rounded-md border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300 whitespace-nowrap"
+                                className="inline-flex rounded-md border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/60 px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-300 whitespace-nowrap"
                               >
                                 {getModuleLabel(key)}
                               </span>
                             ))}
                           {Object.values(gym.modules_config).every((v) => !v) && (
-                            <span className="text-[10px] text-zinc-400 italic">
+                            <span className="text-xs text-zinc-400 italic">
                               Ninguno
                             </span>
                           )}

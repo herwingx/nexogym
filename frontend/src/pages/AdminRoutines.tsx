@@ -678,7 +678,7 @@ export const AdminRoutines = () => {
                 <p className="text-xs font-medium text-zinc-500">Ejercicios</p>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1 rounded-full border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-900/80 px-2.5 py-1 text-[11px] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
+                  className="inline-flex items-center gap-1 rounded-full border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-900/80 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
                   onClick={addExerciseRow}
                 >
                   <Plus className="h-3 w-3" /> Añadir ejercicio
@@ -783,7 +783,7 @@ export const AdminRoutines = () => {
                         {routine.user_id ? (
                           <span>Socio: {routine.user_name ?? routine.user_id.slice(0, 8) + '…'}</span>
                         ) : (
-                          <span className="inline-flex items-center rounded-full border border-zinc-300 dark:border-zinc-600 bg-zinc-100 dark:bg-zinc-800/80 px-2 py-0.5 text-[10px] font-medium text-zinc-600 dark:text-zinc-400">
+                          <span className="inline-flex items-center rounded-full border border-zinc-300 dark:border-zinc-600 bg-zinc-100 dark:bg-zinc-800/80 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
                             Plantilla base
                           </span>
                         )}
@@ -799,7 +799,7 @@ export const AdminRoutines = () => {
                   </button>
 
                   {isExpanded && (
-                    <div className="border-t border-zinc-200 dark:border-zinc-800/60 px-5 py-3">
+                    <div className="border-t border-zinc-200 dark:border-zinc-800/60 px-5 py-3 overflow-x-auto">
                       {!isEditing ? (
                         <>
                           <div className="flex flex-wrap gap-2 justify-end mb-2">
@@ -882,7 +882,7 @@ export const AdminRoutines = () => {
                             <p className="text-xs font-medium text-zinc-500">Ejercicios</p>
                             <button
                               type="button"
-                              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 dark:border-zinc-700/80 px-2.5 py-1 text-[11px] text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
+                              className="inline-flex items-center gap-1 rounded-full border border-zinc-200 dark:border-zinc-700/80 px-2.5 py-1 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
                               onClick={addEditExerciseRow}
                             >
                               <Plus className="h-3 w-3" /> Añadir

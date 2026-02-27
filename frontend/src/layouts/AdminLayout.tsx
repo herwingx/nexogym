@@ -119,7 +119,7 @@ export const AdminLayout = () => {
               <div className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 truncate leading-tight">
                 {brandName}
               </div>
-              <div className="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium">
+              <div className="text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium">
                 {user.role === 'ADMIN' ? 'Panel Admin' : user.role === 'COACH' || user.role === 'INSTRUCTOR' ? 'Clases y Rutinas' : user.role}
               </div>
             </div>
@@ -173,7 +173,7 @@ export const AdminLayout = () => {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors touch-manipulation"
             aria-label="Abrir menú"
           >
             <Menu className="h-5 w-5" />
@@ -186,7 +186,7 @@ export const AdminLayout = () => {
             ) : null}
             <div className="min-w-0 space-y-0.5">
               <div className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 truncate leading-tight">{brandName}</div>
-              <div className="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium hidden sm:block">
+              <div className="text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium hidden sm:block">
                 {user.role === 'ADMIN' ? 'Panel Admin' : user.role === 'COACH' || user.role === 'INSTRUCTOR' ? 'Clases y Rutinas' : user.role}
               </div>
             </div>
@@ -220,7 +220,7 @@ export const AdminLayout = () => {
                   ) : null}
                   <div className="min-w-0 space-y-0.5">
                     <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50 truncate leading-tight">{brandName}</div>
-                    <div className="text-[11px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium">
+                    <div className="text-xs uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium">
                       {user.role === 'ADMIN' ? 'Panel Admin' : user.role === 'COACH' || user.role === 'INSTRUCTOR' ? 'Clases y Rutinas' : user.role}
                     </div>
                   </div>

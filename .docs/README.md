@@ -28,8 +28,9 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 
 | Documento | Contenido |
 |-----------|-----------|
-| **API_SPEC.md** | Contratos de la API por sprint: check-in, POS, turnos, users, members, bookings, routines, SaaS. Incluye **cierre ciego** (POST /pos/shifts/close), **force-close**, **POST /pos/expenses** (tipos), **GET /users?role_not=MEMBER**, **DELETE /users/:id**, **GET/PATCH /gym/rewards-config** (premios por racha). |
+| **API_SPEC.md** | Contratos de la API por sprint: check-in, POS, turnos, users, members, bookings, routines, SaaS, webhooks. Incluye **cierre ciego** (POST /pos/shifts/close), **force-close**, **POST /pos/expenses** (tipos), **POST /webhooks/streak-reset**, **GET /users?role_not=MEMBER**, **DELETE /users/:id**, **GET/PATCH /gym/rewards-config** (premios por racha). |
 | **GAMIFICACION_PREMIOS_RACHA.md** | Gamificación: configuración de premios por racha por gym (admin), formato `rewards_config.streak_rewards`, portal socio (participación por racha, hitos), check-in y n8n. |
+| **RACHAS_CRON.md** | Cron diario de reset de rachas: webhook streak-reset, configuración, zona horaria futura. |
 | **ACCESO_PORTAL_SOCIOS.md** | Acceso al portal de socios por **email + contraseña** (no por número). Alta con email obligatorio cuando el gym tiene portal; contraseña temporal por correo y cambio en el primer login. |
 
 ---
@@ -119,7 +120,8 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 - **Plan BASIC — Socios sin portal:** Miembros en plan Basic no tienen acceso al portal (QR, premios, historial); ven pantalla de bloqueo y pueden cerrar sesión.
 - **Ocupación / aforo:** El semáforo de ocupación en Dashboard admin y el bloque "Aforo actual" en Check-in (recepción) **solo se muestran cuando el gym tiene Check-in QR** (`qr_access`). En plan Basic el front no llama a `/api/v1/analytics/occupancy`; el admin ve solo Ventas del mes y Ganancia neta.
 - **Inputs turno:** Corregida la edición en Abrir turno (fondo inicial) y Cerrar turno (efectivo contado); HardwareScanner no roba foco cuando modales de turno están abiertos.
-- **Check-in por cámara:** Botón "Usar cámara" en recepción permite escanear el QR del socio con la cámara del dispositivo (móvil, tablet o PC) cuando no hay pistola USB. Componente `CameraScanner` con `html5-qrcode`; flujo sin fricción (escaneo → check-in automático).
+- **Check-in por cámara:** Botón "Usar cámara" en recepción permite escanear el QR del socio con la cámara del dispositivo (móvil, tablet o PC) cuando no hay pistola USB.
+- **POS por cámara:** Botón "Usar cámara" en POS permite escanear códigos de barras de productos con la cámara (móvil, tablet o PC). Mismo componente `CameraScanner` que Check-in; solo cambia el modo (qr vs barcode).
 - **Cierre ciego:** Recepcionista no ve saldo esperado; solo envía efectivo contado; backend no devuelve reconciliación si rol RECEPTIONIST.
 - **Tipos de egreso:** SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP; descripción obligatoria para los dos primeros.
 - **Forzar cierre:** Admin puede cerrar un turno abierto desde Cortes de caja (PATCH /pos/shifts/:id/force-close).

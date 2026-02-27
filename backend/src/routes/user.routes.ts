@@ -33,6 +33,7 @@ import {
   requireCanListUsers,
   requireCanViewMembers,
   requireCanManageStaff,
+  requireCanRegenerateMemberQr,
 } from '../middlewares/admin.middleware';
 
 const router = Router();
@@ -394,7 +395,7 @@ router.post('/:id/send-portal-access', requireCanViewMembers, sendPortalAccess);
  *       404:
  *         description: User not found
  */
-router.post('/:id/regenerate-qr', requireAdminOrSuperAdmin, regenerateQr);
+router.post('/:id/regenerate-qr', requireCanRegenerateMemberQr, regenerateQr);
 
 /**
  * @swagger

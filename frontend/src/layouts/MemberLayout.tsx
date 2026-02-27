@@ -48,7 +48,7 @@ export const MemberLayout = () => {
           <button
             type="button"
             onClick={handleLogout}
-          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors"
+          className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2.5 min-h-[44px] min-w-[44px] text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors touch-manipulation"
           title="Cerrar sesión"
         >
           <LogOut className="h-3.5 w-3.5" />
@@ -75,7 +75,7 @@ export const MemberLayout = () => {
                 end={item.to === '/member'}
                 className={({ isActive }) =>
                   cn(
-                    'flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-[11px] font-medium transition-colors min-w-[4rem]',
+                    'flex flex-col items-center justify-center gap-1 px-4 py-3 min-h-[44px] min-w-[4rem] rounded-xl text-xs font-medium transition-colors touch-manipulation',
                     isActive
                       ? 'text-primary'
                       : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300',

@@ -75,10 +75,16 @@ Reporte de ventas por staff para pago de comisiones.
 { "success": false, "reason": "Fuera de horario permitido para su plan (06:00 - 12:00)" }
 ```
 
-**Anti-Passback (Nuevo):** Si el usuario ya registró entrada hace menos de 4 horas, se bloquea el acceso.
+**Anti-Passback (Nuevo):** Si el usuario ya registró entrada hace menos de 4 horas, se bloquea el acceso. La respuesta incluye `user` para mostrar nombre y foto en el modal de recepción.
 ```json
 // Response 403 (Anti-Passback)
-{ "error": "Anti-Passback: Este código ya fue utilizado hace menos de 4 horas." }
+{
+  "error": "Anti-Passback: Este código ya fue utilizado hace menos de 4 horas.",
+  "user": {
+    "name": "Juan Pérez",
+    "profile_picture_url": "https://cdn.example.com/users/u1.jpg"
+  }
+}
 ```
 
 **Entrada opcional (QR):**
@@ -185,6 +191,19 @@ Readiness probe para orquestación/monitoring. Verifica conectividad con DB.
 ```json
 // Response 503
 { "status": "NOT_READY", "service": "NexoGym API" }
+```
+
+### `POST /api/v1/webhooks/streak-reset` (Nuevo)
+Webhook para ejecutar el job diario de reset de rachas. Sin JWT. Header obligatorio: `x-cron-secret` con valor de `CRON_WEBHOOK_SECRET`. Resetea `current_streak = 0` para socios cuyo `last_checkin_date` sea anterior a ayer (UTC). Respeta excepciones: streak_freeze_until, gym reactivado 7 días, días cerrados. Ver **RACHAS_CRON.md**.
+
+```json
+// Response 200
+{ "ok": true, "message": "Streak reset job completed.", "total_reset": 15, "gyms": [{ "gym_id": "uuid", "reset_count": 10 }] }
+```
+
+```json
+// Response 401 (header x-cron-secret inválido o ausente)
+{ "error": "Unauthorized" }
 ```
 
 ### `GET /metrics` (Fase 4)
@@ -384,7 +403,7 @@ Reenvía el QR de acceso del socio por WhatsApp (mismo código estable). Staff.
 ```
 
 ### `POST /api/v1/users/:id/regenerate-qr`
-Regenera el QR del socio (invalida el anterior). Solo Admin/SuperAdmin.
+Regenera el QR del socio (invalida el anterior). Admin/SuperAdmin o staff con permiso `can_regenerate_member_qr`.
 ```json
 // Body opcional
 { "sendToWhatsApp": true }

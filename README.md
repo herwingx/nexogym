@@ -99,6 +99,7 @@ npm run db:studio        # GUI visual de la DB (Prisma Studio)
 | [DATABASE_SCHEMA.md](./.docs/DATABASE_SCHEMA.md) | Modelos, relaciones y enums (incl. ExpenseType, Expense, auditoría) |
 | [API_SPEC.md](./.docs/API_SPEC.md) | Contratos de la API por sprint (POS, users, turnos, egresos, force-close) |
 | [CORTES_CAJA_Y_STOCK.md](./.docs/CORTES_CAJA_Y_STOCK.md) | Turnos de caja, cierre ciego, tipos de egreso, forzar cierre, stock, bloqueo logout |
+| [RACHAS_CRON.md](./.docs/RACHAS_CRON.md) | Cron diario de reset de rachas, webhook streak-reset, zona horaria futura |
 | [SEED_USERS_AND_ROLES.md](./.docs/SEED_USERS_AND_ROLES.md) | Roles (Admin, Recep, COACH, INSTRUCTOR, Socio), planes, credenciales de prueba |
 | [EMAIL_POLITICA_GYM.md](./.docs/EMAIL_POLITICA_GYM.md) | Correos corporativos del gym para staff, dar de baja y reasignación |
 | [FRONTEND_INTEGRATION.md](./.docs/FRONTEND_INTEGRATION.md) | Contratos de API para el frontend |

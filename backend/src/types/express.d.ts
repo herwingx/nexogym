@@ -26,6 +26,8 @@ declare global {
         can_view_audit?: boolean;
         can_use_gamification?: boolean;
         can_view_leaderboard?: boolean;
+        can_view_member_qr?: boolean;
+        can_regenerate_member_qr?: boolean;
       };
     }
   }

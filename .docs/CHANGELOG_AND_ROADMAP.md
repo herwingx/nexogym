@@ -6,6 +6,65 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 
 ## Cambios implementados
 
+### Cron de reset de rachas
+
+| Área | Cambio |
+|------|--------|
+| **streak-reset.job.ts** | Job diario que resetea `current_streak = 0` para socios cuyo `last_checkin_date` < ayer. Corre por gym (multitenant), respeta excepciones: streak_freeze_until, gym reactivado 7d, días cerrados. |
+| **POST /api/v1/webhooks/streak-reset** | Webhook protegido por `CRON_WEBHOOK_SECRET` (header `x-cron-secret`). Ejecutar diario a las 00:05 UTC. |
+| **RACHAS_CRON.md** | Documentación del job, configuración y zona horaria futura. |
+
+### Auditoría responsiva y UX
+
+| Área | Cambio |
+|------|--------|
+| **Fuente Inter** | Carga explícita en `index.css`; `font-family` actualizado. |
+| **Safe area** | Clase `.pb-safe` en `index.css` para dispositivos con notch/home indicator; `MemberLayout` bottom nav. |
+| **Tap targets 44px** | Button (size `touch`), ThemeToggle, nav items (AdminLayout, MemberLayout, ReceptionLayout), hamburger. |
+| **ReceptionLayout** | Menú hamburguesa en móvil/tablet (tabs solo en desktop `lg+`). |
+| **AdminLeaderboard / AdminRoutines** | `overflow-x-auto` en tablas para scroll horizontal en móvil. |
+| **Tipografía** | Reemplazo de `text-[10px]`/`text-[11px]` por `text-xs` en varios componentes. |
+| **Vite** | `host: true`, `allowedHosts: true` para acceso vía LAN y ngrok. |
+
+### Permisos QR de socios (Ver y Regenerar)
+
+| Área | Cambio |
+|------|--------|
+| **can_view_member_qr** | Permiso para ver el QR del socio en el detalle. Útil cuando el socio no lleva teléfono; recepción muestra el QR en pantalla para escanear. Admin puede activar en Personal → Permisos. |
+| **can_regenerate_member_qr** | Permiso para regenerar el QR del socio (invalida el anterior). Admin puede delegar al staff cuando no está. |
+| **GET /users/:id** (socio) | Devuelve `qr_payload` solo si el usuario tiene `can_view_member_qr` o es Admin/SuperAdmin. |
+| **POST /users/:id/regenerate-qr** | Usa `requireCanRegenerateMemberQr`: Admin/SuperAdmin o staff con `can_regenerate_member_qr`. |
+| **MemberDetailModal** | Muestra imagen del QR cuando la API devuelve `qr_payload`; botón Regenerar según permiso. |
+
+### Check-in y gamificación
+
+| Área | Cambio |
+|------|--------|
+| **Anti-passback 403** | Backend incluye `user` (name, profile_picture_url) en la respuesta 403 para mostrar datos del socio escaneado. |
+| **CheckInModal antipassback** | Muestra foto y nombre del socio cuando el backend los envía. |
+| **MemberRewards** | Foto de perfil del socio en la tarjeta de racha y en el ranking de racha. |
+
+### Check-ins de hoy (Recepción)
+
+| Área | Cambio |
+|------|--------|
+| **ReceptionCheckIn** | "Check-ins de hoy": lista hasta 10 check-ins del día desde la API `GET /checkin/visits` (from_date, to_date, limit). El primero destacado con foto, nombre, hora y racha (si aplica); el resto en lista compacta. Se refresca tras cada check-in exitoso. |
+| **checkin.controller.ts** | `listVisits` incluye `user_profile_picture_url` en cada item de la respuesta. |
+| **apiClient** | `VisitRow` con campo opcional `user_profile_picture_url`. |
+
+### POS: Escáner de cámara en móvil
+
+| Área | Cambio |
+|------|--------|
+| **ReceptionPos** | Botón "Usar cámara" que abre el escáner de códigos de barras con la cámara del dispositivo. Modo continuo: permite escanear varios productos seguidos sin cerrar el modal. Pensado para móvil/tablet sin pistola USB. |
+| **CameraScanner** | Un solo componente para QR (Check-in) y barcode (POS). Mismo componente en desktop (webcam) y móvil (cámara); solo cambia el modo (`qr` vs `barcode`). Ya soportaba ambos modos; ahora integrado en POS. |
+
+### Notificaciones (Sileo)
+
+| Área | Cambio |
+|------|--------|
+| **toast-override.css** | `[data-sileo-viewport] { z-index: 9999 !important }` para que los toasts queden por encima de los modales con backdrop-blur. |
+
 ### Sesión reciente: permisos de recepcionista, ocupación y UI
 
 | Área | Cambio |
@@ -25,13 +84,14 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 | **shift.controller.ts** | Se devuelve `reconciliation` para todos los roles; eliminado el cierre ciego que ocultaba esperado/real/diferencia al RECEPTIONIST. |
 | **analytics.controller.ts** | `getAuditLogs` con `from_date`, `to_date`, `userId`. |
 | **pos.controller.ts** | `getShifts` con `from_date`, `to_date`, `user_id`. |
-| **checkin.controller.ts** | `listVisits` con `staff_only`, `from_date`, `to_date`, `user_id`, paginación. Endpoint `GET /checkin/visits`. |
+| **checkin.controller.ts** | `listVisits` con `staff_only`, `from_date`, `to_date`, `user_id`, paginación. Incluye `user_profile_picture_url` por visita. Endpoint `GET /checkin/visits`. |
 
 ### Frontend
 
 | Archivo | Cambio |
 |---------|--------|
 | **AdminMembers.tsx, ReceptionMembers.tsx** | Botón "Nuevo socio" en el header. |
+| **ReceptionCheckIn.tsx** | "Check-ins de hoy": lista persistente desde API (no solo último en memoria). Fetch al cargar y tras cada check-in exitoso. |
 | **ShiftForms.tsx** | Tras cerrar turno, muestra resumen (esperado, efectivo, diferencia, Cuadrado/Sobrante/Faltante) y botón "Listo". |
 | **AdminShifts.tsx** | Paginación visible ("X de Y turnos"), filtros por fecha y cajero. |
 | **AdminAudit.tsx** | Paginación visible, filtros por fecha, usuario y acción. |
@@ -52,8 +112,13 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 | **STAFF_QR_ACCESS_AND_ATTENDANCE.md** | Sección 4.3: vista Asistencia de personal (`/admin/attendance`) y API `GET /checkin/visits?staff_only=true`. |
 | **CORTES_CAJA_Y_STOCK.md** | Resumen del corte al cerrar turno, cierre ciego eliminado. |
 | **SUBSCRIPTION_EXPIRY_AND_RENEWAL.md** | Folio en venta por renovación (V-YYYY-NNNNNN). |
-| **API_SPEC.md** | Endpoints de auditoría, turnos y visitas con filtros. |
+| **API_SPEC.md** | Endpoints de auditoría, turnos y visitas con filtros; POST /webhooks/streak-reset; 403 antipassback con user; regenerate-qr con can_regenerate_member_qr. |
+| **MEMBER_QR_ACCESS.md** | Permisos can_view_member_qr y can_regenerate_member_qr; flujo Ver QR en detalle del socio. |
+| **RECEPTIONIST_PERMISSIONS_ANALYSIS.md** | Ver QR y Regenerar QR con permisos delegables. |
+| **STAFF_PERMISSIONS_BY_ADMIN.md** | Permisos Ver QR de socios y Regenerar QR de socios. |
 | **DATABASE_SCHEMA.md** | ExpenseType REFUND, SUBSCRIPTION_CANCELED, etc. |
+| **RACHAS_CRON.md** | Cron de reset de rachas, zona horaria futura. |
+| **SILEO_TOAST.md** | Override z-index para toasts sobre modales. |
 
 ---
 
@@ -75,6 +140,7 @@ Cuando se devuelve dinero en otro turno: se registra egreso tipo REFUND; el turn
 
 | Área | Pendiente |
 |------|-----------|
+| **Rachas / timezone** | Soporte de `Gym.timezone` para que el cron de reset calcule "ayer" en la zona horaria de cada gym (relevante para SaaS con gyms en distintos países). |
 | Asistencia | Exportar reporte de asistencia (CSV/Excel). |
 | POS | Folio único global por gym (evitar duplicados en turnos simultáneos). |
 | Turnos | Notificación al admin cuando un turno lleva muchas horas abierto. |
@@ -88,6 +154,7 @@ Cuando se devuelve dinero en otro turno: se registra egreso tipo REFUND; el turn
 
 | Doc | Contenido |
 |-----|-----------|
+| **RACHAS_CRON.md** | Cron diario de reset de rachas, configuración, zona horaria futura. |
 | **CORTES_CAJA_Y_STOCK.md** | Turnos, egresos, REFUND, cierre, resumen. |
 | **SUBSCRIPTION_EXPIRY_AND_RENEWAL.md** | Renovación, folio de venta. |
 | **STAFF_QR_ACCESS_AND_ATTENDANCE.md** | Checada staff, vista Asistencia de personal. |

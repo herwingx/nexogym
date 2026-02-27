@@ -30,6 +30,8 @@ const envSchema = z.object({
   /** URL base del frontend para enlaces de login (bienvenida admin). Ej: https://app.nexogym.com */
   APP_LOGIN_URL: z.string().optional().default(''),
   BILLING_WEBHOOK_SECRET: z.string().optional(),
+  /** Secreto para webhooks de cron (streak-reset, etc.). Protege POST /api/v1/webhooks/streak-reset. */
+  CRON_WEBHOOK_SECRET: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

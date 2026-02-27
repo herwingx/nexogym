@@ -1,4 +1,5 @@
-/* Toasts (Sileo) deben quedar por encima de modales (z-50/z-100) para no verse borrosos por backdrop-blur */
+/* Toasts (Sileo) deben quedar por encima de modales (z-50/z-100) para no verse borrosos por backdrop-blur.
+   Sileo inyecta CSS en runtime con z-index:50, por eso usamos !important para garantizar que gane nuestro override. */
 [data-sileo-viewport] {
-  z-index: 9999;
+  z-index: 9999 !important;
 }

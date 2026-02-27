@@ -54,7 +54,6 @@ function getMemberStatus(row: MemberUserRow): string {
 
 export const ReceptionMembersPage = () => {
   const navigate = useNavigate()
-  const userRole = useAuthStore((s) => s.user?.role)
   const hasQrAccess = useAuthStore((s) => s.modulesConfig?.qr_access)
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<MemberSummary[]>([])
@@ -69,7 +68,9 @@ export const ReceptionMembersPage = () => {
   const [cancelReason, setCancelReason] = useState('')
   const [cancelRefundAmount, setCancelRefundAmount] = useState<string>('')
   const [actionSubmitting, setActionSubmitting] = useState(false)
-  const canRegenerateQr = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
+  const canRegenerateQr = useAuthStore((s) =>
+    s.user?.role === 'ADMIN' || s.user?.role === 'SUPERADMIN' || s.user?.effective_staff_permissions?.can_regenerate_member_qr === true
+  )
 
   useEffect(() => {
     if (actionTarget?.action === 'renew' && actionTarget.user?.subscriptions?.[0]?.plan_barcode && actionTarget.user.subscriptions[0].plan_barcode in PLAN_BARCODE_LABELS) {

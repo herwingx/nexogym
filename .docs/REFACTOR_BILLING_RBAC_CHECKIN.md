@@ -12,9 +12,10 @@ Resumen de los cambios implementados según la auditoría arquitectónica y la e
 - **`deleted_at`** `DateTime?` — Soft delete; purga tras retención (60 días).
 - **`last_reactivated_at`** `DateTime?` — Para “streak freeze” al reactivar gym (perdón 48h).
 
-### Webhook Billing
+### Webhooks
 
 - **`POST /api/v1/webhooks/billing`** — Sin JWT. Body: `{ gym_id, event? }` (`event`: `subscription_expired` | `payment_failed`). Si el gym está `ACTIVE`, lo pasa a `SUSPENDED`. Opcional: header `x-billing-secret` si `BILLING_WEBHOOK_SECRET` está definido.
+- **`POST /api/v1/webhooks/streak-reset`** — Sin JWT. Ejecuta el job de reset diario de rachas (socios con `last_checkin_date < ayer`). Header obligatorio `x-cron-secret` con valor de `CRON_WEBHOOK_SECRET`. Ejecutar diario a las 00:05 UTC. Ver **RACHAS_CRON.md**.
 - Controlador: `backend/src/controllers/webhooks.controller.ts`.
 - Rutas: `backend/src/routes/webhooks.routes.ts` → montado en `/api/v1/webhooks`.
 

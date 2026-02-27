@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { ShoppingCart, Trash2, Wallet, Banknote } from 'lucide-react'
+import { ShoppingCart, Trash2, Wallet, Banknote, Camera } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { FormOpenShift, FormCloseShift, FormExpense } from '../components/reception/ShiftForms'
 import { HardwareScanner } from '../components/reception/HardwareScanner'
+import { CameraScanner } from '../components/reception/CameraScanner'
 import {
   fetchPosProducts,
   fetchCurrentShift,
@@ -31,6 +32,7 @@ export const ReceptionPosPage = () => {
   const [expenseModal, setExpenseModal] = useState(false)
   const [closeModal, setCloseModal] = useState(false)
   const [openShiftModal, setOpenShiftModal] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
   const [customerEmail, setCustomerEmail] = useState('')
   const [barcodeBuffer, setBarcodeBuffer] = useState('')
 
@@ -204,15 +206,23 @@ export const ReceptionPosPage = () => {
                 ? 'Escanea el código de barras o toca un producto para añadir al carrito.'
                 : 'Abre un turno para vender.'}
             </p>
-            <div className="mb-4">
+            <div className="mb-4 space-y-2">
               <HardwareScanner
                 value={barcodeBuffer}
                 onChange={setBarcodeBuffer}
                 onSubmit={handleBarcodeScan}
-                pauseFocus={!!(openShiftModal || closeModal || expenseModal)}
+                pauseFocus={!!(openShiftModal || closeModal || expenseModal || cameraOpen)}
                 visible
                 placeholder="Escanea o escribe el código de barras..."
               />
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-white/10 bg-transparent hover:bg-zinc-100 dark:hover:bg-white/5 px-2.5 py-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
+                onClick={() => setCameraOpen(true)}
+              >
+                <Camera className="h-3.5 w-3.5" />
+                Usar cámara
+              </button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {products.map((product) => (
@@ -224,7 +234,7 @@ export const ReceptionPosPage = () => {
                   className="flex flex-col items-start rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-3 text-left text-xs text-zinc-900 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="font-medium">{product.name}</span>
-                  <span className="mt-1 text-[11px] text-zinc-500">
+                  <span className="mt-1 text-xs text-zinc-500">
                     ${fmt(product.price)} · Stock: {product.stock}
                   </span>
                 </button>
@@ -238,14 +248,14 @@ export const ReceptionPosPage = () => {
                 <ShoppingCart className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
                 <div>
                   <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">Carrito</p>
-                  <p className="text-[11px] text-zinc-500">Confirmar venta al finalizar.</p>
+                  <p className="text-xs text-zinc-500">Confirmar venta al finalizar.</p>
                 </div>
               </div>
               {cart.length > 0 && (
                 <button
                   type="button"
                   onClick={clearCart}
-                  className="inline-flex items-center gap-1 rounded-full border border-zinc-200 dark:border-white/10 px-2.5 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="inline-flex items-center gap-1 rounded-full border border-zinc-200 dark:border-white/10 px-2.5 py-1 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 >
                   <Trash2 className="h-3 w-3" />
                   Vaciar
@@ -266,11 +276,11 @@ export const ReceptionPosPage = () => {
                     >
                       <div>
                         <p className="font-medium">{line.product.name}</p>
-                        <p className="text-[11px] text-zinc-500">
+                        <p className="text-xs text-zinc-500">
                           {line.quantity} × ${fmt(line.product.price)}
                         </p>
                       </div>
-                      <span className="text-[11px] font-medium">
+                      <span className="text-xs font-medium">
                         ${fmt(line.product.price * line.quantity)}
                       </span>
                     </li>
@@ -280,7 +290,7 @@ export const ReceptionPosPage = () => {
             </div>
             {cart.length > 0 && (
               <div className="mt-3">
-                <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+                <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
                   Enviar comprobante a (opcional)
                 </label>
                 <input
@@ -344,6 +354,15 @@ export const ReceptionPosPage = () => {
           />
         </Modal>
       )}
+
+      <CameraScanner
+        isOpen={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onScan={handleBarcodeScan}
+        mode="barcode"
+        continuousScan
+        title="Escanear código de barras"
+      />
     </div>
   )
 }

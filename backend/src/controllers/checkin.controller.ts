@@ -81,7 +81,14 @@ export const processCheckin = async (req: Request, res: Response) => {
       if (lastVisit) {
         const hoursSince = (now.getTime() - lastVisit.check_in_time.getTime()) / 3600000;
         if (hoursSince < ANTI_PASSBACK_HOURS) {
-          res.status(403).json({ error: 'Anti-Passback: Este código ya fue utilizado hace menos de 2 horas.' });
+          res.status(403).json({
+            error: 'Anti-Passback: Este código ya fue utilizado hace menos de 2 horas.',
+            code: 'ANTIPASSBACK',
+            user_id: userId,
+            user: userForCheck
+              ? { name: userForCheck.name, profile_picture_url: userForCheck.profile_picture_url }
+              : undefined,
+          });
           return;
         }
       }
@@ -194,7 +201,12 @@ export const processCheckin = async (req: Request, res: Response) => {
     if (user.last_visit_at) {
       const hoursSinceLastVisit = (now.getTime() - user.last_visit_at.getTime()) / 3600000;
       if (hoursSinceLastVisit < ANTI_PASSBACK_HOURS) {
-        res.status(403).json({ error: 'Anti-Passback: Este código ya fue utilizado hace menos de 2 horas.' });
+        res.status(403).json({
+          error: 'Anti-Passback: Este código ya fue utilizado hace menos de 2 horas.',
+          code: 'ANTIPASSBACK',
+          user_id: user.id,
+          user: { name: user.name, profile_picture_url: user.profile_picture_url },
+        });
         return;
       }
     }
@@ -388,7 +400,7 @@ export const listVisits = async (req: Request, res: Response) => {
           check_in_time: true,
           access_method: true,
           access_type: true,
-          user: { select: { name: true, phone: true, role: true } },
+          user: { select: { name: true, phone: true, role: true, profile_picture_url: true } },
         },
       }),
       prisma.visit.count({ where }),
@@ -401,6 +413,7 @@ export const listVisits = async (req: Request, res: Response) => {
         user_name: v.user?.name,
         user_phone: v.user?.phone,
         user_role: v.user?.role,
+        user_profile_picture_url: v.user?.profile_picture_url ?? null,
         check_in_time: v.check_in_time.toISOString(),
         access_method: v.access_method,
         access_type: v.access_type,

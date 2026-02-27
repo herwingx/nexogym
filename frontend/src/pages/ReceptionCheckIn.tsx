@@ -6,9 +6,11 @@ import {
   submitCourtesyCheckin,
   fetchOccupancy,
   fetchCurrentShift,
+  fetchVisits,
   type CheckinSuccessResponse,
   type CheckinForbiddenPayload,
   type CurrentShiftResponse,
+  type VisitRow,
 } from '../lib/apiClient'
 import { CardSkeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
@@ -40,7 +42,13 @@ export const ReceptionCheckInPage = () => {
   const [openShiftModal, setOpenShiftModal] = useState(false)
   const [closeShiftModal, setCloseShiftModal] = useState(false)
   const [lastResult, setLastResult] = useState<CheckinResult>(null)
+  const [todayVisits, setTodayVisits] = useState<VisitRow[]>([])
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(new Set())
   const [modal, setModal] = useState<ModalState | null>(null)
+
+  const handleImageError = useCallback((url: string) => {
+    setFailedImageUrls((prev) => new Set(prev).add(url))
+  }, [])
   const [isProcessing, setIsProcessing] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
 
@@ -53,21 +61,36 @@ export const ReceptionCheckInPage = () => {
     }
   }, [])
 
+  const loadTodayVisits = useCallback(async () => {
+    try {
+      const d = new Date()
+      const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+      const { data } = await fetchVisits({ from_date: today, to_date: today, limit: 10 })
+      setTodayVisits(data)
+    } catch {
+      setTodayVisits([])
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     const load = async () => {
       try {
         if (qrAccess) {
-          const [occ, sh] = await Promise.all([
+          const [occ, sh, _] = await Promise.all([
             fetchOccupancy().catch(() => null),
             fetchCurrentShift().catch(() => null),
+            loadTodayVisits(),
           ])
           if (!cancelled) {
             setOccupancy(occ ?? null)
             setShift(sh ?? null)
           }
         } else {
-          const sh = await fetchCurrentShift().catch(() => null)
+          const [sh, _] = await Promise.all([
+            fetchCurrentShift().catch(() => null),
+            loadTodayVisits(),
+          ])
           if (!cancelled) setShift(sh ?? null)
         }
       } finally {
@@ -78,7 +101,7 @@ export const ReceptionCheckInPage = () => {
     return () => {
       cancelled = true
     }
-  }, [qrAccess])
+  }, [qrAccess, loadTodayVisits])
 
   const handleSubmit = useCallback(async (qrCode: string) => {
     const code = qrCode.trim()
@@ -99,6 +122,7 @@ export const ReceptionCheckInPage = () => {
         }),
       })
       setLastResult(res)
+      void loadTodayVisits()
 
       if (res.streak_updated) {
         sileo.success({ title: '¡Racha aumentada! 🔥' })
@@ -131,8 +155,8 @@ export const ReceptionCheckInPage = () => {
         })
         setModal({
           state: 'antipassback',
-          userName: null,
-          userPhotoUrl: null,
+          userName: payload?.user?.name ?? null,
+          userPhotoUrl: payload?.user?.profile_picture_url ?? null,
           message: error.message,
         })
         return
@@ -156,6 +180,8 @@ export const ReceptionCheckInPage = () => {
 
       setModal({
         state: 'antipassback',
+        userName: payload?.user?.name ?? null,
+        userPhotoUrl: payload?.user?.profile_picture_url ?? null,
         message: error.message,
       })
     } finally {
@@ -215,7 +241,7 @@ export const ReceptionCheckInPage = () => {
                 </p>
               </div>
               <span
-                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400"
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"
                 title="El input mantiene el foco para que el escáner USB escriba sin tocar nada"
               >
                 <ScanLine className="h-3.5 w-3.5" />
@@ -232,7 +258,7 @@ export const ReceptionCheckInPage = () => {
             <div className="mt-4">
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-white/10 bg-transparent hover:bg-zinc-100 dark:hover:bg-white/5 px-2.5 py-1.5 text-[11px] text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
+                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-white/10 bg-transparent hover:bg-zinc-100 dark:hover:bg-white/5 px-2.5 py-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
                 onClick={() => setCameraOpen(true)}
               >
                 <Camera className="h-3.5 w-3.5" />
@@ -241,51 +267,95 @@ export const ReceptionCheckInPage = () => {
             </div>
           </div>
 
-          {/* Último check-in / perfil del socio */}
+          {/* Check-ins de hoy */}
           <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-6 shadow-sm">
             <h2 className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 mb-3">
-              Último check-in
+              Check-ins de hoy
             </h2>
-            {lastResult ? (
-              <div className="flex items-start gap-4">
-                {lastResult.user.profile_picture_url ? (
-                  <img
-                    src={lastResult.user.profile_picture_url}
-                    alt={lastResult.user.name}
-                    className="h-14 w-14 rounded-full object-cover border-2 border-zinc-200 dark:border-white/10 shrink-0"
-                  />
-                ) : (
-                  <div className="h-14 w-14 rounded-full border-2 border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center text-lg font-semibold text-zinc-400">
-                    {lastResult.user.name?.charAt(0) ?? '?'}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1 space-y-2">
-                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                    {lastResult.user.name}
-                  </p>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${STATUS_BADGE.success}`}
-                  >
-                    Acceso concedido
-                  </span>
-                  {lastResult.streak_updated && (
-                    <p className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
-                      <span role="img" aria-hidden="true">🔥</span>
-                      <span>Racha: {lastResult.newStreak} días</span>
-                    </p>
-                  )}
-                  {!lastResult.streak_updated && lastResult.newStreak > 0 && (
-                    <p className="text-xs text-zinc-500">Racha: {lastResult.newStreak} días</p>
-                  )}
-                </div>
-              </div>
-            ) : (
+            {todayVisits.length === 0 ? (
               <div className="rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-6 text-center">
                 <ScanLine className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-600 mb-2" />
                 <p className="text-xs text-zinc-500">
-                  Aún no hay check-ins en esta sesión. El próximo escaneo mostrará aquí los datos del
-                  socio.
+                  Aún no hay check-ins hoy. El próximo escaneo mostrará aquí los datos del socio.
                 </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {todayVisits.map((visit, idx) => {
+                  const isFirst = idx === 0
+                  const rawPhotoUrl = visit.user_profile_picture_url ?? null
+                  const photoUrl = rawPhotoUrl && !failedImageUrls.has(rawPhotoUrl) ? rawPhotoUrl : null
+                  const name = visit.user_name ?? 'Desconocido'
+                  const time = new Date(visit.check_in_time).toLocaleTimeString('es-MX', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                  const showStreak = isFirst && lastResult?.streak_updated && lastResult.user.name === name
+                  if (isFirst) {
+                    return (
+                      <div key={visit.id} className="flex items-start gap-4">
+                        {photoUrl ? (
+                          <img
+                            src={photoUrl}
+                            alt={name}
+                            referrerPolicy="no-referrer"
+                            className="h-14 w-14 rounded-full object-cover border-2 border-zinc-200 dark:border-white/10 shrink-0"
+                            onError={() => rawPhotoUrl && handleImageError(rawPhotoUrl)}
+                          />
+                        ) : (
+                          <div className="h-14 w-14 rounded-full border-2 border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center text-lg font-semibold text-zinc-400">
+                            {name.charAt(0) ?? '?'}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                            {name}
+                          </p>
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE.success}`}
+                          >
+                            Acceso concedido
+                          </span>
+                          <p className="text-xs text-zinc-500">{time}</p>
+                          {showStreak && lastResult ? (
+                            <p className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                              <span role="img" aria-hidden="true">🔥</span>
+                              <span>Racha: {lastResult.newStreak} días</span>
+                            </p>
+                          ) : lastResult?.newStreak && lastResult.user.name === name ? (
+                            <p className="text-xs text-zinc-500">Racha: {lastResult.newStreak} días</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div
+                      key={visit.id}
+                      className="flex items-center gap-3 py-1.5 border-t border-zinc-100 dark:border-zinc-800"
+                    >
+                      {photoUrl ? (
+                        <img
+                          src={photoUrl}
+                          alt={name}
+                          referrerPolicy="no-referrer"
+                          className="h-9 w-9 rounded-full object-cover border border-zinc-200 dark:border-white/10 shrink-0"
+                          onError={() => rawPhotoUrl && handleImageError(rawPhotoUrl)}
+                        />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center text-xs font-semibold text-zinc-400">
+                          {name.charAt(0) ?? '?'}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                          {name}
+                        </p>
+                        <p className="text-xs text-zinc-500">{time}</p>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

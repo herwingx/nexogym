@@ -1,4 +1,7 @@
-import { useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
+import { useRef, useEffect, useCallback, useState, type KeyboardEvent } from 'react'
+
+const isTouchDevice = () =>
+  typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
 export interface HardwareScannerProps {
   value: string
@@ -18,6 +21,7 @@ export interface HardwareScannerProps {
 /**
  * Input invisible para pistola USB/lector QR. Mantiene foco perpetuo y
  * recupera foco tras blur en refocusDelayMs, salvo cuando pauseFocus es true.
+ * En móvil/touch no hace focus: ahí se usa la cámara, no se conecta escáner USB.
  */
 export function HardwareScanner({
   value,
@@ -29,18 +33,35 @@ export function HardwareScanner({
   placeholder = 'Escanear o escribir código...',
 }: HardwareScannerProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const [isMobile, setIsMobile] = useState(() => isTouchDevice())
+
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)')
+    setIsMobile(mq.matches)
+    const fn = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', fn)
+    return () => mq.removeEventListener('change', fn)
+  }, [])
 
   const handleBlur = useCallback(() => {
-    if (pauseFocus) return
+    if (pauseFocus || isMobile) return
     const t = setTimeout(() => {
       inputRef.current?.focus()
     }, refocusDelayMs)
     return () => clearTimeout(t)
-  }, [pauseFocus, refocusDelayMs])
+  }, [pauseFocus, refocusDelayMs, isMobile])
 
   useEffect(() => {
-    if (!pauseFocus) inputRef.current?.focus()
-  }, [pauseFocus])
+    if (isMobile) {
+      inputRef.current?.blur()
+      return
+    }
+    if (pauseFocus) {
+      inputRef.current?.blur()
+    } else {
+      inputRef.current?.focus()
+    }
+  }, [pauseFocus, isMobile])
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
@@ -62,7 +83,7 @@ export function HardwareScanner({
       className={inputClasses}
       placeholder={visible ? placeholder : undefined}
       autoComplete="off"
-      autoFocus
+      autoFocus={!isMobile}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
       aria-label="Lector de código de barras"

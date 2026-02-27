@@ -21,6 +21,10 @@ El backend guarda en `Gym.rewards_config` (`streak_rewards`, `streak_freeze_days
 - **Datos:** `GET /api/v1/members/me` devuelve `current_streak`, `next_reward` (label y días del próximo hito) y `streak_rewards` (lista de premios del gym).
 - **UX:** Si el gym tiene `streak_rewards` configurados, se muestra el bloque "Estás participando por racha para los siguientes premios" con la lista; los hitos de la sección "Hitos" usan esa configuración. Si no hay configuración, se usan hitos por defecto (7, 14, 21, 30, 60, 90 días).
 
+## Cron diario de reset de rachas
+
+Un job corre diariamente (ej. 00:05 UTC) y resetea `current_streak = 0` para socios cuyo último check-in fue hace más de un día. Así, si un socio no va 2 días, su racha pasa a 0 automáticamente tras medianoche del segundo día. Ver **RACHAS_CRON.md** para configuración y zona horaria futura.
+
 ## Check-in y notificación
 
 - En cada check-in (QR, manual o biométrico), si la racha del socio coincide con un hito configurado, se considera premio desbloqueado.

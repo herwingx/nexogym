@@ -131,7 +131,18 @@ export const MemberRewards = () => {
         <div className="absolute -top-8 -right-8 h-28 w-28 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
 
         <div className="flex items-center gap-3 mb-4">
-          <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center">
+          {data.profile_picture_url ? (
+            <img
+              src={data.profile_picture_url}
+              alt=""
+              className="h-12 w-12 rounded-xl object-cover border-2 border-primary/20 shrink-0"
+            />
+          ) : (
+            <div className="h-12 w-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0 text-lg font-semibold text-primary">
+              {data.name?.charAt(0) ?? '?'}
+            </div>
+          )}
+          <div className="h-10 w-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
             <Flame className="h-5 w-5 text-primary" />
           </div>
           <div>
@@ -153,7 +164,7 @@ export const MemberRewards = () => {
 
         {nextMilestone && (
           <div className="space-y-1.5">
-            <div className="flex justify-between text-[11px] text-zinc-500">
+            <div className="flex justify-between text-xs text-zinc-500">
               <span>{data.current_streak} días</span>
               <span>Meta: {nextMilestone} días</span>
             </div>
@@ -171,13 +182,13 @@ export const MemberRewards = () => {
             <p className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
               {data.total_visits}
             </p>
-            <p className="text-[11px] text-zinc-500">Visitas totales</p>
+            <p className="text-xs text-zinc-500">Visitas totales</p>
           </div>
           <div>
             <p className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
               {data.best_streak}
             </p>
-            <p className="text-[11px] text-zinc-500">Mejor racha</p>
+            <p className="text-xs text-zinc-500">Mejor racha</p>
           </div>
         </div>
       </div>
@@ -207,7 +218,7 @@ export const MemberRewards = () => {
                   }}
                 />
               </div>
-              <span className="text-[11px] text-zinc-500 shrink-0">
+              <span className="text-xs text-zinc-500 shrink-0">
                 {data.next_reward.visits_progress}/
                 {data.next_reward.visits_required}
               </span>
@@ -269,6 +280,17 @@ export const MemberRewards = () => {
                 >
                   {entry.rank}
                 </span>
+                {entry.profile_picture_url ? (
+                  <img
+                    src={entry.profile_picture_url}
+                    alt=""
+                    className="h-8 w-8 rounded-full object-cover border border-zinc-200 dark:border-white/10 shrink-0"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 shrink-0 flex items-center justify-center text-xs font-medium text-zinc-500">
+                    {entry.name?.charAt(0) ?? '?'}
+                  </div>
+                )}
                 <span className="flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
                   {entry.name}
                 </span>

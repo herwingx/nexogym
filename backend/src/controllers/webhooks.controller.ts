@@ -2,6 +2,34 @@ import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { handleControllerError } from '../utils/http';
 import { env } from '../config/env';
+import { runStreakResetJob } from '../jobs/streak-reset.job';
+
+/**
+ * POST /api/v1/webhooks/streak-reset
+ * Cron diario (ej. 00:05): resetea rachas de socios que no hicieron check-in "ayer".
+ * Requiere header x-cron-secret si CRON_WEBHOOK_SECRET está definido.
+ */
+export const streakResetWebhook = async (req: Request, res: Response) => {
+  try {
+    const secret = req.headers['x-cron-secret'] as string | undefined;
+    if (env.CRON_WEBHOOK_SECRET && secret !== env.CRON_WEBHOOK_SECRET) {
+      res.status(401).json({ error: 'Unauthorized: Invalid webhook secret' });
+      return;
+    }
+
+    const results = await runStreakResetJob();
+    const totalReset = results.reduce((sum, r) => sum + r.reset_count, 0);
+
+    res.status(200).json({
+      ok: true,
+      message: 'Streak reset job completed.',
+      total_reset: totalReset,
+      gyms: results,
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[streakResetWebhook Error]', 'Streak reset job failed.');
+  }
+};
 
 /**
  * POST /api/v1/webhooks/billing

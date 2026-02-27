@@ -38,6 +38,8 @@ Al crear staff desde **Personal → Agregar personal**, cada rol tiene sus opcio
    - **Auditoría** — Registro de acciones (solo lectura).
    - **Gamificación** — Configurar premios por racha.
    - **Leaderboard** — Ver ranking de rachas. Aparece en Admin y en Recepción (`/reception/leaderboard`).
+   - **Ver QR de socios** — Mostrar la imagen del QR del socio en el detalle. Útil cuando el socio no lleva teléfono; recepción puede mostrar el QR en pantalla para escanear.
+   - **Regenerar QR de socios** — Regenerar el código QR (invalida el anterior). Admin puede delegar al staff cuando no está.
 
 4. **Guardar**. Los cambios aplican en el próximo inicio de sesión (o al recargar).
 
@@ -45,13 +47,13 @@ Al crear staff desde **Personal → Agregar personal**, cada rol tiene sus opcio
 
 Si el staff tiene **Clases y rutinas** activado y el gym tiene el módulo `classes`, verá las opciones **Clases** y **Rutinas** en el menú de recepción (`/reception/classes`, `/reception/routines`), sin pasar por el panel admin.
 
-**Importante:** El staff con permisos puede ver y editar según lo asignado. Las acciones destructivas (eliminar, dar de baja, cancelar suscripción, anonimizar, regenerar QR) están reservadas al Admin. Todo queda registrado en auditoría.
+**Importante:** El staff con permisos puede ver y editar según lo asignado. Las acciones destructivas (eliminar, dar de baja, cancelar suscripción, anonimizar) están reservadas al Admin. Regenerar QR puede delegarse al staff con `can_regenerate_member_qr`. Todo queda registrado en auditoría.
 
 ---
 
 ## 3. Backend
 
-- **Campo en BD:** `User.staff_permissions` (JSON opcional). Claves: `can_use_pos`, `can_use_routines`, `can_use_reception`, `can_view_dashboard`, `can_view_members_admin`, `can_use_finance`, `can_manage_staff`, `can_view_audit`, `can_use_gamification`, `can_view_leaderboard`.
+- **Campo en BD:** `User.staff_permissions` (JSON opcional). Claves: `can_use_pos`, `can_use_routines`, `can_use_reception`, `can_view_dashboard`, `can_view_members_admin`, `can_use_finance`, `can_manage_staff`, `can_view_audit`, `can_use_gamification`, `can_view_leaderboard`, `can_view_member_qr`, `can_regenerate_member_qr`.
 - **Endpoint:** `PATCH /api/v1/users/:id/staff-permissions` (Admin o staff con can_manage_staff). Body con las claves booleanas que se quieran actualizar.
 - **Contexto de sesión:** `GET /users/me/context` devuelve en `user` los campos `staff_permissions` y `effective_staff_permissions` (permisos efectivos ya calculados).
 - Las rutas de POS, inventario, check-in, rutinas y reservas usan middlewares que comprueban estos permisos efectivos (no solo el rol).

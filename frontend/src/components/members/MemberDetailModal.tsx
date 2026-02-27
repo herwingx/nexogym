@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Flame, History, Send } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { UserDetailLayout, type DetailMetaItem } from '../detail/UserDetailLayout'
@@ -109,6 +110,7 @@ export function MemberDetailModal({ member, onClose, onEdit, canRegenerateQr = f
   const planLabel = sub?.plan_barcode ? (PLAN_BARCODE_LABELS[sub.plan_barcode] ?? sub.plan_barcode) : 'Mensual'
   const lastVisits = (data as MemberDetail).last_visits ?? []
   const totalVisits = (data as MemberDetail).total_visits ?? 0
+  const qrPayload = (data as MemberDetail).qr_payload
 
   const metaItems: DetailMetaItem[] = [
     { label: 'Miembro desde', value: data.created_at ? formatDate(data.created_at) : '—' },
@@ -165,7 +167,7 @@ export function MemberDetailModal({ member, onClose, onEdit, canRegenerateQr = f
         name={data.name || 'Sin nombre'}
         subtitle={data.phone || undefined}
         statusBadge={
-          <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium', MEMBER_STATUS_BADGE[status])}>
+          <span className={cn('inline-flex rounded-full border px-2 py-0.5 text-xs font-medium', MEMBER_STATUS_BADGE[status])}>
             {STATUS_LABELS[status]}
           </span>
         }
@@ -190,16 +192,26 @@ export function MemberDetailModal({ member, onClose, onEdit, canRegenerateQr = f
         }
         qrSection={
           hasQrAccess && data.phone ? (
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={handleSendQr} disabled={sendingQr}>
-                <Send className="h-3.5 w-3.5" />
-                Enviar QR
-              </Button>
-              {canRegenerateQr && (
-                <Button size="sm" variant="outline" onClick={handleRegenerateQr} disabled={regeneratingQr}>
-                  Regenerar QR
-                </Button>
+            <div className="flex flex-col gap-3">
+              {qrPayload && (
+                <div className="flex flex-col items-center gap-1.5">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Código para mostrar en recepción si el socio no lleva teléfono</p>
+                  <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white p-3">
+                    <QRCodeSVG value={qrPayload} size={96} level="M" />
+                  </div>
+                </div>
               )}
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={handleSendQr} disabled={sendingQr}>
+                  <Send className="h-3.5 w-3.5" />
+                  Enviar QR
+                </Button>
+                {canRegenerateQr && (
+                  <Button size="sm" variant="outline" onClick={handleRegenerateQr} disabled={regeneratingQr}>
+                    Regenerar QR
+                  </Button>
+                )}
+              </div>
             </div>
           ) : undefined
         }

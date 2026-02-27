@@ -46,4 +46,4 @@ export const STATUS_BUTTON_DANGER_OUTLINE =
 
 /** Clases base compartidas para badges de tabla (Cuadrado, Sobrante, Faltante) */
 export const BADGE_BASE =
-  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap shrink-0'
+  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap shrink-0'

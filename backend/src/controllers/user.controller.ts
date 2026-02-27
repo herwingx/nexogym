@@ -408,6 +408,7 @@ export const getUserDetail = async (req: Request, res: Response) => {
         current_streak: true,
         last_visit_at: true,
         created_at: true,
+        qr_token: true,
         subscriptions: {
           orderBy: { created_at: 'desc' },
           take: 1,
@@ -421,6 +422,12 @@ export const getUserDetail = async (req: Request, res: Response) => {
       return;
     }
 
+    const canViewMemberQr =
+      req.userRole === Role.ADMIN ||
+      req.userRole === Role.SUPERADMIN ||
+      req.effectiveStaffPermissions?.can_view_member_qr === true;
+    const qrPayload = canViewMemberQr && user.qr_token ? `GYM_QR_${user.qr_token}` : undefined;
+
     const [totalVisits, lastVisits] = await Promise.all([
       prisma.visit.count({ where: { user_id: userId } }),
       prisma.visit.findMany({
@@ -431,8 +438,10 @@ export const getUserDetail = async (req: Request, res: Response) => {
       }),
     ]);
 
+    const { qr_token: _qrToken, ...userWithoutQrToken } = user;
     res.status(200).json({
-      ...user,
+      ...userWithoutQrToken,
+      ...(qrPayload != null ? { qr_payload: qrPayload } : {}),
       total_visits: totalVisits,
       last_visits: lastVisits.map((v) => ({
         id: v.id,
@@ -734,6 +743,8 @@ export const updateStaffPermissions = async (req: Request, res: Response) => {
       'can_view_audit',
       'can_use_gamification',
       'can_view_leaderboard',
+      'can_view_member_qr',
+      'can_regenerate_member_qr',
     ] as const;
     const overrides: Record<string, boolean> = { ...((target.staff_permissions as Record<string, boolean>) ?? {}) };
     for (const k of permKeys) {
