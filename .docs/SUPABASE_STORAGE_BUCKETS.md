@@ -35,7 +35,26 @@ Si el bucket no existe, las subidas fallan con **"Bucket not found"** (400). En 
 
 Por defecto, Supabase bloquea operaciones sin políticas. Debes crear políticas para permitir que usuarios autenticados suban, lean y eliminen archivos.
 
-**Opción rápida:** Ejecuta el script `supabase-storage-policies.sql` (en la raíz del repo) en **Supabase Dashboard → SQL Editor**. Crea las políticas mínimas para `profile-pictures` (INSERT) y `gym-logos` (INSERT, DELETE). Si prefieres configurar por UI, sigue las secciones siguientes.
+**Opción rápida:** Ejecuta el siguiente SQL en **Supabase Dashboard → SQL Editor**. Crea las políticas mínimas para `profile-pictures` (INSERT) y `gym-logos` (INSERT, DELETE). Si prefieres configurar por UI, sigue las secciones siguientes.
+
+```sql
+-- Bucket profile-pictures (fotos de socios)
+DROP POLICY IF EXISTS "nexogym_profile_pictures_insert" ON storage.objects;
+CREATE POLICY "nexogym_profile_pictures_insert"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'profile-pictures');
+
+-- Bucket gym-logos (logos de gimnasios)
+DROP POLICY IF EXISTS "nexogym_gym_logos_insert" ON storage.objects;
+CREATE POLICY "nexogym_gym_logos_insert"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (bucket_id = 'gym-logos');
+
+DROP POLICY IF EXISTS "nexogym_gym_logos_delete" ON storage.objects;
+CREATE POLICY "nexogym_gym_logos_delete"
+ON storage.objects FOR DELETE TO authenticated
+USING (bucket_id = 'gym-logos');
+```
 
 ### Política para `gym-logos`
 
