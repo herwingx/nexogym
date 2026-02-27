@@ -24,6 +24,7 @@ import {
 } from '../lib/apiClient'
 import { notifyError, notifyPromise, notifySuccess } from '../lib/notifications'
 import { supabase } from '../lib/supabaseClient'
+import { getGymLogoStoragePath } from '../lib/storageUtils'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { CardSkeleton, TableRowSkeleton } from '../components/ui/Skeleton'
@@ -283,10 +284,18 @@ export const SuperAdminDashboard = () => {
     }
     setSavingEditGym(true)
     try {
+      const newLogoUrl = editGymLogoUrl.trim() || undefined
       const result = await updateGym(editingGym.id, {
         name,
-        logo_url: editGymLogoUrl.trim() || undefined,
+        logo_url: newLogoUrl,
       })
+      const oldLogoUrl = editingGym.logo_url
+      if (oldLogoUrl && oldLogoUrl !== newLogoUrl) {
+        const oldPath = getGymLogoStoragePath(oldLogoUrl)
+        if (oldPath) {
+          await supabase.storage.from(GYM_LOGOS_BUCKET).remove([oldPath]).catch(() => {})
+        }
+      }
       setGyms((prev) =>
         prev.map((g) =>
           g.id === editingGym.id ? { ...g, name: result.gym.name, logo_url: result.gym.logo_url } : g,

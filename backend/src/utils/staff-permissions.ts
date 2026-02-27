@@ -10,6 +10,7 @@ export type StaffPermissionsOverrides = {
   can_manage_staff?: boolean;
   can_view_audit?: boolean;
   can_use_gamification?: boolean;
+  can_view_leaderboard?: boolean;
 };
 
 export type EffectiveStaffPermissions = {
@@ -22,6 +23,7 @@ export type EffectiveStaffPermissions = {
   can_manage_staff: boolean;
   can_view_audit: boolean;
   can_use_gamification: boolean;
+  can_view_leaderboard: boolean;
 };
 
 const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
@@ -35,6 +37,7 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_manage_staff: true,
     can_view_audit: true,
     can_use_gamification: true,
+    can_view_leaderboard: true,
   },
   [Role.ADMIN]: {
     can_use_pos: true,
@@ -46,6 +49,7 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_manage_staff: true,
     can_view_audit: true,
     can_use_gamification: true,
+    can_view_leaderboard: true,
   },
   [Role.RECEPTIONIST]: {
     can_use_pos: true,
@@ -57,6 +61,7 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_manage_staff: false,
     can_view_audit: false,
     can_use_gamification: false,
+    can_view_leaderboard: false,
   },
   [Role.COACH]: {
     can_use_pos: false,
@@ -68,6 +73,7 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_manage_staff: false,
     can_view_audit: false,
     can_use_gamification: false,
+    can_view_leaderboard: false,
   },
   [Role.INSTRUCTOR]: {
     can_use_pos: false,
@@ -79,6 +85,19 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_manage_staff: false,
     can_view_audit: false,
     can_use_gamification: false,
+    can_view_leaderboard: false,
+  },
+  [Role.CLEANER]: {
+    can_use_pos: false,
+    can_use_routines: false,
+    can_use_reception: false,
+    can_view_dashboard: false,
+    can_view_members_admin: false,
+    can_use_finance: false,
+    can_manage_staff: false,
+    can_view_audit: false,
+    can_use_gamification: false,
+    can_view_leaderboard: false,
   },
   [Role.MEMBER]: {
     can_use_pos: false,
@@ -90,6 +109,7 @@ const DEFAULTS_BY_ROLE: Record<Role, EffectiveStaffPermissions> = {
     can_manage_staff: false,
     can_view_audit: false,
     can_use_gamification: false,
+    can_view_leaderboard: false,
   },
 };
 
@@ -107,6 +127,7 @@ function parseOverrides(raw: unknown): StaffPermissionsOverrides | null {
     'can_manage_staff',
     'can_view_audit',
     'can_use_gamification',
+    'can_view_leaderboard',
   ];
   for (const k of keys) {
     if (typeof o[k] === 'boolean') out[k] = o[k];
@@ -135,5 +156,6 @@ export function getEffectiveStaffPermissions(
     can_manage_staff: overrides.can_manage_staff ?? defaults.can_manage_staff,
     can_view_audit: overrides.can_view_audit ?? defaults.can_view_audit,
     can_use_gamification: overrides.can_use_gamification ?? defaults.can_use_gamification,
+    can_view_leaderboard: overrides.can_view_leaderboard ?? defaults.can_view_leaderboard,
   };
 }

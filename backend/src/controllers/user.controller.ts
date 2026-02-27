@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { prisma } from '../db';
 import { Prisma } from '@prisma/client';
 import { SubscriptionStatus, Role, SubscriptionTier, ShiftStatus } from '@prisma/client';
-import { sendWelcomeMessage, sendQrResend, sendStaffPasswordResetToAdmin, sendMemberWelcomeEmail, sendMemberReceiptEmail } from '../services/n8n.service';
+import { sendWelcomeMessage, sendQrResend, sendStaffWelcomeMessage, sendStaffPasswordResetToAdmin, sendMemberWelcomeEmail, sendMemberReceiptEmail } from '../services/n8n.service';
 import { env } from '../config/env';
 import { logAuditEvent } from '../utils/audit.logger';
 import { normalizeGymSlug, generateStaffEmail } from '../utils/staff-email';
@@ -16,7 +16,7 @@ import { getStreakFreezeDays } from '../utils/rewards-config';
 import { getNextRenewalFolio } from '../utils/receipt-folio';
 import { MANIFEST_COOKIE_OPTIONS } from './manifest.controller';
 
-const STAFF_ROLES = [Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR] as const;
+const STAFF_ROLES = [Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR, Role.CLEANER] as const;
 
 // GET /users/me/context
 // Tenant Guard (capa 1): al establecer sesión (login/restore), rechaza si gym no está ACTIVE. SUPERADMIN exento.
@@ -324,6 +324,127 @@ export const searchUsers = async (req: Request, res: Response) => {
   }
 };
 
+// GET /users/:id/staff-detail — Detalle del staff (Admin o can_manage_staff): QR, visitas, permisos.
+export const getStaffDetail = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    const rawId = req.params.id;
+    const userId = Array.isArray(rawId) ? rawId[0] : rawId;
+    if (!gymId || !userId || typeof userId !== 'string') {
+      res.status(401).json({ error: 'Unauthorized: Context missing' });
+      return;
+    }
+
+    const staffRoles = [Role.ADMIN, Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR, Role.CLEANER];
+    const user = await prisma.user.findFirst({
+      where: { id: userId, gym_id: gymId, role: { in: staffRoles }, deleted_at: null },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        profile_picture_url: true,
+        role: true,
+        auth_user_id: true,
+        qr_token: true,
+        staff_permissions: true,
+        created_at: true,
+        last_visit_at: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'Personal no encontrado' });
+      return;
+    }
+
+    const [totalVisits, lastVisits] = await Promise.all([
+      prisma.visit.count({ where: { user_id: userId } }),
+      prisma.visit.findMany({
+        where: { user_id: userId },
+        select: { id: true, check_in_time: true, access_method: true },
+        orderBy: { check_in_time: 'desc' },
+        take: 10,
+      }),
+    ]);
+
+    const qrPayload = user.qr_token ? `GYM_QR_${user.qr_token}` : null;
+
+    res.status(200).json({
+      ...user,
+      qr_payload: qrPayload,
+      total_visits: totalVisits,
+      last_visits: lastVisits.map((v) => ({
+        id: v.id,
+        checked_in_at: v.check_in_time,
+        access_method: v.access_method,
+      })),
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getStaffDetail Error]', 'Failed to load staff detail.');
+  }
+};
+
+// GET /users/:id — Detalle completo del socio (staff con can_view_members)
+export const getUserDetail = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    const rawId = req.params.id;
+    const userId = Array.isArray(rawId) ? rawId[0] : rawId;
+    if (!gymId || !userId || typeof userId !== 'string') {
+      res.status(401).json({ error: 'Unauthorized: Context missing' });
+      return;
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { id: userId, gym_id: gymId, role: Role.MEMBER, deleted_at: null },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        profile_picture_url: true,
+        role: true,
+        auth_user_id: true,
+        birth_date: true,
+        current_streak: true,
+        last_visit_at: true,
+        created_at: true,
+        subscriptions: {
+          orderBy: { created_at: 'desc' },
+          take: 1,
+          select: { status: true, expires_at: true, plan_barcode: true },
+        },
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'Socio no encontrado' });
+      return;
+    }
+
+    const [totalVisits, lastVisits] = await Promise.all([
+      prisma.visit.count({ where: { user_id: userId } }),
+      prisma.visit.findMany({
+        where: { user_id: userId },
+        select: { id: true, check_in_time: true, access_method: true },
+        orderBy: { check_in_time: 'desc' },
+        take: 10,
+      }),
+    ]);
+
+    res.status(200).json({
+      ...user,
+      total_visits: totalVisits,
+      last_visits: lastVisits.map((v) => ({
+        id: v.id,
+        checked_in_at: v.check_in_time,
+        access_method: v.access_method,
+      })),
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getUserDetail Error]', 'Failed to load member detail.');
+  }
+};
+
 const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 // POST /users
@@ -524,6 +645,7 @@ export const createStaff = async (req: Request, res: Response) => {
         return;
       }
 
+      const qrToken = crypto.randomBytes(16).toString('hex');
       const user = await prisma.user.create({
         data: {
           gym_id: gymId,
@@ -532,7 +654,7 @@ export const createStaff = async (req: Request, res: Response) => {
           phone: phoneNormalized,
           role,
           pin_hash: null,
-          qr_token: null,
+          qr_token: qrToken,
         },
       });
 
@@ -542,12 +664,21 @@ export const createStaff = async (req: Request, res: Response) => {
         staff_email: email,
       });
 
+      if (phoneNormalized) {
+        const qrPayload = `GYM_QR_${qrToken}`;
+        sendStaffWelcomeMessage(gymId, phoneNormalized, user.name, gym?.name ?? null, qrPayload).catch((err) => {
+          req.log?.error({ err }, '[createStaff StaffWelcomeWebhook Error]');
+        });
+      }
+
       res.status(201).json({
         id: user.id,
         username: email,
         password,
+        qr_token: qrToken,
         message:
-          'Personal creado. Entrega estas credenciales en persona al staff. No se envía correo.',
+          'Personal creado. Entrega estas credenciales en persona.' +
+          (phoneNormalized ? ' Si el gym tiene WhatsApp configurado, recibirá su QR por mensaje.' : ''),
       });
       return;
     }
@@ -587,8 +718,8 @@ export const updateStaffPermissions = async (req: Request, res: Response) => {
       return;
     }
 
-    if (!STAFF_ROLES.includes(target.role)) {
-      res.status(400).json({ error: 'Solo se pueden editar permisos de Recepcionista, Coach o Instructor.' });
+    if (!(STAFF_ROLES as readonly Role[]).includes(target.role)) {
+      res.status(400).json({ error: 'Solo se pueden editar permisos de Recepcionista, Coach, Instructor o Limpieza.' });
       return;
     }
 
@@ -602,6 +733,7 @@ export const updateStaffPermissions = async (req: Request, res: Response) => {
       'can_manage_staff',
       'can_view_audit',
       'can_use_gamification',
+      'can_view_leaderboard',
     ] as const;
     const overrides: Record<string, boolean> = { ...((target.staff_permissions as Record<string, boolean>) ?? {}) };
     for (const k of permKeys) {
@@ -610,7 +742,11 @@ export const updateStaffPermissions = async (req: Request, res: Response) => {
 
     await prisma.user.update({
       where: { id },
-      data: { staff_permissions: Object.keys(overrides).length ? overrides : null },
+      data: {
+        staff_permissions: Object.keys(overrides).length
+          ? (overrides as Prisma.InputJsonValue)
+          : (null as unknown as Prisma.InputJsonValue),
+      },
     });
 
     await logAuditEvent(gymId, req.user?.id ?? '', 'STAFF_PERMISSIONS_UPDATED', { target_user_id: id, overrides });
@@ -845,8 +981,8 @@ export const getStaffLogin = async (req: Request, res: Response) => {
       return;
     }
 
-    const staffRoles = [Role.ADMIN, Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR];
-    if (!staffRoles.includes(target.role)) {
+    const staffRoles = [Role.ADMIN, Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR, Role.CLEANER];
+    if (!(staffRoles as readonly Role[]).includes(target.role)) {
       res.status(403).json({ error: 'Solo personal con login tiene credenciales.' });
       return;
     }
@@ -905,8 +1041,8 @@ export const resetPasswordByAdmin = async (req: Request, res: Response) => {
       return;
     }
 
-    const staffRoles = [Role.ADMIN, Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR];
-    if (!staffRoles.includes(target.role)) {
+    const staffRoles = [Role.ADMIN, Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR, Role.CLEANER];
+    if (!(staffRoles as readonly Role[]).includes(target.role)) {
       res.status(403).json({ error: 'Solo se puede resetear contraseña de personal (Admin, Recep, Coach, Instructor).' });
       return;
     }
@@ -997,8 +1133,8 @@ export const restoreUser = async (req: Request, res: Response) => {
       return;
     }
 
-    const staffRoles = [Role.ADMIN, Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR];
-    if (!staffRoles.includes(existing.role)) {
+    const staffRoles = [Role.ADMIN, Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR, Role.CLEANER];
+    if (!(staffRoles as readonly Role[]).includes(existing.role)) {
       res.status(400).json({ error: 'Solo se puede reactivar personal (Admin, Recep, Coach, Instructor).' });
       return;
     }
@@ -1079,6 +1215,13 @@ export const sendQrToMember = async (req: Request, res: Response) => {
       return;
     }
 
+    if (!user.qr_token) {
+      res.status(400).json({
+        error: 'Este usuario no tiene código QR. Usa Regenerar QR para generar uno.',
+      });
+      return;
+    }
+
     const phone = user.phone?.trim();
     if (!phone) {
       res.status(400).json({
@@ -1087,7 +1230,7 @@ export const sendQrToMember = async (req: Request, res: Response) => {
       return;
     }
 
-    const qrPayload = `GYM_QR_${user.qr_token ?? user.id}`;
+    const qrPayload = `GYM_QR_${user.qr_token}`;
     await sendQrResend(gymId, phone, qrPayload);
 
     await logAuditEvent(gymId, req.user?.id ?? '', 'QR_RESENT', { target_user_id: id });

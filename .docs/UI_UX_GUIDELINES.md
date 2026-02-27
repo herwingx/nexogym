@@ -51,7 +51,7 @@ El SaaS es Multitenant. La interfaz debe adaptarse al color corporativo del gimn
 - **Color Math Dinámico (WCAG):** El sistema (vía la librería `colord`) evaluará matemáticamente la luminancia del color hexadecimal recibido del backend. Generará automáticamente una variable `--theme-primary-foreground` que será texto `#FFFFFF` (blanco) o `#000000` (negro) para garantizar siempre un contraste perfecto en los botones.
 - **Acento Elegante:** El color de marca se usa como "acento" (para botones primarios, checks, y estados activos), no para rellenar fondos masivos.
 - **PWA (instalación):** El manifest es dinámico: al instalar la app en el dispositivo, el nombre y el color mostrados son los del gym (white-label). Ver **PWA_MANIFEST_DINAMICO.md**.
-- **Quién personaliza:** El **Admin** edita el color de acento en Mi perfil → Color de acento del gimnasio (con vista previa del contraste). El Super Admin no elige colores en el alta; la app se entrega "en stock" con color por defecto. Super Admin puede editar colores de un gym desde el panel (Editar gym) si necesita hacerlo.
+- **Quién personaliza:** El **Admin** edita el color de acento y el logo en **Mi perfil** (Color de acento del gimnasio + Logo del gimnasio). Subida de imagen (JPG/PNG/WebP) a Supabase Storage; al cambiar el logo, el anterior se elimina del bucket. El Super Admin configura nombre, logo y colores al crear/editar un gym; puede editar colores y logo desde el panel si necesita hacerlo.
 
 ---
 
@@ -88,8 +88,9 @@ Para que la carga de datos se perciba como más rápida y consistente, todas las
 ### Layouts y headers (White-label)
 
 - **Logo del gym:** Los layouts Admin, Reception y Member muestran el logo (`gymLogoUrl` del store) en el header cuando existe. Contenedor: `h-8 w-8` o `h-9 w-9`, borde sutil, `object-contain`. Si no hay logo, solo el nombre del gym.
-- **Header bar (Admin):** Barra de breadcrumb `h-14`, `flex items-center`, padding horizontal `pl-4 pr-4`. Breadcrumb con `compact` y `py-0` para alineación vertical correcta.
+- **Header bar (Admin):** Barra de breadcrumb `h-14`, `flex items-center`, padding horizontal `pl-4 pr-4`. Breadcrumb con `compact` y `py-0` para alineación vertical correcta. **Theme toggle:** Siempre en el header (no en sidebar) para consistencia con Reception, Member y SuperAdmin.
 - **Consistencia:** Mismo estilo de logo en sidebar Admin, topbar Reception y header Member (contenedor redondeado, borde, fondo).
+- **Padding del área de contenido:** AdminLayout y ReceptionLayout aplican `p-4 sm:p-6` al contenedor del Outlet. Todas las vistas (Admin, Coach, Recepción) heredan márgenes consistentes desde los bordes.
 
 ### Tarjetas (Cards / Bento Grids)
 
@@ -117,11 +118,10 @@ Las vistas se ocultan o muestran dinámicamente evaluando el store global `gym.m
 
 | Pantalla | Descripción | Ruta sugerida |
 |---|---|---|
-| **Dashboard / Check-in** | Flujo Hardware-First para registrar entrada de socios | `/reception/checkin` |
+| **Dashboard / Check-in** | Flujo Hardware-First para registrar entrada de socios | `/reception` |
 | **POS** | Catálogo de productos (grid táctil), carrito y botón "Confirmar Venta" | `/reception/pos` |
-| **Egresos** | Formulario rápido para sacar efectivo de la caja | `/reception/expenses` |
-| **Abrir / Cerrar turno** | Formulario de fondo inicial y pantalla de reconciliación | `/reception/shift` |
-| **Registrar socio** | Formulario de alta con soporte para capturar foto (cámara web/móvil) | `/reception/members/new` |
+| **Socios** | Búsqueda, listado y alta de socios | `/reception/members`, `/reception/members/new` |
+| **Leaderboard** | Ranking de rachas con búsqueda por nombre y paginación (como Socios). Solo visible si el staff tiene permiso `can_view_leaderboard` (Admin → Personal → Permisos). Queda dentro de Recepción (`/reception/leaderboard`), no redirige al panel admin. | `/reception/leaderboard` |
 
 ### Panel de Administración (Rol: ADMIN)
 
@@ -130,12 +130,13 @@ Las vistas se ocultan o muestran dinámicamente evaluando el store global `gym.m
 | **Dashboard principal** | Ventas del mes + ganancia neta; **semáforo de ocupación** solo si el gym tiene Check-in QR (`qr_access`). En plan Basic no se muestra ocupación. | `/admin` |
 | **Check-in** | Enlace en el sidebar que lleva a la vista de recepción (`/reception`) para hacer check-in (el admin tiene los mismos permisos que recepcionista en backend). | Sidebar → Check-in → `/reception` |
 | **Reporte financiero** | Selector de mes + desglose de ventas, egresos y ganancia neta | `/admin/finance` |
-| **Socios** | Búsqueda por nombre/teléfono, listado paginado, columnas Nombre/Teléfono/Estado/Plan/Vence, acciones renovar/congelar/descongelar (y solo Admin: cancelar, regenerar QR). Misma UX en Recepción. | `/admin/members` |
+| **Socios** | Búsqueda por nombre/teléfono (skeleton al buscar), listado paginado con foto junto al nombre. Clic en nombre o foto abre vista detalle compacta con: miembro desde, fecha nacimiento, total visitas, historial de visitas, racha, Editar, Enviar QR, Regenerar QR. Layout compartido `UserDetailLayout` (también usado en detalle del staff). Tabla y resultados: Renovar, Congelar, Descongelar, Cancelar (Admin). Editar solo dentro del modal. Misma UX en Admin y Recepción. | `/admin/members` |
 | **Inventario** | Tabla de productos con stock actual + botones Restock y Merma | `/admin/inventory` |
 | **Auditoría** | Registro de acciones críticas (etiquetas en español): turno cerrado, personal dado de alta, suscripción renovada, etc. Filtrable por tipo. | `/admin/audit` |
 | **Cortes de caja** | Historial de turnos con estado Cuadrado / Sobrante / Faltante; por turno, Transacciones (ventas por folio con desglose por producto) | `/admin/shifts` |
 | **Clases** | Crear, editar y eliminar clases grupales. Día, hora, instructor, cupo, costo opcional. Socios ven clases en su portal y pueden reservar/cancelar. Ver **CLASES_GRUPALES.md**. | `/admin/classes` |
 | **Gamificación** | Configuración de premios por racha: hitos (días) y texto del premio. Solo visible si el plan tiene módulo gamificación. | `/admin/rewards` |
+| **Leaderboard** | Ranking de rachas (socios ordenados por racha actual). Búsqueda por nombre y paginación para manejar muchos socios con racha. También accesible desde Recepción (`/reception/leaderboard`) si el staff tiene permiso `can_view_leaderboard`. | `/admin/leaderboard` |
 
 ### Portal del Socio — PWA Móvil (Rol: MEMBER)
 
@@ -149,6 +150,10 @@ Las vistas se ocultan o muestran dinámicamente evaluando el store global `gym.m
 ---
 
 ## 8. Componentes Clave de Negocio
+
+### Layout compartido de detalle (socios y staff)
+
+`UserDetailLayout` (`components/detail/UserDetailLayout.tsx`) es el layout reutilizado por `MemberDetailModal` y `StaffDetailModal`: header compacto (foto, nombre, subtítulo, badge de estado), grid de metadatos en 2 columnas, sección de visitas (con scroll si hay muchas), sección QR y barra de acciones. Cada modal configura sus propios metadatos y acciones; la estructura visual es consistente.
 
 ### Tarjeta de Turno de Caja (POS)
 
@@ -213,6 +218,8 @@ bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 shadow-xl
 | Socio creado | Success `"✓ WhatsApp de bienvenida enviado"` |
 | Premio desbloqueado | Success `"🏆 Premio notificado al socio"` |
 | Error Anti-Passback | Error `"El pase fue utilizado recientemente"` |
+
+**Mensajes de error (producción):** Usar frases amigables para el usuario. Evitar detalles técnicos (ej. "backend", "SuperAdmin"). Ejemplos: "No se pudo cargar. Verifica tu conexión e intenta de nuevo." / "No tienes acceso. Contacta al administrador."
 
 ---
 

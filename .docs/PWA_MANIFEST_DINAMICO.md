@@ -32,6 +32,8 @@ El navegador pide el manifest al cargar la página (`<link rel="manifest" href="
 - **index.html:** No se incluye `<link rel="manifest">` en el HTML; así el navegador no pide el manifest antes de tener la cookie. El título inicial es "NexoGym".
 - **Inyección del manifest:** En `App.tsx`, el hook `useManifestLink` añade `<link rel="manifest" href="...">` solo cuando `isBootstrapped` es true (tras login o restore). Si hay sesión, se usa un cache-buster (`?t=...`) para que el navegador pida el manifest con la cookie y el "Instalar" muestre el nombre del gym.
 - **Título de pestaña (y PWA en iOS):** El hook `useDocumentTitle` actualiza `document.title` y la meta `apple-mobile-web-app-title`: para **SUPERADMIN** siempre "NexoGym"; para el resto, nombre del gym cuando hay sesión y `gymName`; si no, "NexoGym". El tema (color primario) para SUPERADMIN es siempre el azul Nexo (`#2563eb`), no el del gym.
+- **Favicon de pestaña:** El hook `useFavicon` actualiza `<link rel="icon">`: para **SUPERADMIN** siempre el favicon por defecto (vite.svg); para el resto, el logo del gym (`logo_url`) cuando hay sesión y el gym tiene logo; si no, favicon por defecto. Así la pestaña del navegador muestra el logo del gym.
+- **Iconos PWA (instalación):** El manifest dinámico incluye el `logo_url` del gym como icono cuando está configurado; si no, usa el icono por defecto. Al instalar la PWA, el icono en el escritorio/móvil será el logo del gym.
 - **Desarrollo:** En dev el frontend usa siempre `/api/v1` (proxy), no `VITE_API_BASE_URL`, para que la cookie y el manifest sean same-origin y el diálogo "Instalar" muestre el nombre del gym. Vite proxy redirige `/api/v1` al backend.
 
 ### Despliegue

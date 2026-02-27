@@ -22,7 +22,7 @@ describe('observability/metrics', () => {
     res.emit('finish');
 
     const snapshot = await getMetricsSnapshot();
-    expect(snapshot).toContain('gymsaas_http_requests_total');
-    expect(snapshot).toContain('gymsaas_http_request_duration_ms');
+    expect(snapshot).toContain('nexogym_http_requests_total');
+    expect(snapshot).toContain('nexogym_http_request_duration_ms');
   });
 });

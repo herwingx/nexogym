@@ -55,3 +55,9 @@ El backend guarda en `Gym.rewards_config` (`streak_rewards`, `streak_freeze_days
 Si todos los días entre el último check-in y hoy fueron cerrados (por weekday o festivo), la racha se congela (no se reinicia). Admin lo configura en Gamificación → "Días que cierra el gym".
 
 El backend acepta además formato legacy (claves numéricas `"7": "Batido gratis"` o `streak_bonus: { streak_7: 50 }`) para compatibilidad; `streak_rewards` tiene prioridad cuando existe.
+
+## Leaderboard (staff)
+
+- **Ruta:** `/admin/leaderboard` o `/reception/leaderboard` (según permiso `can_view_leaderboard`).
+- **API:** `GET /api/v1/gym/leaderboard?page=1&limit=20&q=nombre` — socios ordenados por `current_streak` DESC, empate por `last_visit_at` DESC.
+- **Paginación y búsqueda:** `page` (default 1), `limit` (5–50, default 20), `q` (mín. 2 caracteres para filtrar por nombre). Respuesta incluye `meta: { total, page, limit }`.

@@ -17,6 +17,7 @@ import { AdminRoutines } from './pages/AdminRoutines'
 import { AdminInventory } from './pages/AdminInventory'
 import { AdminShifts } from './pages/AdminShifts'
 import { AdminRewards } from './pages/AdminRewards'
+import { AdminLeaderboard } from './pages/AdminLeaderboard'
 import { AdminStaffView } from './pages/AdminStaffView'
 import { AdminRoute } from './components/auth/AdminRoute'
 import { ReceptionLayout } from './layouts/ReceptionLayout'
@@ -66,6 +67,28 @@ const useDocumentTitle = () => {
   }, [user?.role, user, gymName])
 }
 
+const DEFAULT_FAVICON = '/vite.svg'
+const DEFAULT_FAVICON_TYPE = 'image/svg+xml'
+
+/** Favicon de pestaña: logo del gym cuando hay sesión y logo; NexoGym por defecto (SUPERADMIN o sin logo). */
+const useFavicon = () => {
+  const user = useAuthStore((state) => state.user)
+  const gymLogoUrl = useAuthStore((state) => state.gymLogoUrl)
+
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (!link) return
+    const useLogo = user && user.role !== 'SUPERADMIN' && gymLogoUrl?.trim()
+    if (useLogo) {
+      link.href = gymLogoUrl!
+      link.type = gymLogoUrl!.toLowerCase().includes('.svg') ? 'image/svg+xml' : 'image/png'
+    } else {
+      link.href = DEFAULT_FAVICON
+      link.type = DEFAULT_FAVICON_TYPE
+    }
+  }, [user?.role, user, gymLogoUrl])
+}
+
 /** Inyecta el manifest PWA tras el bootstrap; si hay sesión, usa cache-buster para que el navegador pida con la cookie y muestre el nombre del gym al instalar. */
 const useManifestLink = () => {
   const isBootstrapped = useAuthStore((state) => state.isBootstrapped)
@@ -86,6 +109,7 @@ function App() {
   const { mode } = useTheme()
   useApplyTenantTheme()
   useDocumentTitle()
+  useFavicon()
   useManifestLink()
   const user = useAuthStore((state) => state.user)
 
@@ -119,6 +143,7 @@ function App() {
             <Route path="/admin/inventory" element={<AdminInventory />} />
             <Route path="/admin/shifts" element={<AdminShifts />} />
             <Route path="/admin/rewards" element={<AdminRewards />} />
+            <Route path="/admin/leaderboard" element={<AdminLeaderboard />} />
             <Route path="/admin/staff" element={<AdminStaffView />} />
             <Route path="/admin/audit" element={<AdminAudit />} />
             <Route path="/admin/profile" element={<ProfileSettings />} />
@@ -131,6 +156,7 @@ function App() {
             <Route path="/reception/pos" element={<ReceptionPosPage />} />
             <Route path="/reception/members" element={<ReceptionMembersPage />} />
             <Route path="/reception/members/new" element={<ReceptionMemberNewPage />} />
+            <Route path="/reception/leaderboard" element={<AdminLeaderboard />} />
             <Route path="/reception/profile" element={<ProfileSettings />} />
           </Route>
         </Route>

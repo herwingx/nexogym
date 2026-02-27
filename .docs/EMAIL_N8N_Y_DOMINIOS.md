@@ -24,6 +24,7 @@ Documento de referencia para el setup operativo de correo: quién envía qué, p
 | Comprobante renovación | Email | `member_receipt` |
 | Comprobante venta POS | Email | `sale_receipt` |
 | QR, recompensas, corte, cumpleaños | WhatsApp | varios |
+| Bienvenida staff (planificado) | WhatsApp | `staff_welcome` (ver STAFF_QR_ACCESS_AND_ATTENDANCE.md) |
 
 Los webhooks de email de n8n requieren un **proveedor de correo** (Resend, SendGrid, Gmail, Brevo, etc.) configurado en n8n. Ver sección 2.
 

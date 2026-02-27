@@ -1,4 +1,4 @@
-# Flujo de Desarrollo — GymSaaS
+# Flujo de Desarrollo — NexoGym
 
 Guía de referencia para cualquier persona que trabaje en el proyecto:
 entornos disponibles, cómo configurar variables, comandos de base de datos,

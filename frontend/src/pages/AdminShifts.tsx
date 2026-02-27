@@ -240,7 +240,21 @@ export const AdminShifts = () => {
             }}
           >
             {loadingDetail ? (
-              <p className="text-sm text-zinc-500 py-4">Cargando...</p>
+              <div className="py-4">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
+                      <th className="py-1.5 px-3 text-left font-medium">Producto</th>
+                      <th className="py-1.5 px-3 text-right font-medium">Cant.</th>
+                      <th className="py-1.5 px-3 text-right font-medium">P. unit.</th>
+                      <th className="py-1.5 px-3 text-right font-medium">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <TableRowSkeleton columns={4} rows={4} />
+                  </tbody>
+                </table>
+              </div>
             ) : detailShift ? (
               <div className="space-y-4">
                 <p className="text-xs text-zinc-500">

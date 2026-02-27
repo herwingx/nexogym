@@ -251,3 +251,22 @@ export const requireCanUseGamification = (req: Request, res: Response, next: Nex
   }
   res.status(403).json({ error: 'Forbidden: No tienes permiso para gamificación.' });
 };
+
+/** Permiso efectivo: puede ver leaderboard de rachas (Admin/SuperAdmin siempre; staff si can_view_leaderboard). */
+export const requireCanViewLeaderboard = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    res.status(403).json({ error: 'Forbidden: Authentication required.' });
+    return;
+  }
+  if (req.userRole === Role.ADMIN || req.userRole === Role.SUPERADMIN) {
+    next();
+    return;
+  }
+  if (req.effectiveStaffPermissions?.can_view_leaderboard) {
+    next();
+    return;
+  }
+  res.status(403).json({
+    error: 'Forbidden: No tienes permiso para ver el leaderboard. El admin puede activarlo en Personal.',
+  });
+};

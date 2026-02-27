@@ -50,12 +50,19 @@ export const getManifest = async (req: Request, res: Response) => {
     const name = (gym.name || 'NexoGym').trim();
     const shortName = name.length > 12 ? name.slice(0, 12).trim() : name;
 
+    const logoUrl = (gym.logo_url ?? '').trim();
+    const iconType = logoUrl.toLowerCase().includes('.svg') ? 'image/svg+xml' : 'image/png';
+    const icons = logoUrl
+      ? [{ src: logoUrl, sizes: '192x192', type: iconType, purpose: 'any maskable' }]
+      : DEFAULT_MANIFEST.icons;
+
     const manifest = {
       ...DEFAULT_MANIFEST,
       name,
       short_name: shortName,
       theme_color: themeColor,
       description: `Portal del socio — ${name}`,
+      icons,
     };
 
     res.setHeader('Cache-Control', 'no-store');

@@ -284,6 +284,19 @@ export const updateGymThemeColors = async (
   return response.json() as Promise<{ theme_colors: { primary: string } }>
 }
 
+/** Admin: actualiza el logo del gym (white-label). logo_url: URL o null para quitar. */
+export const updateGymLogo = async (logoUrl: string | null): Promise<{ logo_url: string | null }> => {
+  const response = await fetchWithAuth('/gym/logo', {
+    method: 'PATCH',
+    body: JSON.stringify({ logo_url: logoUrl }),
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new Error((data as { error?: string })?.error ?? `Error (${response.status})`)
+  }
+  return response.json() as Promise<{ logo_url: string | null }>
+}
+
 export type GymDetail = GymSummary & {
   status?: string
   theme_colors?: { primary?: string; secondary?: string; [key: string]: string | undefined }
@@ -771,6 +784,25 @@ export const fetchMemberLeaderboard = async (params?: {
   return raw as { data: LeaderboardEntry[] }
 }
 
+export type LeaderboardMeta = { total: number; page: number; limit: number }
+
+/** Leaderboard de rachas para staff (Admin/Recepción con permiso). GET /gym/leaderboard. */
+export const fetchStaffLeaderboard = async (params?: {
+  page?: number
+  limit?: number
+  q?: string
+}): Promise<{ data: LeaderboardEntry[]; meta: LeaderboardMeta }> => {
+  const sp = new URLSearchParams()
+  if (params?.page != null) sp.set('page', String(params.page))
+  if (params?.limit != null) sp.set('limit', String(params.limit))
+  if (params?.q?.trim()) sp.set('q', params.q!.trim())
+  const qs = sp.toString() ? `?${sp.toString()}` : ''
+  const response = await fetchWithAuth(`/gym/leaderboard${qs}`)
+  const raw = (await response.json().catch(() => ({}))) as { data: LeaderboardEntry[]; meta: LeaderboardMeta } & Record<string, unknown>
+  if (!response.ok) throw getErrorFromResponse(response, raw as Record<string, unknown>)
+  return raw as { data: LeaderboardEntry[]; meta: LeaderboardMeta }
+}
+
 /** Reenviar mi QR de acceso por WhatsApp (mismo código estable). Portal del socio. */
 export const requestMemberQrResend = async (): Promise<{ message: string }> => {
   const response = await fetchWithAuth('/members/me/send-qr', { method: 'POST' })
@@ -1202,6 +1234,18 @@ export const searchMembers = async (q: string): Promise<MemberSummary[]> => {
   return data.data ?? []
 }
 
+export type MemberDetail = MemberUserRow & {
+  birth_date?: string | null
+  total_visits?: number
+  last_visits?: Array<{ id: string; checked_in_at: string; access_method: string }>
+}
+
+export const fetchMemberDetail = async (userId: string): Promise<MemberDetail> => {
+  const res = await fetchWithAuth(`/users/${userId}`)
+  if (!res.ok) throw new Error(`Failed to load member (${res.status})`)
+  return res.json()
+}
+
 export const updateMember = async (
   id: string,
   payload: { name?: string; phone?: string; profile_picture_url?: string },
@@ -1220,8 +1264,23 @@ export const updateMember = async (
 export type CreateStaffPayload = {
   name: string
   phone?: string
-  role?: 'RECEPTIONIST' | 'COACH' | 'INSTRUCTOR'
+  role?: 'RECEPTIONIST' | 'COACH' | 'INSTRUCTOR' | 'CLEANER'
   password?: string
+}
+
+export type StaffDetail = StaffUserRow & {
+  qr_payload: string | null
+  profile_picture_url?: string | null
+  staff_permissions?: Record<string, boolean> | null
+  last_visit_at?: string | null
+  total_visits?: number
+  last_visits?: Array<{ id: string; checked_in_at: string; access_method: string }>
+}
+
+export const fetchStaffDetail = async (userId: string): Promise<StaffDetail> => {
+  const res = await fetchWithAuth(`/users/${userId}/staff-detail`)
+  if (!res.ok) throw new Error(`Failed to load staff (${res.status})`)
+  return res.json()
 }
 
 export type CreateStaffResponse = {
@@ -1250,6 +1309,7 @@ export type StaffUserRow = {
   id: string
   name: string | null
   phone: string | null
+  profile_picture_url?: string | null
   role: string
   auth_user_id?: string | null
   deleted_at: string | null
@@ -1267,6 +1327,7 @@ export type StaffPermissionsPayload = {
   can_manage_staff?: boolean
   can_view_audit?: boolean
   can_use_gamification?: boolean
+  can_view_leaderboard?: boolean
 }
 
 export const updateStaffPermissions = async (

@@ -106,7 +106,7 @@ async function main() {
   // =========================================================================
   const platformGym = await prisma.gym.create({
     data: {
-      name: 'GymSaaS Platform (Internal)',
+      name: 'NexoGym Platform (Internal)',
       subscription_tier: SubscriptionTier.PREMIUM_BIO,
       modules_config: { pos: true, qr_access: true, gamification: true, classes: true, biometrics: true },
       theme_colors: { primary: '#6366f1', secondary: '#818cf8' },

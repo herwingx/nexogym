@@ -30,8 +30,8 @@ export const processCheckin = async (req: Request, res: Response) => {
         ? validation.data.code.slice(7).trim()
         : validation.data.code.trim();
       const byToken = await prisma.user.findFirst({
-        where: { qr_token: payload, gym_id: gymId },
-        select: { id: true },
+        where: { qr_token: payload, gym_id: gymId, deleted_at: null },
+        select: { id: true, role: true },
       });
       if (byToken) userId = byToken.id;
     }
@@ -42,7 +42,75 @@ export const processCheckin = async (req: Request, res: Response) => {
       return;
     }
 
-    // 1. Validate Active Subscription
+    // Resolve user early to check if staff (no subscription required)
+    const userForCheck = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, phone: true, profile_picture_url: true, role: true, deleted_at: true },
+    });
+
+    if (!userForCheck || userForCheck.deleted_at) {
+      res.status(403).json({ error: 'Usuario no encontrado o dado de baja.' });
+      return;
+    }
+
+    const isStaff = userForCheck.role !== Role.MEMBER;
+
+    if (isStaff) {
+      // Staff check-in: no subscription, no streak/reward. Just record visit.
+      const now = new Date();
+      const gym = await prisma.gym.findUnique({
+        where: { id: gymId },
+        select: { modules_config: true, subscription_tier: true },
+      });
+      if (!gym) {
+        res.status(404).json({ error: 'Gym not found.' });
+        return;
+      }
+      const modulesConfig = resolveModulesConfig(gym.modules_config, gym.subscription_tier);
+      if (accessMethod === AccessMethod.QR && !modulesConfig.qr_access) {
+        res.status(403).json({ error: 'Feature disabled for current subscription: qr_access' });
+        return;
+      }
+
+      const ANTI_PASSBACK_HOURS = 2;
+      const lastVisit = await prisma.visit.findFirst({
+        where: { user_id: userId },
+        orderBy: { check_in_time: 'desc' },
+        select: { check_in_time: true },
+      });
+      if (lastVisit) {
+        const hoursSince = (now.getTime() - lastVisit.check_in_time.getTime()) / 3600000;
+        if (hoursSince < ANTI_PASSBACK_HOURS) {
+          res.status(403).json({ error: 'Anti-Passback: Este código ya fue utilizado hace menos de 2 horas.' });
+          return;
+        }
+      }
+
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: userId },
+          data: { last_visit_at: now },
+        }),
+        prisma.visit.create({
+          data: {
+            gym_id: gymId,
+            user_id: userId,
+            check_in_time: now,
+            access_method: accessMethod,
+            access_type: AccessType.REGULAR,
+          },
+        }),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        user: { name: userForCheck.name, profile_picture_url: userForCheck.profile_picture_url },
+        message: '¡Entrada de personal registrada!',
+      });
+      return;
+    }
+
+    // 1. Validate Active Subscription (members only)
     const subscription = await prisma.subscription.findFirst({
       where: {
         user_id: userId,

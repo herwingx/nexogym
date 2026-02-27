@@ -8,7 +8,7 @@ Este documento describe la configuración de los buckets de Supabase Storage usa
 
 | Bucket              | Uso                                  | Dónde se usa en la app                    |
 |---------------------|--------------------------------------|-------------------------------------------|
-| `gym-logos`         | Logos de gimnasios (white-label)     | Super Admin → Crear gimnasio / Editar gym |
+| `gym-logos`         | Logos de gimnasios (white-label)     | Super Admin → Crear/Editar gym; **Admin** → Mi perfil |
 | `profile-pictures`  | Fotos de perfil de socios            | Recepción → Registrar socio               |
 
 Si el bucket no existe, las subidas fallan con **"Bucket not found"** (400). En ese caso el usuario puede usar solo la URL manual (pegar un enlace externo), pero la subida desde el dispositivo no funcionará.
@@ -33,22 +33,27 @@ Si el bucket no existe, las subidas fallan con **"Bucket not found"** (400). En 
 
 ## Políticas (Storage Policies)
 
-Por defecto, Supabase bloquea operaciones sin políticas. Debes crear **políticas de INSERT** para permitir que usuarios autenticados suban archivos.
+Por defecto, Supabase bloquea operaciones sin políticas. Debes crear políticas para permitir que usuarios autenticados suban, lean y eliminen archivos.
+
+**Opción rápida:** Ejecuta el script `supabase-storage-policies.sql` (en la raíz del repo) en **Supabase Dashboard → SQL Editor**. Crea las políticas mínimas para `profile-pictures` (INSERT) y `gym-logos` (INSERT, DELETE). Si prefieres configurar por UI, sigue las secciones siguientes.
 
 ### Política para `gym-logos`
 
 1. En **Storage** → **Policies**, selecciona el bucket `gym-logos`.
 2. Pulsa **New policy**.
-3. Usa una política personalizada (o la plantilla "Give users access to a folder only to authenticated users" y adapta):
+3. Configura:
 
 | Campo               | Valor |
 |---------------------|-------|
-| **Policy name**     | `Allow authenticated uploads to gym-logos` |
-| **Allowed operation** | Marcar **INSERT** (y **SELECT** si quieres permitir lectura explícita) |
+| **Policy name**     | `Authenticated gym-logos access` (o similar) |
+| **Allowed operation** | Marcar **SELECT**, **INSERT** y **DELETE** |
 | **Target roles**    | `authenticated` |
 | **Policy definition** | `bucket_id = 'gym-logos' AND auth.role() = 'authenticated'` |
 
-El código sube archivos directamente a la raíz del bucket (p. ej. `uuid.jpg`), **no** a subcarpetas. No uses condiciones como `(storage.foldername(name))[1] = 'private'` porque bloquearían las subidas.
+**Importante:** Los logos se guardan en la **raíz** del bucket (p. ej. `a1b2c3d4-uuid.jpg`), sin subcarpetas. **No** uses condiciones de carpeta como `(storage.foldername(name))[1] = 'private'` porque bloquearían las operaciones.
+
+- **INSERT:** subir nuevos logos (Admin en Mi perfil, SuperAdmin al crear/editar gym).
+- **DELETE:** eliminar el logo anterior al subir uno nuevo o al quitarlo (evita archivos huérfanos).
 
 ### Política para `profile-pictures`
 
@@ -65,15 +70,13 @@ Misma configuración cambiando el bucket:
 
 ## SQL generado (referencia)
 
-Supabase genera algo como:
+Para `gym-logos` con SELECT, INSERT y DELETE, Supabase crea políticas que incluyen la condición:
 
 ```sql
-CREATE POLICY "Allow authenticated uploads to gym-logos_xxx"
-ON storage.objects
-FOR INSERT
-TO public
-WITH CHECK (bucket_id = 'gym-logos' AND auth.role() = 'authenticated');
+bucket_id = 'gym-logos' AND auth.role() = 'authenticated'
 ```
+
+Cada operación (INSERT, DELETE, SELECT) puede tener su propia política o una única política con varias operaciones, según la UI.
 
 ---
 
@@ -81,7 +84,7 @@ WITH CHECK (bucket_id = 'gym-logos' AND auth.role() = 'authenticated');
 
 | Bucket              | Archivo                     | Función/Uso                            |
 |---------------------|-----------------------------|----------------------------------------|
-| `gym-logos`         | `SuperAdminDashboard.tsx`   | Crear gym: `handleCreateGymLogoUpload`; Editar gym: `handleEditGymLogoUpload` |
+| `gym-logos`         | `SuperAdminDashboard.tsx`, `ProfileSettings.tsx` | SuperAdmin: crear/editar gym; Admin: subir/quitar logo en Mi perfil. Se elimina el logo anterior al subir uno nuevo. |
 | `profile-pictures`  | `ReceptionMemberNew.tsx`    | Subir foto en formulario de alta de socio |
 
 El cliente usa `supabase.storage.from(BUCKET).upload(path, file)` y luego `getPublicUrl(path)` para obtener la URL que se guarda en la base de datos.
@@ -94,14 +97,14 @@ El cliente usa `supabase.storage.from(BUCKET).upload(path, file)` y luego `getPu
 |-----------------------|------------------------|----------------------------------------------------|
 | **Bucket not found**  | El bucket no existe    | Crear el bucket en Storage con el nombre exacto    |
 | **new row violates row-level security policy** | No hay política de INSERT | Añadir la política de `INSERT` para `authenticated` |
-| **403 / Forbidden**   | Política demasiado restrictiva (p. ej. carpeta `private`) | Usar solo `bucket_id = '...' AND auth.role() = 'authenticated'` |
+| **403 / Forbidden**   | Política demasiado restrictiva (p. ej. `(storage.foldername(name))[1] = 'private'`) | Los archivos están en la raíz; usar solo `bucket_id = '...' AND auth.role() = 'authenticated'`. |
 
 ---
 
 ## Checklist de setup (por entorno)
 
 - [ ] Bucket `gym-logos` creado, público, límite 10 MB
-- [ ] Política INSERT (authenticated) en `gym-logos`
+- [ ] Política INSERT y DELETE (authenticated) en `gym-logos`
 - [ ] Bucket `profile-pictures` creado, público, límite 10 MB
 - [ ] Política INSERT (authenticated) en `profile-pictures`
 

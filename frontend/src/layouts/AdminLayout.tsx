@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   Trophy,
+  Medal,
   ScanQrCode,
 } from 'lucide-react'
 import { useAuthStore, type ModulesConfig } from '../store/useAuthStore'
@@ -25,7 +26,7 @@ import { logout } from '../lib/logout'
 
 type ModuleKey = keyof ModulesConfig | null
 
-type StaffPermissionKey = 'reception' | 'pos' | 'routines' | 'dashboard' | 'members_admin' | 'finance' | 'staff' | 'audit' | 'gamification'
+type StaffPermissionKey = 'reception' | 'pos' | 'routines' | 'dashboard' | 'members_admin' | 'finance' | 'staff' | 'audit' | 'gamification' | 'leaderboard'
 
 type NavItem = {
   label: string
@@ -48,6 +49,7 @@ const PERM_MAP: Record<StaffPermissionKey, keyof import('../store/useAuthStore')
   staff: 'can_manage_staff',
   audit: 'can_view_audit',
   gamification: 'can_use_gamification',
+  leaderboard: 'can_view_leaderboard',
 }
 
 const navItems: NavItem[] = [
@@ -61,6 +63,7 @@ const navItems: NavItem[] = [
   { label: 'Clases', to: '/admin/classes', icon: CalendarDays, moduleKey: 'classes', staffPermission: 'routines' },
   { label: 'Rutinas', to: '/admin/routines', icon: Dumbbell, moduleKey: 'classes', staffPermission: 'routines' },
   { label: 'Gamificación', to: '/admin/rewards', icon: Trophy, moduleKey: 'gamification', staffPermission: 'gamification' },
+  { label: 'Leaderboard', to: '/admin/leaderboard', icon: Medal, moduleKey: 'gamification', staffPermission: 'leaderboard' },
   { label: 'Auditoría', to: '/admin/audit', icon: ShieldAlert, moduleKey: null, staffPermission: 'audit' },
   { label: 'Mi perfil', to: '/admin/profile', icon: User, moduleKey: null, alwaysVisible: true },
 ]
@@ -275,7 +278,7 @@ export const AdminLayout = () => {
           <Breadcrumb className="flex-1 min-w-0 py-0" compact />
           <ThemeToggle size="sm" className="shrink-0 hidden md:inline-flex" />
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
           <Outlet />
         </div>
       </main>

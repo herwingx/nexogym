@@ -1,6 +1,6 @@
 # QR de acceso del socio (único y estable)
 
-El QR que identifica al socio es **único y estable**. Se envía por **WhatsApp** (n8n). El canal de email se reserva para bienvenida (credenciales) y recuperación de contraseña. Ver **CANALES_COMUNICACION.md**. Si borró el chat o lo perdió, se puede **reenviar** el mismo QR por WhatsApp. Solo Admin puede **regenerar** un QR nuevo (invalida el anterior), por ejemplo si hubo fraude o cambio de teléfono.
+El QR que identifica al socio es **único y estable**. Para el **personal (staff)**, ver **STAFF_QR_ACCESS_AND_ATTENDANCE.md**. Se envía por **WhatsApp** (n8n). El canal de email se reserva para bienvenida (credenciales) y recuperación de contraseña. Ver **CANALES_COMUNICACION.md**. Si borró el chat o lo perdió, se puede **reenviar** el mismo QR por WhatsApp. Solo Admin puede **regenerar** un QR nuevo (invalida el anterior), por ejemplo si hubo fraude o cambio de teléfono.
 
 ---
 

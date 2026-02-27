@@ -83,6 +83,11 @@ Estrategia de canales: **Email** solo para bienvenida y recuperación de contras
 - **Evento:** Corte de caja cerrado. Backend envía `event: 'shift_summary'` al teléfono del dueño.
 - **Webhook n8n:** `shift_summary` (`/webhook/corte-caja`)
 
+### 3.5 Bienvenida staff
+
+- **Evento:** Admin crea staff con teléfono. Backend envía `event: 'staff_welcome'` con `phone`, `qrData`, `gym_name`, `staff_name`. n8n envía mensaje de bienvenida por WhatsApp: "Gracias por unirte al equipo de [gym]" + QR de acceso.
+- **Webhook n8n:** Usa el mismo webhook `welcome` (`/webhook/nuevo-cliente`); n8n bifurca por `event`. Opcional: `/webhook/staff-bienvenida` para workflow separado. Ver **STAFF_QR_ACCESS_AND_ATTENDANCE.md**.
+
 ---
 
 ## 4. Administración de contraseñas por rol
@@ -96,13 +101,13 @@ Estrategia de canales: **Email** solo para bienvenida y recuperación de contras
 
 ---
 
-## 5. Staff: Admin entrega credenciales en persona, reset al correo del Admin
+## 5. Staff: credenciales, QR y bienvenida por WhatsApp
 
 El staff (Recep, Coach, Instructor) son personal que rota. **No usamos correo personal ni corporativo**:
 
 - **Creación:** Admin → Personal → "Agregar personal" → indica nombre, teléfono, rol, contraseña (opcional). El sistema genera un **email interno** basado en el nombre del gym: `{gym-slug}-staff-{id}@internal.nexogym.com`. No requiere correo corporativo.
 - El Admin recibe **usuario y contraseña** y los entrega en persona al staff.
-- No enviamos bienvenida por email al staff; el Admin entrega las credenciales manualmente.
+- **Bienvenida por WhatsApp:** Al crear staff con teléfono, se envía un mensaje de bienvenida por WhatsApp al teléfono del staff: "Gracias por unirte al equipo de [gym]." + QR de acceso. Ver **STAFF_QR_ACCESS_AND_ATTENDANCE.md**.
 - Si olvidan contraseña: Admin → Personal → "Resetear contraseña" → la **nueva contraseña llega al correo del Admin** → él se la entrega al staff en persona.
 - **Ventaja:** No depende de que el staff o el gym tengan correo; el Admin controla todo el flujo. Al desvincular a alguien, el gym no pierde nada.
 
@@ -134,6 +139,7 @@ Ver **EMAIL_N8N_Y_DOMINIOS.md** para proveedores recomendados, dominio y checkli
 | Webhook | Evento | Canal | Payload principal |
 |---------|--------|-------|-------------------|
 | `/webhook/nuevo-cliente` | `welcome`, `resend_qr` | WhatsApp | phone, qrData, pin |
+| `/webhook/staff-bienvenida` o `welcome` | `staff_welcome` | WhatsApp | phone, qrData, gym_name, staff_name |
 | `/webhook/admin-bienvenida` | `admin_welcome` | Email | admin_email, admin_name, temp_password, login_url |
 | `/webhook/member-bienvenida` | `member_welcome` | Email | member_email, member_name, temp_password, login_url, qr_data, pin |
 | `/webhook/staff-password-reset` | `staff_password_reset` | Email | admin_email (to), staff_name, staff_email, new_password |

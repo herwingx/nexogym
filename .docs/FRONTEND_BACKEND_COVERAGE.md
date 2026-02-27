@@ -58,7 +58,8 @@ Si el plan no tiene el módulo, esas opciones se ocultan en el menú y el acceso
 
 - **Check-in, Socios, Alta** siempre visibles (check-in manual funciona en todos los planes).
 - **POS** solo visible si `modules_config.pos === true`. Si se accede por URL a `/reception/pos` sin el módulo, se redirige a `/reception`.
-- El backend aplica `requireModuleEnabled('pos')` en rutas POS/inventario; si el plan no tiene POS, cualquier llamada devuelve 403.
+- **Leaderboard** visible solo si `modules_config.gamification === true` y el staff tiene permiso `can_view_leaderboard`. Ruta `/reception/leaderboard` (queda en Recepción, no redirige al panel admin).
+- AdminLayout y ReceptionLayout aplican `p-4 sm:p-6` al área de contenido para márgenes consistentes en todas las vistas.
 
 ### 2.3 Miembro (`MemberLayout`)
 

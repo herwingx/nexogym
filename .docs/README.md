@@ -58,6 +58,7 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 | Documento | Contenido |
 |-----------|-----------|
 | **SEED_USERS_AND_ROLES.md** | Roles (SUPERADMIN, ADMIN, RECEPTIONIST, **COACH**, **INSTRUCTOR**, MEMBER), planes, credenciales de seed, **tabla qué SÍ/NO por rol**, checklist de verificación y datos para flujos (QR, leaderboard, auditoría, COACH). |
+| **STAFF_QR_ACCESS_AND_ATTENDANCE.md** | Acceso QR y checada del staff: creación con QR, bienvenida WhatsApp, baja/reactivación, vista detalle tipo socios, flujo de checada (recepción vs autónomo). |
 | **RECEPTIONIST_PERMISSIONS_ANALYSIS.md** | Matriz Recepcionista vs Admin: check-in, caja (cierre ciego, egresos tipados, forzar cierre), socios, inventario. |
 | **REVISION_ROLES_FRONTEND_BACKEND.md** | Revisión por rol: qué puede hacer cada uno en frontend y backend, checklist. Admin/Recepción Socios alineados (2025-02-26). INSTRUCTOR en requireCoachOrAdmin. |
 | **REVISION_ROLES_FINAL.md** | Matriz RBAC completa, gaps de seguridad resueltos (check-in requireStaff, POS/Inventory requireStaff), changelog de seguridad. |
@@ -118,6 +119,8 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 - **COACH / INSTRUCTOR:** Acceso a /admin con menú limitado (solo Clases y Rutinas); defaultPath /admin/routines; AdminDashboard redirige a rutinas si el rol es COACH o INSTRUCTOR.
 - **Menú por módulo:** Clases y Rutinas solo se muestran si `modules_config.classes === true`; **Gamificación** (premios por racha) solo si `gamification === true` (`/admin/rewards`). Inventario y Cortes solo si `pos === true`. Acceso directo por URL redirige o muestra mensaje según el módulo. Breadcrumbs y botón "Volver" en layouts.
 - **Admin móvil:** Menú hamburguesa y drawer en pantallas pequeñas.
+- **Layouts:** Padding `p-4 sm:p-6` en AdminLayout y ReceptionLayout para que todas las vistas (Admin, Coach, Recepción) tengan márgenes consistentes. Theme toggle siempre en header (no en sidebar).
+- **Leaderboard:** Ruta `/admin/leaderboard` y `/reception/leaderboard` para staff con permiso `can_view_leaderboard`. Búsqueda por nombre y paginación (como Socios). Mensajes de error amigables (sin detalles técnicos en producción). Ver **UI_UX_GUIDELINES.md**.
 - **PWA manifest dinámico (white-label):** Al instalar la app, el usuario ve el **nombre del gym** (y theme_color) en lugar de "NexoGym". GET /api/v1/manifest devuelve el manifest personalizado usando la cookie `nexogym_gym_id` seteada en /users/me/context. Ver **PWA_MANIFEST_DINAMICO.md**.
 
 Para más detalle técnico: **CORTES_CAJA_Y_STOCK.md**, **API_SPEC.md**, **REVISION_ROLES_FRONTEND_BACKEND.md**, **REVISION_FRONTEND_POS_Y_STAFF.md**, **SUBSCRIPTION_EXPIRY_AND_RENEWAL.md**.

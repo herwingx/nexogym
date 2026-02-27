@@ -51,3 +51,8 @@ export const updateThemeColorsSchema = z.object({
     .min(1, { message: 'primary color is required' })
     .regex(hexColorRegex, { message: 'primary must be a valid hex color (e.g. #2563eb)' }),
 });
+
+/** Admin actualiza logo del gym (white-label). logo_url: URL pública, null o "" para quitar. */
+export const updateLogoSchema = z.object({
+  logo_url: z.union([z.string().url().min(1), z.literal(''), z.null()]),
+});

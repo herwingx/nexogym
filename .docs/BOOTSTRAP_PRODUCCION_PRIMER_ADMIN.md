@@ -70,7 +70,7 @@ El script `backend/scripts/bootstrap-superadmin.ts` crea el primer usuario de la
 
 1. Comprueba si ya existe un usuario con rol `SUPERADMIN` en la base de datos. Si existe, imprime un mensaje y termina (no sobrescribe nada).
 
-2. Crea el gym interno de plataforma (`GymSaaS Platform (Internal)`):
+2. Crea el gym interno de plataforma (`NexoGym Platform (Internal)`):
    - Plan: `PREMIUM_BIO`
    - Módulos: todos activos (pos, qr_access, gamification, classes, biometrics)
    - Tema: colores por defecto (indigo)

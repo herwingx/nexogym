@@ -179,12 +179,12 @@ Devuelve los módulos resueltos para el gimnasio, listos para renderizar menús/
 ### `GET /health/ready` (Nuevo)
 Readiness probe para orquestación/monitoring. Verifica conectividad con DB.
 ```json
-{ "status": "READY", "service": "GymSaaS Backend API" }
+{ "status": "READY", "service": "NexoGym API" }
 ```
 
 ```json
 // Response 503
-{ "status": "NOT_READY", "service": "GymSaaS Backend API" }
+{ "status": "NOT_READY", "service": "NexoGym API" }
 ```
 
 ### `GET /metrics` (Fase 4)
@@ -253,7 +253,10 @@ Historial de visitas (check-ins) del socio, paginado.
 
 ## Configuración del gym (Admin)
 
-Solo **Admin o SuperAdmin** del gym. Requiere **módulo gamification** activo (planes no BASIC). Si el plan no tiene gamificación, la API responde **403** con mensaje `Feature disabled for current subscription: gamification`.
+Solo **Admin o SuperAdmin** del gym. Algunos endpoints requieren **módulo gamification** activo.
+
+### `PATCH /api/v1/gym/logo`
+Admin actualiza el logo del gym (white-label). Body: `{ logo_url: string | null }` — URL pública o `null` para quitar. Respuesta: `{ message: "Logo updated.", logo_url: string | null }`.
 
 ### `GET /api/v1/gym/rewards-config`
 Devuelve la configuración de premios por racha del gym.
@@ -279,6 +282,11 @@ Actualiza los premios por racha. Cada hito es un número de días consecutivos d
 ```
 - **Validación:** `days` entero ≥ 1; `label` entre 1 y 120 caracteres; máximo 20 hitos; no se permiten días duplicados.
 - El backend guarda en `Gym.rewards_config.streak_rewards`. El check-in y el perfil del socio (`GET /members/me`) usan esta configuración para desbloquear premios y mostrar el próximo hito.
+
+### `GET /api/v1/gym/leaderboard?page=1&limit=20&q=nombre`
+Leaderboard de rachas para staff (Admin/Recepción/Coach/Instructor con permiso `can_view_leaderboard`). Socios ordenados por `current_streak` DESC, empate por `last_visit_at` DESC.
+- **Query:** `page` (default 1), `limit` (5–50, default 20), `q` (búsqueda por nombre, mín. 2 caracteres).
+- **Respuesta:** `{ data: [{ rank, id, name, profile_picture_url, current_streak }], meta: { total, page, limit } }`.
 
 ---
 
@@ -310,6 +318,9 @@ Devuelve el contexto de sesión para bootstrap frontend (usuario + gym + módulo
 ```
 
 `theme_colors` y `logo_url` son opcionales; el frontend usa fallbacks si faltan.
+
+### `GET /api/v1/users/:id`
+Detalle completo del socio para staff (can_view_members). Incluye `birth_date`, `total_visits`, `last_visits` (últimas 10 visitas con fecha y método de acceso).
 
 ### `GET /api/v1/users/search?q=<texto>`
 Búsqueda rápida para recepción por nombre o teléfono (Staff). Mín. 2 caracteres.

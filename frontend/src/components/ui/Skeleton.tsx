@@ -77,6 +77,38 @@ export function TableRowSkeleton({
 }
 
 /**
+ * Detalle de socio (modal): foto + líneas de datos.
+ */
+export function DetailSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-16 w-16 rounded-full shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+      </div>
+      <dl className="grid gap-3">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton className="h-4 w-4 shrink-0" />
+            <div className="flex-1 space-y-1">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+        ))}
+      </dl>
+      <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+        <Skeleton className="h-9 w-16 rounded-md" />
+        <Skeleton className="h-9 w-16 rounded-md" />
+      </div>
+    </div>
+  )
+}
+
+/**
  * Lista de items (clases, rutinas, historial).
  */
 export function ListSkeleton({ count = 5 }: { count?: number }) {

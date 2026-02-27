@@ -1,7 +1,12 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
 import { handleControllerError } from '../utils/http';
-import { updateRewardsConfigSchema, updateThemeColorsSchema, updateOpeningConfigSchema } from '../schemas/gym.schema';
+import {
+  updateRewardsConfigSchema,
+  updateThemeColorsSchema,
+  updateOpeningConfigSchema,
+  updateLogoSchema,
+} from '../schemas/gym.schema';
 import type { Prisma } from '@prisma/client';
 
 /**
@@ -204,5 +209,107 @@ export const updateThemeColors = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleControllerError(req, res, error, '[updateThemeColors Error]', 'Failed to update theme colors.');
+  }
+};
+
+/**
+ * PATCH /gym/logo
+ * Admin actualiza el logo de su gym (white-label).
+ * logo_url: URL pública o null para quitar.
+ */
+export const updateLogo = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const validation = updateLogoSchema.safeParse(req.body);
+    if (!validation.success) {
+      const first = validation.error.issues[0];
+      res.status(400).json({ error: first.message });
+      return;
+    }
+
+    const { logo_url } = validation.data;
+    const value = logo_url === '' || logo_url === null ? null : logo_url;
+
+    await prisma.gym.update({
+      where: { id: gymId },
+      data: { logo_url: value },
+    });
+
+    res.status(200).json({
+      message: 'Logo updated.',
+      logo_url: value,
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[updateLogo Error]', 'Failed to update gym logo.');
+  }
+};
+
+/**
+ * GET /gym/leaderboard?page=1&limit=20&q=nombre
+ * Leaderboard de rachas para staff (Admin/Recepción/Coach/Instructor con permiso).
+ * Socios ordenados por current_streak DESC, empate por last_visit_at DESC.
+ * Paginación y búsqueda por nombre (q, mín. 2 caracteres).
+ */
+export const getStaffLeaderboard = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    if (!gymId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(5, Number(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+    const search = String(req.query.q ?? '').trim();
+
+    const where: {
+      gym_id: string;
+      role: 'MEMBER';
+      deleted_at: null;
+      name?: { contains: string; mode: 'insensitive' };
+    } = {
+      gym_id: gymId,
+      role: 'MEMBER',
+      deleted_at: null,
+    };
+    if (search.length >= 2) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          profile_picture_url: true,
+          current_streak: true,
+          last_visit_at: true,
+        },
+        orderBy: [{ current_streak: 'desc' }, { last_visit_at: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    res.status(200).json({
+      data: users.map((u, idx) => ({
+        rank: skip + idx + 1,
+        id: u.id,
+        name: u.name ?? '—',
+        profile_picture_url: u.profile_picture_url,
+        current_streak: u.current_streak,
+      })),
+      meta: { total, page, limit },
+    });
+  } catch (error) {
+    handleControllerError(req, res, error, '[getStaffLeaderboard Error]', 'Failed to load leaderboard.');
   }
 };

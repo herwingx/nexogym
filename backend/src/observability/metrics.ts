@@ -3,17 +3,17 @@ import { NextFunction, Request, Response } from 'express';
 
 const register = new Registry();
 
-collectDefaultMetrics({ register, prefix: 'gymsaas_' });
+collectDefaultMetrics({ register, prefix: 'nexogym_' });
 
 const httpRequestsTotal = new Counter({
-  name: 'gymsaas_http_requests_total',
+  name: 'nexogym_http_requests_total',
   help: 'Total number of HTTP requests',
   labelNames: ['method', 'route', 'status_code'],
   registers: [register],
 });
 
 const httpRequestDurationMs = new Histogram({
-  name: 'gymsaas_http_request_duration_ms',
+  name: 'nexogym_http_request_duration_ms',
   help: 'HTTP request duration in milliseconds',
   labelNames: ['method', 'route', 'status_code'],
   buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000],

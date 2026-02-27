@@ -21,7 +21,7 @@ import { searchMembers } from '../lib/apiClient'
 import { notifyError, notifyPromise } from '../lib/notifications'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { ListSkeleton } from '../components/ui/Skeleton'
+import { ListSkeleton, Skeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
 
 type NewExercise = Omit<WorkoutExercise, 'id'>
@@ -111,7 +111,9 @@ function MemberSelector({
           {open && query.trim().length >= 2 && (
             <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg">
               {searching ? (
-                <li className="px-3 py-2 text-xs text-zinc-500">Buscando...</li>
+                <li className="px-3 py-2">
+                  <Skeleton className="h-4 w-32" />
+                </li>
               ) : results.length === 0 ? (
                 <li className="px-3 py-2 text-xs text-zinc-500">Sin resultados</li>
               ) : (
@@ -204,7 +206,9 @@ function ExerciseNameInput({
       {open && value.trim().length >= 1 && (
         <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg">
           {loading ? (
-            <li className="px-3 py-2 text-xs text-zinc-500">Buscando...</li>
+            <li className="px-3 py-2">
+              <Skeleton className="h-4 w-40" />
+            </li>
           ) : suggestions.length === 0 ? (
             <li className="px-3 py-2 text-xs text-zinc-500">
               Escribe el nombre (también puedes usar uno libre)
@@ -927,7 +931,9 @@ export const AdminRoutines = () => {
               {assignSearchOpen && assignSearchQuery.trim().length >= 2 && (
                 <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg">
                   {assignSearching ? (
-                    <li className="px-3 py-2 text-xs text-zinc-500">Buscando...</li>
+                    <li className="px-3 py-2">
+                      <Skeleton className="h-4 w-32" />
+                    </li>
                   ) : assignSearchResults.length === 0 ? (
                     <li className="px-3 py-2 text-xs text-zinc-500">Sin resultados</li>
                   ) : (

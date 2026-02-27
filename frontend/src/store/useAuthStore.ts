@@ -32,6 +32,7 @@ export type EffectiveStaffPermissions = {
   can_manage_staff?: boolean
   can_view_audit?: boolean
   can_use_gamification?: boolean
+  can_view_leaderboard?: boolean
 }
 
 export type AuthUser = {
@@ -55,6 +56,7 @@ export type AuthState = {
   mustChangePassword: boolean
   isBootstrapped: boolean
   setTenantTheme: (theme: TenantTheme) => void
+  setGymLogoUrl: (url: string | null) => void
   setAuthContext: (payload: {
     user: AuthUser
     token: string
@@ -93,6 +95,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   mustChangePassword: false,
   isBootstrapped: false,
   setTenantTheme: (theme) => set({ tenantTheme: theme }),
+  setGymLogoUrl: (url) => set({ gymLogoUrl: url }),
   setAuthContext: ({ user, token, modulesConfig, tenantTheme, gymName, gymLogoUrl, mustChangePassword }) =>
     set({
       user,

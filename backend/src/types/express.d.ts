@@ -25,6 +25,7 @@ declare global {
         can_manage_staff?: boolean;
         can_view_audit?: boolean;
         can_use_gamification?: boolean;
+        can_view_leaderboard?: boolean;
       };
     }
   }

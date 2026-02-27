@@ -96,7 +96,7 @@ const biometricRateLimiter = createRateLimiter({
   // Root route for local sanity and to avoid noisy 404 from browser prefetches
   app.get('/', (_req, res) => {
     res.status(200).json({
-      service: 'GymSaaS Backend API',
+      service: 'NexoGym API',
       docs: '/api-docs',
       health: '/health',
       readiness: '/health/ready',
@@ -105,16 +105,16 @@ const biometricRateLimiter = createRateLimiter({
 
   // Basic health-check route
   app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'OK', service: 'GymSaaS Backend API' });
+    res.status(200).json({ status: 'OK', service: 'NexoGym API' });
   });
 
   app.get('/health/ready', async (req, res) => {
     try {
       await prisma.$queryRaw`SELECT 1`;
-      res.status(200).json({ status: 'READY', service: 'GymSaaS Backend API' });
+      res.status(200).json({ status: 'READY', service: 'NexoGym API' });
     } catch (error) {
       req.log?.error({ err: error }, 'Readiness probe failed');
-      res.status(503).json({ status: 'NOT_READY', service: 'GymSaaS Backend API' });
+      res.status(503).json({ status: 'NOT_READY', service: 'NexoGym API' });
     }
   });
 

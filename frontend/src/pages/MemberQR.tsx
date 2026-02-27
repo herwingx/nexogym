@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useAuthStore } from '../store/useAuthStore'
 import { Smartphone } from 'lucide-react'
+import { Skeleton } from '../components/ui/Skeleton'
 import { requestMemberQrResend } from '../lib/apiClient'
 import { notifyError, notifySuccess } from '../lib/notifications'
 
@@ -14,8 +15,17 @@ export const MemberQR = () => {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-zinc-500 text-sm">
-        Cargando...
+      <div className="flex flex-col items-center justify-center min-h-screen px-6 gap-8">
+        <div className="text-center space-y-2">
+          <Skeleton className="h-4 w-32 mx-auto" />
+          <Skeleton className="h-6 w-48 mx-auto" />
+          <Skeleton className="h-4 w-64 mx-auto" />
+        </div>
+        <Skeleton className="h-52 w-52 rounded-2xl" />
+        <div className="text-center space-y-2">
+          <Skeleton className="h-5 w-24 mx-auto" />
+          <Skeleton className="h-3 w-16 mx-auto" />
+        </div>
       </div>
     )
   }

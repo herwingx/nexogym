@@ -6,6 +6,7 @@ import { env } from '../config/env';
 const N8N_BASE_URL = env.N8N_BASE_URL;
 const DEFAULT_N8N_WEBHOOKS = {
   welcome: `${N8N_BASE_URL}/webhook/nuevo-cliente`,
+  staff_welcome: `${N8N_BASE_URL}/webhook/staff-bienvenida`,
   reward: `${N8N_BASE_URL}/webhook/recompensa`,
   shift_summary: `${N8N_BASE_URL}/webhook/corte-caja`,
   admin_welcome: `${N8N_BASE_URL}/webhook/admin-bienvenida`,
@@ -103,6 +104,45 @@ export const sendWelcomeMessage = async (gymId: string, phone: string, pin: stri
     logger.debug({ gymId, phone }, '[n8n] Welcome message queued successfully');
   } catch (error) {
     logger.error({ err: error, gymId, phone }, '[n8n] Welcome webhook trigger error');
+  }
+};
+
+/** Bienvenida al staff por WhatsApp (QR de acceso). Usa webhook staff_welcome; si no hay override, usa welcome (n8n bifurca por event). */
+export const sendStaffWelcomeMessage = async (
+  gymId: string,
+  phone: string,
+  staffName: string | null,
+  gymName: string | null,
+  qrPayload: string,
+) => {
+  try {
+    const context = await resolveN8nContext(gymId, 'welcome');
+    if (!context.enabled) {
+      logger.info({ gymId, phone }, '[n8n] Staff welcome skipped (welcome webhook disabled)');
+      return;
+    }
+
+    const webhookUrl = context.webhookUrl;
+    const response = await postEvent(webhookUrl, {
+      event: 'staff_welcome',
+      gym_id: gymId,
+      gym_name: gymName ?? null,
+      phone,
+      staff_name: staffName ?? null,
+      qrData: qrPayload,
+      messaging: {
+        provider: context.config.provider || 'default',
+        sender_phone_id: context.config.sender_phone_id || null,
+      },
+    });
+
+    if (!response.ok) {
+      logger.warn({ gymId, phone, status: response.status }, '[n8n] Failed to trigger staff welcome webhook');
+      return;
+    }
+    logger.debug({ gymId, phone }, '[n8n] Staff welcome message queued successfully');
+  } catch (error) {
+    logger.error({ err: error, gymId, phone }, '[n8n] Staff welcome webhook error');
   }
 };
 

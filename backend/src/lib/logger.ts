@@ -17,7 +17,7 @@ export const logger = pino({
       }
     : undefined,
   base: {
-    service: 'gym-saas-backend',
+    service: 'nexogym-backend',
     env: process.env.NODE_ENV || 'development',
   },
   timestamp: pino.stdTimeFunctions.isoTime,

@@ -3,6 +3,7 @@ import { Search, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { EditMemberForm } from '../components/members/EditMemberForm'
+import { MemberDetailModal, type MemberDetailData } from '../components/members/MemberDetailModal'
 import {
   searchMembers,
   fetchMemberUsers,
@@ -16,7 +17,7 @@ import {
 import { notifyError, notifySuccess } from '../lib/notifications'
 import { useAuthStore } from '../store/useAuthStore'
 import { cn } from '../lib/utils'
-import { TableRowSkeleton } from '../components/ui/Skeleton'
+import { TableRowSkeleton, ListSkeleton } from '../components/ui/Skeleton'
 import { STATUS_BADGE as PALETTE } from '../lib/statusColors'
 
 const PAGE_SIZE = 20
@@ -50,12 +51,14 @@ function getMemberStatus(row: MemberUserRow): string {
 
 export const ReceptionMembersPage = () => {
   const userRole = useAuthStore((s) => s.user?.role)
+  const hasQrAccess = useAuthStore((s) => s.modulesConfig?.qr_access)
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<MemberSummary[]>([])
   const [searching, setSearching] = useState(false)
   const [members, setMembers] = useState<MemberUserRow[]>([])
   const [meta, setMeta] = useState<{ total: number; page: number; limit: number; expiring_7d?: number; expired?: number }>({ total: 0, page: 1, limit: PAGE_SIZE })
   const [loading, setLoading] = useState(true)
+  const [detailMember, setDetailMember] = useState<MemberDetailData | null>(null)
   const [editMember, setEditMember] = useState<MemberSummary | null>(null)
   const [actionTarget, setActionTarget] = useState<{ user: MemberUserRow; action: 'renew' | 'freeze' | 'unfreeze' } | null>(null)
   const [renewPlanBarcode, setRenewPlanBarcode] = useState<string>('MEMBERSHIP')
@@ -108,6 +111,19 @@ export const ReceptionMembersPage = () => {
 
   const showSearch = query.trim().length >= 2
 
+  const handleDetailEdit = () => {
+    if (!detailMember) return
+    setEditMember({
+      id: detailMember.id,
+      name: detailMember.name ?? '',
+      phone: detailMember.phone ?? '',
+      profile_picture_url: detailMember.profile_picture_url ?? null,
+      role: (detailMember as { role?: string }).role ?? 'MEMBER',
+      auth_user_id: detailMember.auth_user_id ?? null,
+    })
+    setDetailMember(null)
+  }
+
   const handleAction = async () => {
     if (!actionTarget) return
     const { user, action } = actionTarget
@@ -138,6 +154,7 @@ export const ReceptionMembersPage = () => {
       setActionTarget(null)
       void loadList(meta.page)
       if (editMember?.id === user.id) setEditMember(null)
+      if (detailMember?.id === user.id) setDetailMember(null)
     } catch (e) {
       notifyError({ title: 'Error', description: (e as Error)?.message ?? '' })
     } finally {
@@ -189,26 +206,30 @@ export const ReceptionMembersPage = () => {
         {showSearch && (
           <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 overflow-hidden">
             {searching ? (
-              <p className="px-4 py-3 text-sm text-zinc-500">Buscando...</p>
+              <ListSkeleton count={4} />
             ) : searchResults.length === 0 ? (
               <p className="px-4 py-3 text-sm text-zinc-500">Sin resultados</p>
             ) : (
               <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {searchResults.map((m) => (
-                  <li key={m.id}>
+                {searchResults.map((m) => {
+                  const full = members.find((x) => x.id === m.id)
+                  const detailData: MemberDetailData = full ?? m
+                  const status = full ? getMemberStatus(full) : null
+                  return (
+                  <li key={m.id} className="flex items-center gap-3 px-4 py-3">
                     <button
                       type="button"
-                      onClick={() => setEditMember(m)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                      onClick={() => setDetailMember(detailData)}
+                      className="flex flex-1 min-w-0 items-center gap-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 -mx-2 -my-1.5 px-2 py-1.5 rounded-md transition-colors"
                     >
                       {m.profile_picture_url ? (
                         <img
                           src={m.profile_picture_url}
                           alt=""
-                          className="h-10 w-10 rounded-full object-cover border border-zinc-200 dark:border-white/10"
+                          className="h-10 w-10 rounded-full object-cover border border-zinc-200 dark:border-white/10 shrink-0"
                         />
                       ) : (
-                        <div className="h-10 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center">
+                        <div className="h-10 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center shrink-0">
                           <User className="h-5 w-5 text-zinc-500" />
                         </div>
                       )}
@@ -219,8 +240,49 @@ export const ReceptionMembersPage = () => {
                         <p className="text-xs text-zinc-500 truncate">{m.phone}</p>
                       </div>
                     </button>
+                    {full && status && (
+                      <div className="flex flex-wrap gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {(status === 'EXPIRED' || status === 'CANCELED' || status === 'ACTIVE') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setActionTarget({ user: full, action: 'renew' })}
+                          >
+                            Renovar
+                          </Button>
+                        )}
+                        {status === 'ACTIVE' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setActionTarget({ user: full, action: 'freeze' })}
+                          >
+                            Congelar
+                          </Button>
+                        )}
+                        {status === 'FROZEN' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setActionTarget({ user: full, action: 'renew' })}
+                            >
+                              Renovar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setActionTarget({ user: full, action: 'unfreeze' })}
+                            >
+                              Descongelar
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             )}
           </div>
@@ -262,10 +324,23 @@ export const ReceptionMembersPage = () => {
                         <td className="py-2.5 px-4">
                           <button
                             type="button"
-                            onClick={() => setEditMember({ id: m.id, name: m.name, phone: m.phone ?? '', profile_picture_url: m.profile_picture_url ?? null, role: m.role, auth_user_id: m.auth_user_id ?? null })}
-                            className="text-left font-medium text-zinc-900 dark:text-zinc-100 hover:underline truncate block max-w-[180px]"
+                            onClick={() => setDetailMember(m)}
+                            className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity min-w-0"
                           >
-                            {m.name ?? '—'}
+                            {m.profile_picture_url ? (
+                              <img
+                                src={m.profile_picture_url}
+                                alt=""
+                                className="h-9 w-9 rounded-full object-cover border border-zinc-200 dark:border-white/10 shrink-0"
+                              />
+                            ) : (
+                              <div className="h-9 w-9 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center shrink-0 border border-zinc-200/80 dark:border-white/10">
+                                <User className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
+                              </div>
+                            )}
+                            <span className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                              {m.name ?? '—'}
+                            </span>
                           </button>
                         </td>
                         <td className="py-2.5 px-4 text-zinc-700 dark:text-zinc-300 truncate max-w-[120px]">
@@ -297,7 +372,7 @@ export const ReceptionMembersPage = () => {
                                 variant="outline"
                                 onClick={() => setActionTarget({ user: m, action: 'renew' })}
                               >
-                                {status === 'ACTIVE' ? 'Pagar / Renovar' : 'Renovar'}
+                                {status === 'ACTIVE' ? 'Renovar' : 'Renovar'}
                               </Button>
                             )}
                             {status === 'ACTIVE' && (
@@ -316,7 +391,7 @@ export const ReceptionMembersPage = () => {
                                   variant="outline"
                                   onClick={() => setActionTarget({ user: m, action: 'renew' })}
                                 >
-                                  Pagar / Renovar
+                                  Renovar
                                 </Button>
                                 <Button
                                   size="sm"
@@ -437,6 +512,17 @@ export const ReceptionMembersPage = () => {
             </div>
           )}
         </Modal>
+      )}
+
+      {detailMember && (
+        <MemberDetailModal
+          member={detailMember}
+          onClose={() => setDetailMember(null)}
+          onEdit={handleDetailEdit}
+          canRegenerateQr={canRegenerateQr}
+          hasQrAccess={hasQrAccess ?? false}
+          onRefresh={() => void loadList(meta.page)}
+        />
       )}
 
       {editMember && (

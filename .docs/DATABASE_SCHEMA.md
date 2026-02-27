@@ -18,7 +18,7 @@ Este documento describe el schema completo que Prisma ORM despliega en PostgreSQ
 ## Enums
 
 ```prisma
-enum Role            { SUPERADMIN  ADMIN  RECEPTIONIST  INSTRUCTOR  COACH  MEMBER }
+enum Role            { SUPERADMIN  ADMIN  RECEPTIONIST  INSTRUCTOR  COACH  CLEANER  MEMBER }
 enum SubscriptionStatus { ACTIVE  EXPIRED  CANCELED  FROZEN }
 enum SubscriptionTier   { BASIC  PRO_QR  PREMIUM_BIO }
 enum ShiftStatus     { OPEN  CLOSED }

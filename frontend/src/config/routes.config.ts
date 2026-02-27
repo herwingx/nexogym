@@ -24,6 +24,7 @@ export const ROUTES_CONFIG: Record<string, RouteEntry> = {
   '/admin/inventory': { label: 'Inventario', parent: '/admin' },
   '/admin/shifts': { label: 'Cortes de caja', parent: '/admin' },
   '/admin/staff': { label: 'Personal', parent: '/admin' },
+  '/admin/leaderboard': { label: 'Leaderboard', parent: '/admin' },
   '/admin/audit': { label: 'Auditoría', parent: '/admin' },
   '/admin/profile': { label: 'Mi perfil', parent: '/admin' },
 
@@ -32,6 +33,7 @@ export const ROUTES_CONFIG: Record<string, RouteEntry> = {
   '/reception/pos': { label: 'POS', parent: '/reception' },
   '/reception/members': { label: 'Socios', parent: '/reception' },
   '/reception/members/new': { label: 'Alta de socio', parent: '/reception/members' },
+  '/reception/leaderboard': { label: 'Leaderboard', parent: '/reception' },
   '/reception/profile': { label: 'Mi perfil', parent: '/reception' },
 
   // Member

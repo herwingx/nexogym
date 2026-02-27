@@ -4,8 +4,9 @@ import { useAuthStore } from '../store/useAuthStore'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { notifyError, notifySuccess } from '../lib/notifications'
-import { updateGymThemeColors } from '../lib/apiClient'
+import { updateGymThemeColors, updateGymLogo } from '../lib/apiClient'
 import { getAccessibleTextColor } from '../utils/colorMath'
+import { getGymLogoStoragePath, GYM_LOGOS_BUCKET } from '../lib/storageUtils'
 
 const PRESET_COLORS = [
   { value: '#2563eb', label: 'Azul' },
@@ -20,11 +21,15 @@ export const ProfileSettings = () => {
   const user = useAuthStore((s) => s.user)
   const tenantTheme = useAuthStore((s) => s.tenantTheme)
   const setTenantTheme = useAuthStore((s) => s.setTenantTheme)
+  const gymLogoUrl = useAuthStore((s) => s.gymLogoUrl)
+  const setGymLogoUrl = useAuthStore((s) => s.setGymLogoUrl)
   const [newPassword, setNewPassword] = useState('')
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [accentColor, setAccentColor] = useState(tenantTheme.primaryHex)
   const [savingColor, setSavingColor] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [removingLogo, setRemovingLogo] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -175,6 +180,107 @@ export const ProfileSettings = () => {
               >
                 {savingColor ? 'Guardando...' : 'Aplicar color'}
               </Button>
+            </div>
+          </div>
+        )}
+
+        {user?.role === 'ADMIN' && (
+          <div className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4">
+            <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Logo del gimnasio
+            </h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
+              Sube una imagen (JPG, PNG, WebP) o pega una URL. El logo aparece en el header y en la app de socios.
+            </p>
+            <div className="flex flex-wrap gap-4 items-start">
+              {gymLogoUrl ? (
+                <div className="relative group">
+                  <img
+                    src={gymLogoUrl}
+                    alt="Logo actual"
+                    className="h-16 w-16 rounded-lg border border-zinc-200 dark:border-white/10 object-contain bg-white dark:bg-zinc-800"
+                  />
+                </div>
+              ) : (
+                <div className="h-16 w-16 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 flex items-center justify-center text-zinc-400 dark:text-zinc-500 text-xs">
+                  Sin logo
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <label className="inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 px-3 py-2 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 cursor-pointer disabled:opacity-50">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file?.type.startsWith('image/')) return
+                      setUploadingLogo(true)
+                      try {
+                        const ext = file.name.split('.').pop() || 'jpg'
+                        const path = `${crypto.randomUUID()}.${ext}`
+                        const { error } = await supabase.storage.from(GYM_LOGOS_BUCKET).upload(path, file, {
+                          cacheControl: '3600',
+                          upsert: false,
+                        })
+                        if (error) throw error
+                        const { data } = supabase.storage.from(GYM_LOGOS_BUCKET).getPublicUrl(path)
+                        const newUrl = data.publicUrl
+
+                        await updateGymLogo(newUrl)
+                        setGymLogoUrl(newUrl)
+
+                        if (gymLogoUrl) {
+                          const oldPath = getGymLogoStoragePath(gymLogoUrl)
+                          if (oldPath) {
+                            await supabase.storage.from(GYM_LOGOS_BUCKET).remove([oldPath]).catch(() => {})
+                          }
+                        }
+                        notifySuccess({ title: 'Logo actualizado', description: 'El logo se aplicó correctamente.' })
+                      } catch (err) {
+                        notifyError({
+                          title: 'No se pudo subir el logo',
+                          description: (err as Error)?.message ?? 'Revisa que el bucket gym-logos exista en Supabase.',
+                        })
+                      } finally {
+                        setUploadingLogo(false)
+                        e.target.value = ''
+                      }
+                    }}
+                    disabled={uploadingLogo}
+                  />
+                  {uploadingLogo ? 'Subiendo...' : 'Subir imagen'}
+                </label>
+                {gymLogoUrl && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={removingLogo}
+                    onClick={async () => {
+                      setRemovingLogo(true)
+                      try {
+                        const oldPath = getGymLogoStoragePath(gymLogoUrl)
+                        if (oldPath) {
+                          await supabase.storage.from(GYM_LOGOS_BUCKET).remove([oldPath]).catch(() => {})
+                        }
+                        await updateGymLogo(null)
+                        setGymLogoUrl(null)
+                        notifySuccess({ title: 'Logo quitado', description: 'El logo se eliminó correctamente.' })
+                      } catch (err) {
+                        notifyError({
+                          title: 'No se pudo quitar',
+                          description: (err as Error)?.message ?? 'Inténtalo de nuevo.',
+                        })
+                      } finally {
+                        setRemovingLogo(false)
+                      }
+                    }}
+                  >
+                    {removingLogo ? 'Quitando...' : 'Quitar logo'}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}

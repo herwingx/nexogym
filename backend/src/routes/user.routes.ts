@@ -4,6 +4,8 @@ import {
   getUsers,
   getInstructors,
   searchUsers,
+  getStaffDetail,
+  getUserDetail,
   createUser,
   createStaff,
   updateUser,
@@ -128,6 +130,28 @@ router.get('/instructors', requireCanUseRoutines, getInstructors);
  */
 router.get('/search', requireCanViewMembers, searchUsers);
 
+router.get('/:id/staff-detail', requireCanManageStaff, getStaffDetail);
+
+/**
+ * @swagger
+ * /api/v1/users/{id}:
+ *   get:
+ *     summary: Get member detail (staff with can_view_members)
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Member detail with visits
+ *       404:
+ *         description: Member not found
+ */
+router.get('/:id', requireCanViewMembers, getUserDetail);
+
 /**
  * @swagger
  * /api/v1/users:
@@ -180,7 +204,7 @@ router.get('/search', requireCanViewMembers, searchUsers);
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [RECEPTIONIST, COACH, INSTRUCTOR]
+ *                 enum: [RECEPTIONIST, COACH, INSTRUCTOR, CLEANER]
  *               password:
  *                 type: string
  *                 minLength: 8

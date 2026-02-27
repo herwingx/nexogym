@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
-import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet, User, LayoutDashboard } from 'lucide-react'
+import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet, User, LayoutDashboard, Medal } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { ThemeToggle } from '../components/ui/ThemeToggle'
 import { cn } from '../lib/utils'
@@ -10,11 +10,12 @@ import { fetchCurrentShift } from '../lib/apiClient'
 import { Modal } from '../components/ui/Modal'
 import { Button } from '../components/ui/Button'
 
-const navItems: { label: string; to: string; icon: typeof ScanQrCode; moduleKey?: 'pos' }[] = [
+const navItems: { label: string; to: string; icon: typeof ScanQrCode; moduleKey?: 'pos' | 'gamification'; staffPermission?: 'leaderboard' }[] = [
   { label: 'Check-in', to: '/reception', icon: ScanQrCode },
   { label: 'POS', to: '/reception/pos', icon: CreditCard, moduleKey: 'pos' },
   { label: 'Socios', to: '/reception/members', icon: Users },
   { label: 'Alta', to: '/reception/members/new', icon: UserPlus },
+  { label: 'Leaderboard', to: '/reception/leaderboard', icon: Medal, moduleKey: 'gamification', staffPermission: 'leaderboard' },
 ]
 
 export const ReceptionLayout = () => {
@@ -48,6 +49,16 @@ export const ReceptionLayout = () => {
 
   if (!user) return null
   const isAdminOrSuperAdmin = user.role === 'ADMIN' || user.role === 'SUPERADMIN'
+  const perms = user.effective_staff_permissions
+
+  const filteredNav = navItems.filter((item) => {
+    if (item.moduleKey && !modules[item.moduleKey]) return false
+    if (item.staffPermission === 'leaderboard') {
+      if (isAdminOrSuperAdmin) return true
+      return perms?.can_view_leaderboard === true
+    }
+    return true
+  })
 
   return (
     <div className="h-screen flex overflow-hidden bg-background text-foreground">
@@ -121,13 +132,13 @@ export const ReceptionLayout = () => {
           <Breadcrumb compact />
         </div>
         <nav className="flex border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 px-2 py-1.5 gap-1">
-          {navItems.filter((item) => !item.moduleKey || modules[item.moduleKey]).map((item) => {
+          {filteredNav.map((item) => {
             const Icon = item.icon
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === '/reception' || item.to === '/reception/members'}
+                end={item.to === '/reception' || item.to === '/reception/members' || item.to === '/reception/leaderboard'}
                 className={({ isActive }) =>
                   cn(
                     'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors',
@@ -144,7 +155,7 @@ export const ReceptionLayout = () => {
           })}
         </nav>
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
           <Outlet />
         </div>
       </main>

@@ -22,6 +22,7 @@ enum Role {
   RECEPTIONIST
   INSTRUCTOR
   COACH
+  CLEANER    // Limpieza — staff con checada; permisos mínimos (solo acceso)
   MEMBER
 }
 

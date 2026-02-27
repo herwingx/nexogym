@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { User } from 'lucide-react'
 import { fetchStaffUsers, deleteUser, restoreUser, resetStaffPassword, fetchStaffLogin, createStaff, updateStaffPermissions, type StaffUserRow, type CreateStaffResponse, type StaffStatus } from '../lib/apiClient'
 import { useAuthStore } from '../store/useAuthStore'
 import { notifyError, notifySuccess } from '../lib/notifications'
-import { TableRowSkeleton } from '../components/ui/Skeleton'
+import { TableRowSkeleton, Skeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { StaffDetailModal } from '../components/staff/StaffDetailModal'
 import { cn } from '../lib/utils'
 import { STATUS_BADGE, STATUS_BUTTON_DANGER_OUTLINE } from '../lib/statusColors'
 
@@ -15,10 +17,11 @@ const ROLE_LABELS: Record<string, string> = {
   RECEPTIONIST: 'Recepción',
   INSTRUCTOR: 'Instructor',
   COACH: 'Coach',
+  CLEANER: 'Limpieza',
   MEMBER: 'Socio',
 }
 
-const STAFF_ROLES = ['RECEPTIONIST', 'COACH', 'INSTRUCTOR'] as const
+const STAFF_ROLES = ['RECEPTIONIST', 'COACH', 'INSTRUCTOR', 'CLEANER'] as const
 
 const PERM_KEYS = [
   'can_use_pos',
@@ -30,6 +33,7 @@ const PERM_KEYS = [
   'can_manage_staff',
   'can_view_audit',
   'can_use_gamification',
+  'can_view_leaderboard',
 ] as const
 
 type PermKey = (typeof PERM_KEYS)[number]
@@ -59,7 +63,7 @@ export const AdminStaffView = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createPhone, setCreatePhone] = useState('')
-  const [createRole, setCreateRole] = useState<'RECEPTIONIST' | 'COACH' | 'INSTRUCTOR'>('RECEPTIONIST')
+  const [createRole, setCreateRole] = useState<'RECEPTIONIST' | 'COACH' | 'INSTRUCTOR' | 'CLEANER'>('RECEPTIONIST')
   const [createPassword, setCreatePassword] = useState('')
   const [createSubmitting, setCreateSubmitting] = useState(false)
   const [credentialsResult, setCredentialsResult] = useState<CreateStaffResponse | null>(null)
@@ -76,9 +80,12 @@ export const AdminStaffView = () => {
   const [permCanManageStaff, setPermCanManageStaff] = useState(false)
   const [permCanViewAudit, setPermCanViewAudit] = useState(false)
   const [permCanUseGamification, setPermCanUseGamification] = useState(false)
+  const [permCanViewLeaderboard, setPermCanViewLeaderboard] = useState(false)
   const [permissionsSaving, setPermissionsSaving] = useState(false)
+  const [detailStaff, setDetailStaff] = useState<StaffUserRow | null>(null)
 
   const isAdmin = useAuthStore((s) => s.user?.role === 'ADMIN' || s.user?.role === 'SUPERADMIN')
+  const hasQrAccess = useAuthStore((s) => s.modulesConfig?.qr_access)
 
   const load = async (page = 1) => {
     try {
@@ -224,6 +231,7 @@ export const AdminStaffView = () => {
     setPermCanManageStaff(getEffectivePerm(u, 'can_manage_staff'))
     setPermCanViewAudit(getEffectivePerm(u, 'can_view_audit'))
     setPermCanUseGamification(getEffectivePerm(u, 'can_use_gamification'))
+    setPermCanViewLeaderboard(getEffectivePerm(u, 'can_view_leaderboard'))
   }
 
   const handleSavePermissions = async () => {
@@ -240,6 +248,7 @@ export const AdminStaffView = () => {
         can_manage_staff: permCanManageStaff,
         can_view_audit: permCanViewAudit,
         can_use_gamification: permCanUseGamification,
+        can_view_leaderboard: permCanViewLeaderboard,
       })
       notifySuccess({ title: 'Permisos actualizados', description: 'El personal verá los cambios al recargar o en el próximo inicio de sesión.' })
       setPermissionsTarget(null)
@@ -322,8 +331,27 @@ export const AdminStaffView = () => {
                     key={u.id}
                     className="border-t border-zinc-200 dark:border-zinc-800/60 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
                   >
-                    <td className="py-2.5 px-4 text-zinc-900 dark:text-zinc-100 font-medium">
-                      {u.name ?? '—'}
+                    <td className="py-2.5 px-4 align-middle">
+                      <button
+                        type="button"
+                        onClick={() => setDetailStaff(u)}
+                        className="flex items-center gap-3 text-left hover:opacity-80 transition-opacity min-w-0"
+                      >
+                        {u.profile_picture_url ? (
+                          <img
+                            src={u.profile_picture_url}
+                            alt=""
+                            className="h-9 w-9 rounded-full object-cover border border-zinc-200 dark:border-white/10 shrink-0"
+                          />
+                        ) : (
+                          <span className="h-9 w-9 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center shrink-0 border border-zinc-200/80 dark:border-white/10">
+                            <User className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
+                          </span>
+                        )}
+                        <span className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                          {u.name ?? '—'}
+                        </span>
+                      </button>
                     </td>
                     <td className="py-2.5 px-4 text-zinc-700 dark:text-zinc-300">
                       {u.phone ?? '—'}
@@ -425,7 +453,10 @@ export const AdminStaffView = () => {
           >
             <div className="space-y-4">
               {credentialsLoading ? (
-                <p className="text-sm text-zinc-500">Cargando…</p>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-5 w-64" />
+                </div>
               ) : credentialsUsername ? (
                 <div className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900/50 p-4">
                   <p className="text-xs text-zinc-500 mb-1">Usuario (email)</p>
@@ -505,6 +536,10 @@ export const AdminStaffView = () => {
                     <input type="checkbox" checked={permCanUseGamification} onChange={(e) => setPermCanUseGamification(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-600" />
                     <span className="text-sm">Gamificación</span>
                   </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={permCanViewLeaderboard} onChange={(e) => setPermCanViewLeaderboard(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-600" />
+                    <span className="text-sm">Ver leaderboard (rachas)</span>
+                  </label>
                 </div>
               </div>
               <div className="flex gap-2 justify-end pt-2">
@@ -522,6 +557,29 @@ export const AdminStaffView = () => {
               </div>
             </div>
           </Modal>
+        )}
+
+        {detailStaff && (
+          <StaffDetailModal
+            staff={detailStaff}
+            onClose={() => setDetailStaff(null)}
+            onPermissions={() => {
+              setDetailStaff(null)
+              openPermissionsModal(detailStaff)
+            }}
+            onCredentials={() => {
+              setDetailStaff(null)
+              openCredentialsModal(detailStaff)
+            }}
+            onDeactivate={() => {
+              setDetailStaff(null)
+              setDeactivateTarget(detailStaff)
+            }}
+            canRegenerateQr={isAdmin}
+            canDeactivate={isAdmin}
+            hasQrAccess={!!hasQrAccess}
+            onRefresh={() => void load()}
+          />
         )}
 
         {deactivateTarget && (
@@ -611,6 +669,7 @@ export const AdminStaffView = () => {
                     <option value="RECEPTIONIST">Recepcionista</option>
                     <option value="COACH">Coach</option>
                     <option value="INSTRUCTOR">Instructor</option>
+                    <option value="CLEANER">Limpieza</option>
                   </select>
                 </div>
                 <Input
