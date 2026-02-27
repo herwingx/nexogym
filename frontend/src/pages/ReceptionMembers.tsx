@@ -139,10 +139,15 @@ export const ReceptionMembersPage = () => {
       if (action === 'renew') {
         const res = await renewSubscription(user.id, { barcode: renewPlanBarcode })
         const amt = res.amount_registered_in_shift
+        const insc = res.inscription_amount
         if (typeof amt === 'number' && amt > 0) {
+          const desc =
+            typeof insc === 'number' && insc > 0
+              ? `Inscripción $${insc.toFixed(2)} + membresía $${(amt - insc).toFixed(2)} = $${amt.toFixed(2)} registrado en caja.`
+              : `Suscripción renovada. $${amt.toFixed(2)} registrado en caja.`
           notifySuccess({
             title: 'Renovado',
-            description: `Suscripción renovada. $${amt.toFixed(2)} registrado en caja.`,
+            description: desc,
           })
         } else {
           notifySuccess({
@@ -513,6 +518,11 @@ export const ReceptionMembersPage = () => {
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 Renovar a <strong>{actionTarget.user.name ?? actionTarget.user.phone ?? 'este socio'}</strong>. El cobro usa el precio del plan elegido en Inventario. Requiere turno abierto para registrar el pago.
               </p>
+              {actionTarget.user.subscriptions?.[0]?.status === 'PENDING_PAYMENT' && (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-white/5 px-3 py-2">
+                  Alta nueva: si hay inscripción activa, se cobrará automáticamente junto con la membresía.
+                </p>
+              )}
               <div>
                 <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5">Plan</label>
                 <select
@@ -630,3 +640,5 @@ export const ReceptionMembersPage = () => {
     </div>
   )
 }
+
+export default ReceptionMembersPage

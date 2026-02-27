@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { prisma } from '../db';
 import { Prisma } from '@prisma/client';
 import { SubscriptionStatus, Role, SubscriptionTier, ShiftStatus, ExpenseType } from '@prisma/client';
-import { sendWelcomeMessage, sendQrResend, sendStaffWelcomeMessage, sendStaffPasswordResetToAdmin, sendMemberWelcomeEmail, sendMemberReceiptEmail } from '../services/n8n.service';
+import { sendWelcomeMessage, sendQrResend, sendStaffWelcomeMessage } from '../services/n8n.service';
+import { sendStaffPasswordResetToAdmin, sendMemberWelcomeEmail, sendMemberReceiptEmail } from '../services/email.service';
 import { env } from '../config/env';
 import { logAuditEvent } from '../utils/audit.logger';
 import { normalizeGymSlug, generateStaffEmail } from '../utils/staff-email';
@@ -786,6 +787,7 @@ export const updateStaffPermissions = async (req: Request, res: Response) => {
 // PATCH /users/:id/renew
 // Body opcional: { barcode?: string }. Si no se envía, se usa MEMBERSHIP (30 días).
 // Usa el precio del producto del plan elegido; no acepta monto manual.
+// Si es alta nueva (PENDING_PAYMENT) y hay promo INSCRIPTION activa: cobra inscripción + membresía automáticamente.
 export const renewSubscription = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
@@ -805,6 +807,14 @@ export const renewSubscription = async (req: Request, res: Response) => {
       return;
     }
 
+    const currentSub = await prisma.subscription.findFirst({
+      where: { user_id: id, gym_id: gymId },
+    });
+    if (!currentSub) {
+      res.status(404).json({ error: 'Subscription not found for this gym' });
+      return;
+    }
+
     const planProduct = await prisma.product.findFirst({
       where: { gym_id: gymId, barcode: requestedBarcode, deleted_at: null },
     });
@@ -816,8 +826,43 @@ export const renewSubscription = async (req: Request, res: Response) => {
       return;
     }
 
-    const price = Number(planProduct.price);
-    if (price > 0) {
+    const membershipPrice = Number(planProduct.price);
+    let inscriptionPrice = 0;
+    let inscriptionProduct: { id: string; name: string } | null = null;
+
+    const isFirstPayment = currentSub.status === SubscriptionStatus.PENDING_PAYMENT;
+    if (isFirstPayment) {
+      const inscriptionPromo = await prisma.promotion.findFirst({
+        where: {
+          gym_id: gymId,
+          type: 'INSCRIPTION',
+          active: true,
+        },
+        orderBy: { created_at: 'asc' },
+      });
+      if (inscriptionPromo) {
+        const inscProduct = await prisma.product.findFirst({
+          where: {
+            gym_id: gymId,
+            barcode: inscriptionPromo.base_product_barcode,
+            deleted_at: null,
+          },
+        });
+        if (inscProduct) {
+          inscriptionProduct = { id: inscProduct.id, name: inscProduct.name };
+          if (inscriptionPromo.pricing_mode === 'FIXED') {
+            inscriptionPrice = Number(inscriptionPromo.fixed_price ?? 0);
+          } else {
+            const base = Number(inscProduct.price);
+            const discount = (inscriptionPromo.discount_percent ?? 0) / 100;
+            inscriptionPrice = Math.round(base * (1 - discount) * 100) / 100;
+          }
+        }
+      }
+    }
+
+    const totalCharge = membershipPrice + inscriptionPrice;
+    if (totalCharge > 0) {
       const openShift = await prisma.cashShift.findFirst({
         where: { gym_id: gymId, user_id: actorId, status: ShiftStatus.OPEN },
       });
@@ -828,35 +873,33 @@ export const renewSubscription = async (req: Request, res: Response) => {
         return;
       }
 
+      const saleItems: { gym_id: string; product_id: string; quantity: number; price: number }[] = [];
+      if (inscriptionPrice > 0 && inscriptionProduct) {
+        saleItems.push({
+          gym_id: gymId,
+          product_id: inscriptionProduct.id,
+          quantity: 1,
+          price: inscriptionPrice,
+        });
+      }
+      saleItems.push({
+        gym_id: gymId,
+        product_id: planProduct.id,
+        quantity: 1,
+        price: membershipPrice,
+      });
+
       const saleFolio = await getNextSaleFolio(gymId);
       await prisma.sale.create({
         data: {
           gym_id: gymId,
           cash_shift_id: openShift.id,
           seller_id: actorId,
-          total: price,
+          total: totalCharge,
           receipt_folio: saleFolio,
-          items: {
-            create: [
-              {
-                gym_id: gymId,
-                product_id: planProduct.id,
-                quantity: 1,
-                price: price,
-              },
-            ],
-          },
+          items: { create: saleItems },
         },
       });
-    }
-
-    const currentSub = await prisma.subscription.findFirst({
-      where: { user_id: id, gym_id: gymId },
-    });
-
-    if (!currentSub) {
-      res.status(404).json({ error: 'Subscription not found for this gym' });
-      return;
     }
 
     const now = new Date();
@@ -887,7 +930,8 @@ export const renewSubscription = async (req: Request, res: Response) => {
       plan_barcode: requestedBarcode,
       days_added: daysToAdd,
       new_expires_at: newExpiresAt.toISOString(),
-      ...(price > 0 && { amount_charged: price }),
+      ...(totalCharge > 0 && { amount_charged: totalCharge }),
+      ...(inscriptionPrice > 0 && { inscription_charged: inscriptionPrice }),
     });
 
     if (env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -907,7 +951,7 @@ export const renewSubscription = async (req: Request, res: Response) => {
             member_name: member.name ?? null,
             plan_barcode: requestedBarcode,
             plan_label: PLAN_BARCODE_LABELS[requestedBarcode] ?? requestedBarcode,
-            amount: price,
+            amount: totalCharge,
             expires_at: newExpiresAt.toISOString(),
             renewed_at: now.toISOString(),
           }).catch(() => {});
@@ -918,7 +962,8 @@ export const renewSubscription = async (req: Request, res: Response) => {
     res.status(200).json({
       message: 'Subscription renewed successfully.',
       subscription: updatedSub,
-      ...(price > 0 && { amount_registered_in_shift: price }),
+      ...(totalCharge > 0 && { amount_registered_in_shift: totalCharge }),
+      ...(inscriptionPrice > 0 && { inscription_amount: inscriptionPrice }),
     });
   } catch (error) {
     handleControllerError(req, res, error, '[renewSubscription Error]', 'Failed to renew subscription');

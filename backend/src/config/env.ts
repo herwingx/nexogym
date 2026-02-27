@@ -29,6 +29,12 @@ const envSchema = z.object({
   N8N_BASE_URL: z.string().default('http://localhost:5678'),
   /** URL base del frontend para enlaces de login (bienvenida admin). Ej: https://app.nexogym.com */
   APP_LOGIN_URL: z.string().optional().default(''),
+  /** Brevo (Transactional Email). API key desde app.brevo.com. Si está vacío, los correos transaccionales no se envían. */
+  BREVO_API_KEY: z.string().optional().default(''),
+  /** Remitente para correos transaccionales. Ej: noreply@nexogym.com */
+  BREVO_FROM_EMAIL: z.string().optional().default(''),
+  /** Nombre del remitente. Ej: NexoGym */
+  BREVO_FROM_NAME: z.string().optional().default('NexoGym'),
   BILLING_WEBHOOK_SECRET: z.string().optional(),
   /** Secreto para webhooks de cron (streak-reset, etc.). Protege POST /api/v1/webhooks/streak-reset. */
   CRON_WEBHOOK_SECRET: z.string().optional(),

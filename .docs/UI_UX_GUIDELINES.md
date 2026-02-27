@@ -226,6 +226,29 @@ bg-white dark:bg-zinc-900 border-zinc-200 dark:border-white/10 shadow-xl
 
 ---
 
+## 10. Iconos animados (pendiente de evaluación)
+
+Resumen para considerar en el futuro si se quiere añadir microinteracciones a los iconos.
+
+### Situación actual
+- **Lucide React** (`lucide-react`): iconos estáticos, cobertura completa (Trophy, Dumbbell, ScanQrCode, etc.). Animaciones manuales con Tailwind (`animate-spin`, `group-hover:scale-110`).
+
+### Opciones evaluadas
+
+| Librería | Cobertura | Estilo | Modelo | Notas |
+|----------|-----------|--------|--------|-------|
+| **AnimateIcons** | Lucide completo | Mismo que Lucide | MIT, open source | Animaciones a nivel de path. Integración shadcn. https://animateicons.in |
+| **LivelyIcons** | ~1.300 (Lucide) | Mismo que Lucide | Open source | 14 tipos de animación (scale, pulse, bounce, draw, spin, wiggle…). https://livelyicons.com |
+| **lucide-animated** | ~375 iconos | Mismo que Lucide | MIT | Subset; faltan Trophy, Dumbbell, ScanQrCode, etc. No sirve como única fuente. |
+| **Lordicon** | ~41.000 | Ilustrado (Lottie) | Gratis + PRO | Estética distinta. JSON por icono. Requiere atribución en versión gratuita. https://lordicon.com |
+
+### Recomendación
+- Si se quieren animaciones sin cambiar estética: **AnimateIcons** o **LivelyIcons** (Lucide completo animado, una sola fuente).
+- Evitar mezclar lucide-react + lucide-animated: dos fuentes, inconsistencia visual.
+- Alternativa sin librería extra: Lucide actual + animaciones CSS/Tailwind donde aporte valor (Loader2 con `animate-spin`, hover con `transition`).
+
+---
+
 ## Qué falta y por qué (revisión posterior)
 
 Este doc son **reglas de interfaz**; lo que “falta” son cosas que no se definen aquí porque dependen de otro sitio o de aplicación continua:

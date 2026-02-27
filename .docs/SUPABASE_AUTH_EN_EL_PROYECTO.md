@@ -118,7 +118,7 @@ Implementar auth “a mano” implica mucho más de lo que parece:
 | Hashear y guardar contraseñas | Ellos guardan y hashean; nosotros nunca tocamos la contraseña. |
 | Crear y firmar JWT | Ellos emiten el JWT y lo firman; nosotros solo lo verificamos. |
 | Implementar refresh de sesión | El cliente `supabase-js` refresca el token automáticamente. |
-| Construir “olvidé mi contraseña” | Flujo integrado (`resetPasswordForEmail`, emails configurables). |
+| Construir “olvidé mi contraseña” | Flujo integrado (`resetPasswordForEmail`). Requiere SMTP configurado en Supabase Auth (variables `SMTP_*` en el `.env` de Supabase). Ver **EMAIL_N8N_Y_DOMINIOS.md** para usar Brevo. |
 | Confirmar emails | Opción `email_confirm` al crear usuario (p. ej. en el seed). |
 | Mantener seguridad y parches | Supabase mantiene el servicio y las buenas prácticas. |
 
@@ -156,6 +156,8 @@ Es decir: **menos código nuestro, menos superficie de error y menos responsabil
 | `SUPABASE_SERVICE_ROLE_KEY` | Backend | Crear/actualizar usuarios en Auth desde el servidor: **scripts** (seed, `bootstrap-superadmin`, `link-superadmin`, `create-gym-admin`) y **POST /saas/gyms** cuando se envían `admin_email` y `admin_password`. No exponer en el frontend. |
 
 Frontend y backend deben apuntar al **mismo proyecto** (misma URL). Si el frontend usa un proyecto y el backend otro, el token de uno no será válido en el otro.
+
+**"Olvidé mi contraseña":** Supabase Auth necesita SMTP externo para enviar el correo de recuperación. Configurar en el `.env` de Supabase Auth: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SENDER_NAME`, `SMTP_ADMIN_EMAIL`. Ver **EMAIL_N8N_Y_DOMINIOS.md** (Brevo).
 
 ---
 

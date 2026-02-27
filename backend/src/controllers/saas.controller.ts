@@ -12,7 +12,7 @@ import {
   updateGymStatusSchema,
 } from '../schemas/saas.schema';
 import { handleControllerError } from '../utils/http';
-import { sendAdminWelcomeEmail } from '../services/n8n.service';
+import { sendAdminWelcomeEmail } from '../services/email.service';
 import {
   DEFAULT_MODULES_CONFIG_BY_TIER,
   type ModulesConfig,

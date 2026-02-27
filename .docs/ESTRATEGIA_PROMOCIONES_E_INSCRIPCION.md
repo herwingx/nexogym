@@ -205,8 +205,11 @@ model Subscription {
 
 1. Crear User (alta normal).
 2. Crear Subscription con `PENDING_PAYMENT`.
-3. Si el gym cobra inscripción: vender producto `INSCRIPTION` en POS (mismo turno).
-4. Renovar (cobrar membresía) si aplica.
+3. Staff va a Socios → busca el nuevo socio (Pendiente de pago) → Renovar/Pagar.
+4. **PATCH /users/:id/renew** detecta alta nueva (`status === PENDING_PAYMENT`):
+   - Si hay **promo INSCRIPTION activa**: cobra inscripción (precio de la promo) + membresía en una sola venta.
+   - Si no hay promo activa: solo cobra membresía.
+5. El admin controla inscripción desde Panel Promociones: activa = cobrar, inactiva = solo membresía.
 
 #### Venta plan Pareja/Familiar (POS)
 

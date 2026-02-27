@@ -10,22 +10,24 @@ const promotionTypeEnum = z.enum([
 
 const pricingModeEnum = z.enum(['FIXED', 'DISCOUNT_PERCENT']);
 
-export const createPromotionSchema = z
-  .object({
-    name: z.string().min(1, 'El nombre es obligatorio').max(100),
-    badge: z.string().min(1, 'El badge es obligatorio').max(50),
-    type: promotionTypeEnum,
-    pricing_mode: pricingModeEnum,
-    base_product_barcode: z.string().min(1, 'El producto base es obligatorio'),
-    fixed_price: z.number().min(0).optional(),
-    discount_percent: z.number().min(0).max(100).optional(),
-    days: z.number().int().min(0).optional().nullable(),
-    min_members: z.number().int().min(1).default(2),
-    max_members: z.number().int().min(1).default(2),
-    active: z.boolean().default(true),
-    valid_from: z.string().datetime().optional().nullable(),
-    valid_until: z.string().datetime().optional().nullable(),
-  })
+/** Base schema sin refinements — permite .partial() para update. */
+const promotionBaseSchema = z.object({
+  name: z.string().min(1, 'El nombre es obligatorio').max(100),
+  badge: z.string().min(1, 'El badge es obligatorio').max(50),
+  type: promotionTypeEnum,
+  pricing_mode: pricingModeEnum,
+  base_product_barcode: z.string().min(1, 'El producto base es obligatorio'),
+  fixed_price: z.number().min(0).optional(),
+  discount_percent: z.number().min(0).max(100).optional(),
+  days: z.number().int().min(0).optional().nullable(),
+  min_members: z.number().int().min(1).default(2),
+  max_members: z.number().int().min(1).default(2),
+  active: z.boolean().default(true),
+  valid_from: z.string().datetime().optional().nullable(),
+  valid_until: z.string().datetime().optional().nullable(),
+});
+
+export const createPromotionSchema = promotionBaseSchema
   .refine(
     (data) => {
       if (data.pricing_mode === 'FIXED') {
@@ -43,7 +45,7 @@ export const createPromotionSchema = z
     { message: 'min_members debe ser <= max_members.', path: ['max_members'] }
   );
 
-export const updatePromotionSchema = createPromotionSchema.partial();
+export const updatePromotionSchema = promotionBaseSchema.partial();
 
 /** Venta con promo. participant_ids: socios existentes (obligatorio para PLAN_*; opcional para INSCRIPTION). */
 export const promoSaleSchema = z.object({

@@ -50,7 +50,7 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 | **SUPABASE_STORAGE_BUCKETS.md** | Buckets `gym-logos` y `profile-pictures`: crear buckets públicos, políticas (INSERT para authenticated), errores frecuentes y checklist por entorno. |
 | **BOOTSTRAP_PRODUCCION_PRIMER_ADMIN.md** | Primer arranque con DB vacía en producción: **bootstrap-superadmin** (recomendado), seed para desarrollo, cómo crear SuperAdmin y admin de un gym. Incluye funcionamiento del script y checklist. |
 | **CANALES_COMUNICACION.md** | Email vs WhatsApp: bienvenida (credenciales), reset contraseña, QR, cumpleaños. Staff: admin resetea, nueva contraseña al correo del admin. |
-| **EMAIL_N8N_Y_DOMINIOS.md** | Setup operativo: Supabase SMTP (solo "olvidé contraseña"), n8n + proveedor (Resend/SendGrid/Brevo), estrategia de dominios, checklist, roadmap marketing. |
+| **EMAIL_N8N_Y_DOMINIOS.md** | Setup Brevo (correos transaccionales), variables `BREVO_*`, setup rápido sin dominio (Gmail), Supabase SMTP para "olvidé contraseña", estimación de volumen, CRM/soporte, checklist. |
 
 ---
 

@@ -50,8 +50,8 @@ cp backend/.env.example        backend/.env
 cp backend/prisma/.env.example backend/prisma/.env
 ```
 
-- **`backend/.env`** — Configuración del servidor Express (puerto, Supabase, CORS, rate limits, etc.).
-  Ver [`backend/.env.example`](../backend/.env.example) para todas las variables disponibles.
+- **`backend/.env`** — Configuración del servidor Express (puerto, Supabase, CORS, rate limits, Brevo, etc.).
+  Ver [`backend/.env.example`](../backend/.env.example) para todas las variables disponibles. Para correos: `BREVO_API_KEY`, `BREVO_FROM_EMAIL`. Ver **EMAIL_N8N_Y_DOMINIOS.md**.
 
 - **`backend/prisma/.env`** — Solo contiene `DIRECT_URL`.
   Prisma necesita conexión directa (sin pgbouncer) para migraciones y seeds.
@@ -610,8 +610,8 @@ cp backend/.env.example        backend/.env
 cp backend/prisma/.env.example backend/prisma/.env
 ```
 
-- **`backend/.env`** — Configuración del servidor Express (puerto, Supabase, CORS, rate limits, etc.).
-  Ver [`backend/.env.example`](../backend/.env.example) para todas las variables disponibles.
+- **`backend/.env`** — Configuración del servidor Express (puerto, Supabase, CORS, rate limits, Brevo, etc.).
+  Ver [`backend/.env.example`](../backend/.env.example) para todas las variables disponibles. Para correos: `BREVO_API_KEY`, `BREVO_FROM_EMAIL`. Ver **EMAIL_N8N_Y_DOMINIOS.md**.
 
 - **`backend/prisma/.env`** — Solo contiene `DIRECT_URL`.
   Prisma necesita conexión directa (sin pgbouncer) para migraciones y seeds.

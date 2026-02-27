@@ -5,7 +5,7 @@ import { saleSchema, expenseSchema } from '../schemas/pos.schema';
 import { promoSaleSchema } from '../schemas/promotion.schema';
 import { handleControllerError } from '../utils/http';
 import { getNextSaleFolio } from '../utils/receipt-folio';
-import { sendSaleReceiptEmail } from '../services/n8n.service';
+import { sendSaleReceiptEmail } from '../services/email.service';
 import { PLAN_BARCODE_DAYS } from '../data/default-products';
 import { logAuditEvent } from '../utils/audit.logger';
 

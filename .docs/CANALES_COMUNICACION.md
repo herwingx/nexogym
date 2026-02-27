@@ -2,7 +2,7 @@
 
 Estrategia de canales: **Email** solo para bienvenida y recuperación de contraseña; **WhatsApp** para QR, cumpleaños y mensajes al socio.
 
-> **Setup operativo:** Proveedores de correo para n8n, estrategia de dominios y checklist de configuración en **EMAIL_N8N_Y_DOMINIOS.md**.
+> **Setup operativo:** Brevo (correos transaccionales + SMTP Supabase), n8n (WhatsApp), estrategia de dominios y checklist en **EMAIL_N8N_Y_DOMINIOS.md**.
 
 ---
 
@@ -25,37 +25,35 @@ Estrategia de canales: **Email** solo para bienvenida y recuperación de contras
   - Usuario (email)
   - Contraseña temporal
   - Link de login
-- **Webhook n8n:** `admin_welcome` (`/webhook/admin-bienvenida`)
+- **Envío:** Backend → Brevo API (`email.service.sendAdminWelcomeEmail`). No usa n8n.
 - **Condición:** Requiere `APP_LOGIN_URL` en `.env` del backend.
 - **Flujo:** Admin recibe el correo → primer login → modal obligatorio para cambiar contraseña.
 
 - **Socio con email (portal/gamificación):** En el alta desde recepción, si se indica email opcional, el socio recibe:
-  - QR por **WhatsApp** (teléfono)
+  - QR por **WhatsApp** (teléfono, vía n8n)
   - Por **correo**: credenciales de portal (email + contraseña temporal) + QR y PIN como backup
-- **Webhook n8n:** `member_welcome` (`/webhook/member-bienvenida`)
+- **Envío:** Backend → Brevo API (`email.service.sendMemberWelcomeEmail`). No usa n8n para el correo.
 - **Condición:** Requiere `APP_LOGIN_URL` en `.env` del backend.
 
 ### 2.2 Comprobante por correo (renovación / soporte socios)
 
 - **Cuándo:** Tras renovar la suscripción de un socio (cualquier plan: mensual, semanal, anual, etc.) desde Recepción o Admin.
 - **A quién:** Al correo del socio, solo si tiene cuenta con email (alta con email o vinculado a Supabase Auth).
-- **Payload n8n:** `event: 'member_receipt'`, URL por defecto `/webhook/comprobante-socio`. Campos: `gym_id`, `gym_name`, `member_email`, `member_name`, `plan_barcode`, `plan_label` (ej. "Mensual", "Anual"), `amount`, `expires_at` (ISO), `renewed_at` (ISO). Opcional `is_visit_one_day` para futuras ventas de visita 1 día.
+- **Envío:** Backend → Brevo API (`email.service.sendMemberReceiptEmail`). No usa n8n.
 - **Objetivo:** El socio recibe comprobante de la renovación (plan, monto, vigencia) para soporte y trazabilidad.
-- **Configuración gym:** En `n8n_config.enabled_events` se puede excluir `member_receipt` si el gym no quiere enviar comprobantes; por defecto está habilitado si el webhook existe.
 - **Folio:** Cada comprobante de renovación incluye `receipt_folio` (ej. R-2025-000042) para auditoría del admin.
 
 ### 2.3 Comprobante de venta POS
 
-- **Cuándo:** En cada venta en POS la recepción puede indicar un correo opcional ("Enviar comprobante a"). Si se indica, el backend envía a n8n el detalle de la venta para que se envíe el comprobante por correo (PDF o cuerpo del correo).
+- **Cuándo:** En cada venta en POS la recepción puede indicar un correo opcional ("Enviar comprobante a"). Si se indica, el backend envía el comprobante por correo.
 - **A quién:** Al correo indicado en caja; no hace falta que el cliente esté registrado.
-- **Payload n8n:** `event: 'sale_receipt'`, URL por defecto `/webhook/comprobante-venta`. Campos: `gym_id`, `gym_name`, `customer_email`, `receipt_folio` (V-YYYY-NNNNNN), `sale_id`, `items` (product_name, quantity, unit_price, line_total), `total`, `sold_at` (ISO).
+- **Envío:** Backend → Brevo API (`email.service.sendSaleReceiptEmail`). No usa n8n.
 - **Folio:** Cada venta tiene un folio único por gym y año (V-2025-000001) guardado en `Sale.receipt_folio` para auditoría.
 
 ### 2.4 Recuperación de contraseña
 
-- **Members (socios con login):** Usan "¿Olvidaste tu contraseña?" en la pantalla de login. Supabase envía el enlace de recuperación por correo (requiere SMTP configurado en Supabase).
-- **Staff (Recep, Coach, Instructor):** No usan "olvidé contraseña". El **Admin** resetea la contraseña desde Personal (`/admin/staff`) → "Resetear contraseña". La **nueva contraseña se envía al correo del Admin**, quien la entrega al staff en persona.
-- **Webhook n8n:** `staff_password_reset` (`/webhook/staff-password-reset`)
+- **Members (socios con login):** Usan "¿Olvidaste tu contraseña?" en la pantalla de login. Supabase Auth envía el enlace de recuperación por correo (SMTP Brevo configurado en Supabase).
+- **Staff (Recep, Coach, Instructor):** No usan "olvidé contraseña". El **Admin** resetea la contraseña desde Personal (`/admin/staff`) → "Resetear contraseña". La **nueva contraseña se envía al correo del Admin** vía Brevo (backend), quien la entrega al staff en persona.
 
 ---
 
@@ -113,14 +111,16 @@ El staff (Recep, Coach, Instructor) son personal que rota. **No usamos correo pe
 
 ---
 
-## 6. Supabase SMTP vs n8n
+## 6. Supabase SMTP vs Brevo (backend)
 
 | Quién envía | Qué |
 |-------------|-----|
-| **Supabase** (SMTP en Dashboard) | Solo "olvidé contraseña" en el login. No hay API para otros correos. |
-| **n8n** (con Resend, SendGrid, etc.) | Bienvenidas, comprobantes, reset staff, y todos los demás emails transaccionales. |
+| **Supabase** (SMTP Brevo) | Solo "olvidé contraseña" en el login. Requiere SMTP configurado en Auth. |
+| **Backend** (Brevo API) | Bienvenidas, comprobantes, reset staff. Servicio `email.service.ts`. |
 
-Ver **EMAIL_N8N_Y_DOMINIOS.md** para proveedores recomendados, dominio y checklist.
+**Importante:** Todos los correos usan Brevo y cuentan en su límite de envío.
+
+Ver **EMAIL_N8N_Y_DOMINIOS.md** para setup Brevo, variables de entorno y checklist.
 
 ---
 
@@ -134,16 +134,25 @@ Ver **EMAIL_N8N_Y_DOMINIOS.md** para proveedores recomendados, dominio y checkli
 
 ---
 
-## 8. Webhooks n8n
+## 8. Resumen: Email vs n8n
 
-| Webhook | Evento | Canal | Payload principal |
-|---------|--------|-------|-------------------|
-| `/webhook/nuevo-cliente` | `welcome`, `resend_qr` | WhatsApp | phone, qrData, pin |
-| `/webhook/staff-bienvenida` o `welcome` | `staff_welcome` | WhatsApp | phone, qrData, gym_name, staff_name |
-| `/webhook/admin-bienvenida` | `admin_welcome` | Email | admin_email, admin_name, temp_password, login_url |
-| `/webhook/member-bienvenida` | `member_welcome` | Email | member_email, member_name, temp_password, login_url, qr_data, pin |
-| `/webhook/staff-password-reset` | `staff_password_reset` | Email | admin_email (to), staff_name, staff_email, new_password |
-| `/webhook/recompensa` | `reward` | WhatsApp | phone, rewardName, streak |
-| `/webhook/corte-caja` | `shift_summary` | WhatsApp | phone, summary |
+| Flujo | Canal | Quién envía |
+|-------|-------|-------------|
+| admin_welcome, member_welcome | Email | Backend → Brevo API |
+| staff_password_reset | Email | Backend → Brevo API |
+| member_receipt, sale_receipt | Email | Backend → Brevo API |
+| welcome, resend_qr | WhatsApp | n8n |
+| staff_welcome | WhatsApp | n8n |
+| reward | WhatsApp | n8n |
+| shift_summary | WhatsApp | n8n |
 
-Los webhooks de **email** (admin_welcome, member_welcome, staff_password_reset) deben configurarse en n8n para enviar correo (Gmail, SendGrid, Resend, etc.). Los de **WhatsApp** usan la integración de WhatsApp Business de n8n.
+**Webhooks n8n (solo WhatsApp):**
+
+| Webhook | Evento | Payload principal |
+|---------|--------|-------------------|
+| `/webhook/nuevo-cliente` | `welcome`, `resend_qr` | phone, qrData, pin |
+| `/webhook/staff-bienvenida` o `welcome` | `staff_welcome` | phone, qrData, gym_name, staff_name |
+| `/webhook/recompensa` | `reward` | phone, rewardName, streak |
+| `/webhook/corte-caja` | `shift_summary` | phone, summary |
+
+Todos los correos (bienvenidas, comprobantes, reset staff) se envían por **Brevo** desde el backend (`email.service.ts`). "Olvidé contraseña" lo envía **Supabase Auth** con SMTP Brevo.

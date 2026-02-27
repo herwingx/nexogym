@@ -447,6 +447,10 @@ Cierra el turno del usuario actual. Body: `{ "actual_balance": number }`. `404` 
 ### `POST /api/v1/pos/expenses`
 Registra un egreso en el turno abierto del usuario. Body: `{ "amount": number, "type": "SUPPLIER_PAYMENT" | "OPERATIONAL_EXPENSE" | "CASH_DROP", "description"?: string }`. Para `SUPPLIER_PAYMENT` y `OPERATIONAL_EXPENSE` la descripción es obligatoria (mín. 5 caracteres); para `CASH_DROP` es opcional. `400` si no hay turno abierto o validación falla.
 
+### PATCH /users/:id/renew (inscripción en alta nueva)
+
+Si la suscripción está en `PENDING_PAYMENT` (alta nueva) y existe una promo **INSCRIPTION** activa, se cobra automáticamente inscripción + membresía en una sola venta. Si la promo está inactiva, solo se cobra la membresía. El precio de inscripción viene de la promo (FIXED o DISCOUNT_PERCENT). Respuesta incluye opcionalmente `inscription_amount` cuando se cobró inscripción.
+
 ### `POST /api/v1/pos/sales/promotion`
 Venta con promoción. Integra en Sale/SaleItem, turno, folio V-YYYY-NNNNNN. Para PLAN_* crea/actualiza Subscriptions de los participantes. Requiere turno abierto.
 ```json

@@ -504,6 +504,11 @@ export const AdminMembers = () => {
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
             {actionTarget.action === 'renew' &&
               `Renovar a ${actionTarget.user.name ?? 'este socio'}. Elige el plan; el cobro usa el precio configurado en Inventario.`}
+          {actionTarget.action === 'renew' && actionTarget.user.subscriptions?.[0]?.status === 'PENDING_PAYMENT' && (
+            <span className="block mt-2 text-zinc-500 dark:text-zinc-400 text-xs">
+              Alta nueva: si hay inscripción activa, se cobrará automáticamente junto con la membresía.
+            </span>
+          )}
             {actionTarget.action === 'freeze' &&
               `¿Congelar la membresía de ${actionTarget.user.name ?? 'este socio'}?`}
             {actionTarget.action === 'unfreeze' &&

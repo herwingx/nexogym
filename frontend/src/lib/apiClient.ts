@@ -1616,7 +1616,7 @@ export const fetchMemberUsers = async (
 export const renewSubscription = async (
   userId: string,
   options?: { barcode?: string },
-): Promise<{ message: string; subscription: unknown; amount_registered_in_shift?: number }> => {
+): Promise<{ message: string; subscription: unknown; amount_registered_in_shift?: number; inscription_amount?: number }> => {
   const res = await fetchWithAuth(`/users/${userId}/renew`, {
     method: 'PATCH',
     body: JSON.stringify(options?.barcode ? { barcode: options.barcode } : {}),

@@ -6,6 +6,17 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 
 ## Cambios implementados
 
+### Integración Brevo para correos transaccionales
+
+| Área | Cambio |
+|------|--------|
+| **email.service.ts** | Nuevo servicio que envía correos directamente a Brevo API. Reemplaza n8n para emails. |
+| **Correos** | Bienvenida admin, bienvenida socio, reset staff→admin, comprobante renovación, comprobante venta POS. |
+| **n8n** | Solo WhatsApp (welcome, staff_welcome, reward, shift_summary). |
+| **Variables** | `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_FROM_NAME` en `.env`. |
+| **Supabase Auth** | SMTP de Brevo configurado (variables `SMTP_*` en `.env` de Supabase Auth). Flujo "olvidé contraseña" operativo. |
+| **Docs** | EMAIL_N8N_Y_DOMINIOS.md actualizado con Brevo como proveedor integrado. |
+
 ### Filtros de fecha: día actual por defecto
 
 | Área | Cambio |
@@ -169,6 +180,7 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 | **Admin** | Panel `/admin/promotions`: crear, editar, activar/desactivar promociones. |
 | **Recepción / POS** | `PromoSaleModal`: selector de promo, participantes, cobro. Badge de promo en listados de socios (AdminMembers, ReceptionMembers). |
 | **Seed** | Promociones de ejemplo por gym: Inscripción y Pareja (gymBasic, gymPro); Inscripción, Pareja 2x1 y Familiar (gymPremium). |
+| **Inscripción en alta** | Al pagar un socio nuevo (PENDING_PAYMENT), `renewSubscription` detecta alta y cobra inscripción + membresía si hay promo INSCRIPTION activa. Promo inactiva = solo membresía. Sin cambios en el flujo ni deuda técnica. |
 
 ---
 
@@ -196,6 +208,7 @@ Cuando se devuelve dinero en otro turno: se registra egreso tipo REFUND; el turn
 | Turnos | Notificación al admin cuando un turno lleva muchas horas abierto. |
 | Personal | Integrar checada con horario esperado (llegada tarde / salida anticipada). |
 | UI | Refinamiento de mensajes n8n (plantillas de bienvenida, QR). |
+| **Iconos animados** | Evaluar AnimateIcons o LivelyIcons (Lucide completo animado) vs Lucide + CSS. Ver **UI_UX_GUIDELINES.md** sección 10. |
 | Tests | Aumentar cobertura de flujos de devolución y turnos. |
 
 ---
