@@ -147,9 +147,20 @@ export const processCheckin = async (req: Request, res: Response) => {
         where: { id: userId },
         select: { id: true, name: true, profile_picture_url: true },
       });
+
+      const currentSub = await prisma.subscription.findFirst({
+        where: { user_id: userId, gym_id: gymId },
+        orderBy: { created_at: 'desc' },
+        select: { status: true },
+      });
+      const isFrozen = currentSub?.status === SubscriptionStatus.FROZEN;
+
       res.status(403).json({
-        error: 'Forbidden: No active subscription found.',
-        code: 'NO_ACTIVE_SUBSCRIPTION',
+        error: isFrozen
+          ? 'Forbidden: Membership is frozen. Unfreeze to allow access.'
+          : 'Forbidden: No active subscription found.',
+        code: isFrozen ? 'SUBSCRIPTION_FROZEN' : 'NO_ACTIVE_SUBSCRIPTION',
+        subscription_status: currentSub?.status,
         user_id: userId,
         user: debtorUser
           ? { name: debtorUser.name, profile_picture_url: debtorUser.profile_picture_url }

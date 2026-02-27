@@ -25,6 +25,10 @@ export interface CheckInModalProps {
   onCourtesyRequest?: (userId: string, reason?: string) => void
   /** Si true, no auto-cerrar (debtor). */
   noAutoClose?: boolean
+  /** Solo para debtor: badge (ej. "Membresía congelada" vs "Membresía vencida"). Default: "Membresía vencida". */
+  debtorBadge?: string
+  /** Solo para debtor: "info" (congelado) o "danger" (vencido). Default: "danger". */
+  debtorBadgeVariant?: 'danger' | 'info'
 }
 
 const AUTO_CLOSE_MS = 3000
@@ -40,6 +44,8 @@ export function CheckInModal({
   userId,
   onCourtesyRequest,
   noAutoClose = false,
+  debtorBadge = 'Membresía vencida',
+  debtorBadgeVariant = 'danger',
 }: CheckInModalProps) {
   useEffect(() => {
     if (!isOpen || noAutoClose) return
@@ -126,8 +132,8 @@ export function CheckInModal({
 
           {state === 'debtor' && (
             <div className="mt-4 w-full space-y-3">
-              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${STATUS_BADGE.danger}`}>
-                Membresía vencida
+              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${STATUS_BADGE[debtorBadgeVariant]}`}>
+                {debtorBadge}
               </span>
               {userId && onCourtesyRequest && (
                 <Button

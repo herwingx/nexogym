@@ -36,6 +36,15 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 | **POST /users/:id/regenerate-qr** | Usa `requireCanRegenerateMemberQr`: Admin/SuperAdmin o staff con `can_regenerate_member_qr`. |
 | **MemberDetailModal** | Muestra imagen del QR cuando la API devuelve `qr_payload`; botón Regenerar según permiso. |
 
+### Check-in: mensaje distinto para congelado vs vencido
+
+| Área | Cambio |
+|------|--------|
+| **Backend checkin.controller** | Devuelve `code: 'SUBSCRIPTION_FROZEN'` cuando la suscripción está congelada (el socio pausó su membresía y conserva días); `code: 'NO_ACTIVE_SUBSCRIPTION'` cuando está vencida, cancelada o sin suscripción. |
+| **Frontend CheckInModal** | Muestra "Membresía congelada" (badge azul) con mensaje "Descongele para dar acceso" cuando es FROZEN; "Membresía vencida" (badge rojo) cuando es EXPIRED. |
+| **Congelado** | Pausa voluntaria: el socio conserva sus días pero no puede entrar hasta descongelar. |
+| **Vencido** | La fecha de vencimiento pasó; el socio debe renovar. |
+
 ### Check-in y gamificación
 
 | Área | Cambio |

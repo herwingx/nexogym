@@ -30,6 +30,8 @@ type ModalState = {
   message?: string
   newStreak?: number
   userId?: string
+  debtorBadge?: string
+  debtorBadgeVariant?: 'danger' | 'info'
 }
 
 export const ReceptionCheckInPage = () => {
@@ -71,6 +73,16 @@ export const ReceptionCheckInPage = () => {
       setTodayVisits([])
     }
   }, [])
+
+  const loadOccupancy = useCallback(async () => {
+    if (!qrAccess) return
+    try {
+      const occ = await fetchOccupancy().catch(() => null)
+      setOccupancy(occ ?? null)
+    } catch {
+      setOccupancy(null)
+    }
+  }, [qrAccess])
 
   useEffect(() => {
     let cancelled = false
@@ -123,6 +135,7 @@ export const ReceptionCheckInPage = () => {
       })
       setLastResult(res)
       void loadTodayVisits()
+      void loadOccupancy()
 
       if (res.streak_updated) {
         sileo.success({ title: '¡Racha aumentada! 🔥' })
@@ -164,16 +177,23 @@ export const ReceptionCheckInPage = () => {
 
       if (
         payload?.code === 'NO_ACTIVE_SUBSCRIPTION' ||
+        payload?.code === 'SUBSCRIPTION_FROZEN' ||
         error.message.includes('No active subscription') ||
+        error.message.toLowerCase().includes('frozen') ||
         error.message.toLowerCase().includes('suscripción') ||
         error.message.toLowerCase().includes('membresía')
       ) {
+        const isFrozen = payload?.code === 'SUBSCRIPTION_FROZEN'
         setModal({
           state: 'debtor',
           userName: payload?.user?.name ?? null,
           userPhotoUrl: payload?.user?.profile_picture_url ?? null,
-          message: 'Membresía vencida o inactiva.',
+          message: isFrozen
+            ? 'Membresía congelada. Descongele para dar acceso.'
+            : 'Membresía vencida o inactiva.',
           userId: payload?.user_id,
+          debtorBadge: isFrozen ? 'Membresía congelada' : 'Membresía vencida',
+          debtorBadgeVariant: isFrozen ? 'info' : 'danger',
         })
         return
       }
@@ -187,19 +207,21 @@ export const ReceptionCheckInPage = () => {
     } finally {
       setIsProcessing(false)
     }
-  }, [isProcessing])
+  }, [isProcessing, loadTodayVisits, loadOccupancy])
 
   const handleCourtesyRequest = useCallback(async (userId: string) => {
     try {
       await submitCourtesyCheckin(userId)
       sileo.warning({ title: 'Acceso de cortesía registrado' })
+      void loadTodayVisits()
+      void loadOccupancy()
     } catch (e) {
       sileo.error({
         title: 'Error',
         description: (e as Error).message,
       })
     }
-  }, [])
+  }, [loadTodayVisits, loadOccupancy])
 
   const modalOpen = modal !== null || openShiftModal || closeShiftModal || cameraOpen
 
@@ -440,6 +462,8 @@ export const ReceptionCheckInPage = () => {
           userId={modal.userId}
           onCourtesyRequest={modal.userId ? handleCourtesyRequest : undefined}
           noAutoClose={modal.state === 'debtor'}
+          debtorBadge={modal.debtorBadge}
+          debtorBadgeVariant={modal.debtorBadgeVariant}
         />
       )}
 
