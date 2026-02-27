@@ -978,6 +978,89 @@ export const fetchPosProducts = async (): Promise<PosProduct[]> => {
 
 export type SaleItemPayload = { productId: string; quantity: number }
 
+/** Promoción para POS y admin. */
+export type Promotion = {
+  id: string
+  gym_id: string
+  name: string
+  badge: string
+  type: string
+  pricing_mode: 'FIXED' | 'DISCOUNT_PERCENT'
+  base_product_barcode: string
+  fixed_price?: number | null
+  discount_percent?: number | null
+  days?: number | null
+  min_members: number
+  max_members: number
+  active: boolean
+  valid_from?: string | null
+  valid_until?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const fetchPromotions = async (): Promise<Promotion[]> => {
+  const res = await fetchWithAuth('/promotions')
+  if (!res.ok) throw new Error(`Failed to load promotions (${res.status})`)
+  const data = (await res.json()) as { data: Promotion[] }
+  return data.data ?? []
+}
+
+export const createPromotion = async (payload: {
+  name: string
+  badge: string
+  type: string
+  pricing_mode: 'FIXED' | 'DISCOUNT_PERCENT'
+  base_product_barcode: string
+  fixed_price?: number
+  discount_percent?: number
+  days?: number | null
+  min_members?: number
+  max_members?: number
+  active?: boolean
+}) => {
+  const res = await fetchWithAuth('/promotions', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Create promotion failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export const updatePromotion = async (
+  id: string,
+  payload: Partial<Parameters<typeof createPromotion>[0]>,
+) => {
+  const res = await fetchWithAuth(`/promotions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Update promotion failed (${res.status})`)
+  }
+  return res.json()
+}
+
+export const createPromoSale = async (payload: {
+  promotion_id: string
+  participant_ids: string[]
+  seller_id?: string
+}) => {
+  const res = await fetchWithAuth('/pos/sales/promotion', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error((err?.error ?? err?.message) ?? `Promo sale failed (${res.status})`)
+  }
+  return res.json()
+}
+
 export const createPosSale = async (
   items: SaleItemPayload[],
   options?: { customer_email?: string },
@@ -1499,7 +1582,13 @@ export type MemberUserRow = {
   current_streak?: number
   last_visit_at?: string | null
   created_at: string
-  subscriptions?: Array<{ status: string; expires_at: string; plan_barcode?: string | null }>
+  subscriptions?: Array<{
+    status: string
+    expires_at: string
+    plan_barcode?: string | null
+    promotion_id?: string | null
+    promotion?: { badge: string } | null
+  }>
 }
 
 /** Barcodes de planes para renovar; etiqueta para mostrar en lista y selector. */

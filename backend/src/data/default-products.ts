@@ -15,6 +15,9 @@ export const DEFAULT_GYM_PRODUCTS = [
   { barcode: 'MEMBERSHIP_BIMESTRAL', name: 'Membresía bimestral', price: 0, stock: 99_999 },
   { barcode: 'MEMBERSHIP_SEMESTRAL', name: 'Membresía semestral', price: 0, stock: 99_999 },
   { barcode: 'MEMBERSHIP_ANNUAL', name: 'Membresía anual', price: 0, stock: 99_999 },
+  { barcode: 'INSCRIPTION', name: 'Inscripción', price: 0, stock: 99_999 },
+  { barcode: 'MEMBERSHIP_PAREJA', name: 'Membresía Pareja', price: 0, stock: 99_999 },
+  { barcode: 'MEMBERSHIP_FAMILIAR', name: 'Membresía Familiar', price: 0, stock: 99_999 },
   { barcode: 'VISIT_1', name: 'Visita 1 día', price: 0, stock: 99_999 },
 ] as const;
 
@@ -32,6 +35,8 @@ export const PLAN_BARCODE_DAYS: Record<string, number> = {
   MEMBERSHIP_BIMESTRAL: 60,
   MEMBERSHIP_SEMESTRAL: 180,
   MEMBERSHIP_ANNUAL: 365,
+  MEMBERSHIP_PAREJA: 30,
+  MEMBERSHIP_FAMILIAR: 30,
 } as const;
 
 /** Etiquetas para comprobante por correo y listados. */
@@ -42,4 +47,15 @@ export const PLAN_BARCODE_LABELS: Record<string, string> = {
   MEMBERSHIP_BIMESTRAL: 'Bimestral',
   MEMBERSHIP_SEMESTRAL: 'Semestral',
   MEMBERSHIP_ANNUAL: 'Anual',
+  MEMBERSHIP_PAREJA: 'Pareja',
+  MEMBERSHIP_FAMILIAR: 'Familiar',
 };
+
+/** Tipos de promo y barcodes de producto asociados. */
+export const PROMOTION_TYPE_PRODUCT_BARCODES: Record<string, string> = {
+  INSCRIPTION: 'INSCRIPTION',
+  PLAN_INDIVIDUAL: 'MEMBERSHIP',
+  PLAN_PAREJA: 'MEMBERSHIP_PAREJA',
+  PLAN_FAMILIAR: 'MEMBERSHIP_FAMILIAR',
+  PRODUCTO: '', // Variable según base_product_barcode
+} as const;

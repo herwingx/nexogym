@@ -156,6 +156,19 @@ Documento de seguimiento de cambios implementados y pendientes del proyecto Nexo
 | **DATABASE_SCHEMA.md** | ExpenseType REFUND, SUBSCRIPTION_CANCELED, etc. |
 | **RACHAS_CRON.md** | Cron de reset de rachas, zona horaria futura. |
 | **SILEO_TOAST.md** | Override z-index para toasts sobre modales. |
+| **DATABASE_SCHEMA.md** | Tabla `Promotion`, `Subscription.promotion_id`, productos INSCRIPTION/MEMBERSHIP_PAREJA/MEMBERSHIP_FAMILIAR. |
+| **API_SPEC.md** | Endpoints `GET/POST/PATCH/GET /promotions` y `POST /pos/sales/promotion`. |
+| **ESTRATEGIA_PROMOCIONES_E_INSCRIPCION.md** | Estrategia de promociones, inscripción, planes pareja/familiar. |
+
+### Promociones e inscripción
+
+| Área | Cambio |
+|------|--------|
+| **Schema Prisma** | Modelo `Promotion` (name, badge, type, pricing_mode, fixed_price, discount_percent, base_product_barcode, days, min/max_members, active, valid_from/until). `Subscription.promotion_id` opcional. Productos `INSCRIPTION`, `MEMBERSHIP_PAREJA`, `MEMBERSHIP_FAMILIAR`. |
+| **Backend** | CRUD `/api/v1/promotions`. `POST /pos/sales/promotion` para venta con promo: integra Sale/SaleItem, turno, folio, crea/actualiza Subscriptions según tipo (INSCRIPTION, PLAN_PAREJA, PLAN_FAMILIAR). |
+| **Admin** | Panel `/admin/promotions`: crear, editar, activar/desactivar promociones. |
+| **Recepción / POS** | `PromoSaleModal`: selector de promo, participantes, cobro. Badge de promo en listados de socios (AdminMembers, ReceptionMembers). |
+| **Seed** | Promociones de ejemplo por gym: Inscripción y Pareja (gymBasic, gymPro); Inscripción, Pareja 2x1 y Familiar (gymPremium). |
 
 ---
 
@@ -196,3 +209,4 @@ Cuando se devuelve dinero en otro turno: se registra egreso tipo REFUND; el turn
 | **SUBSCRIPTION_EXPIRY_AND_RENEWAL.md** | Renovación, folio de venta. |
 | **STAFF_QR_ACCESS_AND_ATTENDANCE.md** | Checada staff, vista Asistencia de personal. |
 | **API_SPEC.md** | Contratos de API. |
+| **ESTRATEGIA_PROMOCIONES_E_INSCRIPCION.md** | Promociones, inscripción, planes pareja/familiar, templates, activar/desactivar, integración POS. |

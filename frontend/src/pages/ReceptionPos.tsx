@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { ShoppingCart, Trash2, Wallet, Banknote, Camera } from 'lucide-react'
+import { ShoppingCart, Trash2, Wallet, Banknote, Camera, Tag } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { FormOpenShift, FormCloseShift, FormExpense } from '../components/reception/ShiftForms'
 import { HardwareScanner } from '../components/reception/HardwareScanner'
+import { PromoSaleModal } from '../components/reception/PromoSaleModal'
 import { CameraScanner } from '../components/reception/CameraScanner'
 import {
   fetchPosProducts,
@@ -33,6 +34,7 @@ export const ReceptionPosPage = () => {
   const [closeModal, setCloseModal] = useState(false)
   const [openShiftModal, setOpenShiftModal] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
+  const [promoModalOpen, setPromoModalOpen] = useState(false)
   const [customerEmail, setCustomerEmail] = useState('')
   const [barcodeBuffer, setBarcodeBuffer] = useState('')
 
@@ -211,18 +213,30 @@ export const ReceptionPosPage = () => {
                 value={barcodeBuffer}
                 onChange={setBarcodeBuffer}
                 onSubmit={handleBarcodeScan}
-                pauseFocus={!!(openShiftModal || closeModal || expenseModal || cameraOpen)}
+                pauseFocus={!!(openShiftModal || closeModal || expenseModal || cameraOpen || promoModalOpen)}
                 visible
                 placeholder="Escanea o escribe el código de barras..."
               />
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-white/10 bg-transparent hover:bg-zinc-100 dark:hover:bg-white/5 px-2.5 py-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
-                onClick={() => setCameraOpen(true)}
-              >
-                <Camera className="h-3.5 w-3.5" />
-                Usar cámara
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-white/10 bg-transparent hover:bg-zinc-100 dark:hover:bg-white/5 px-2.5 py-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
+                  onClick={() => setCameraOpen(true)}
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  Usar cámara
+                </button>
+                {hasOpenShift && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[var(--theme-primary)] bg-[var(--theme-primary)]/10 px-2.5 py-1.5 text-xs text-[var(--theme-primary)] transition-colors hover:bg-[var(--theme-primary)]/20"
+                    onClick={() => setPromoModalOpen(true)}
+                  >
+                    <Tag className="h-3.5 w-3.5" />
+                    Venta con promoción
+                  </button>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {products.map((product) => (
@@ -353,6 +367,15 @@ export const ReceptionPosPage = () => {
             onCancel={() => setExpenseModal(false)}
           />
         </Modal>
+      )}
+
+      {promoModalOpen && (
+        <PromoSaleModal
+          isOpen={promoModalOpen}
+          onClose={() => setPromoModalOpen(false)}
+          onSuccess={() => void loadShift()}
+          hasOpenShift={!!hasOpenShift}
+        />
       )}
 
       <CameraScanner

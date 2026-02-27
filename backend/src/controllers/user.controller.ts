@@ -219,7 +219,13 @@ export const getUsers = async (req: Request, res: Response) => {
           subscriptions: {
             orderBy: { created_at: 'desc' },
             take: 1,
-            select: { status: true, expires_at: true, plan_barcode: true },
+            select: {
+              status: true,
+              expires_at: true,
+              plan_barcode: true,
+              promotion_id: true,
+              promotion: { select: { badge: true } },
+            },
           },
         },
         orderBy: orderClause,
@@ -412,7 +418,13 @@ export const getUserDetail = async (req: Request, res: Response) => {
         subscriptions: {
           orderBy: { created_at: 'desc' },
           take: 1,
-          select: { status: true, expires_at: true, plan_barcode: true },
+          select: {
+            status: true,
+            expires_at: true,
+            plan_barcode: true,
+            promotion_id: true,
+            promotion: { select: { badge: true } },
+          },
         },
       },
     });

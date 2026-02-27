@@ -20,6 +20,7 @@ import {
   ScanQrCode,
   UserCheck,
   ClipboardList,
+  Tag,
 } from 'lucide-react'
 import { useAuthStore, type ModulesConfig } from '../store/useAuthStore'
 import { ThemeToggle } from '../components/ui/ThemeToggle'
@@ -60,6 +61,7 @@ const navItems: NavItem[] = [
   { label: 'Socios', to: '/admin/members', icon: Users, moduleKey: null, staffPermission: 'members_admin' },
   { label: 'Finanzas', to: '/admin/finance', icon: BarChart2, moduleKey: null, staffPermission: 'finance' },
   { label: 'Inventario', to: '/admin/inventory', icon: Package, moduleKey: 'pos', staffPermission: 'pos' },
+  { label: 'Promociones', to: '/admin/promotions', icon: Tag, moduleKey: 'pos', adminOnly: true },
   { label: 'Cortes de caja', to: '/admin/shifts', icon: Wallet, moduleKey: 'pos', staffPermission: 'pos' },
   { label: 'Personal', to: '/admin/staff', icon: UserCog, moduleKey: null, staffPermission: 'staff' },
   { label: 'Asistencia de personal', to: '/admin/attendance', icon: UserCheck, moduleKey: null, adminOnly: true },

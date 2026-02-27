@@ -393,7 +393,7 @@ export const AdminMembers = () => {
                         </td>
                         <td className="py-2.5 px-4 align-middle">
                           <span className="inline-flex rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                            {sub?.plan_barcode ? (PLAN_BARCODE_LABELS[sub.plan_barcode] ?? sub.plan_barcode) : 'Mensual'}
+                            {sub?.promotion?.badge ?? (sub?.plan_barcode ? (PLAN_BARCODE_LABELS[sub.plan_barcode] ?? sub.plan_barcode) : 'Mensual')}
                           </span>
                         </td>
                         <td className="py-2.5 px-4 align-middle text-zinc-600 dark:text-zinc-400 text-xs">

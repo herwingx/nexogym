@@ -103,6 +103,7 @@ model Gym {
   bookings               ClassBooking[]
   routines               Routine[]
   exercises              Exercise[]
+  promotions             Promotion[]
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -145,26 +146,54 @@ model User {
   @@index([gym_id])
 }
 
-model Subscription {
-  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  gym_id             String             @db.Uuid
-  user_id            String             @db.Uuid
-  status             SubscriptionStatus @default(ACTIVE)
-  expires_at         DateTime
-  frozen_days_left   Int?
-  allowed_start_time String? // Ej: "06:00" - Restricción horaria
-  allowed_end_time   String? // Ej: "12:00"
-  plan_barcode       String? // Barcode del plan al renovar (ej. MEMBERSHIP, MEMBERSHIP_ANNUAL) para badge en lista
+model Promotion {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id               String   @db.Uuid
+  name                 String   // "Promo San Valentín", "Promo Parejas"
+  badge                String   // "San Valentín", "Pareja" — muestra en panel socios
+  type                 String   // INSCRIPTION | PLAN_INDIVIDUAL | PLAN_PAREJA | PLAN_FAMILIAR | PRODUCTO
+  pricing_mode         String   // FIXED | DISCOUNT_PERCENT
+  base_product_barcode String   // Producto para SaleItem: INSCRIPTION, MEMBERSHIP_PAREJA, MEMBERSHIP, etc.
+  fixed_price          Decimal? @db.Decimal(10, 2) // Para FIXED: monto exacto
+  discount_percent     Int?     // Para DISCOUNT_PERCENT: 0-100
+  days                 Int?     // null = inscripción (0); 30 = mensual; 365 = anual
+  min_members          Int      @default(2)
+  max_members          Int      @default(2)
+  active               Boolean  @default(true)
+  valid_from           DateTime?
+  valid_until          DateTime?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
 
-  // Relaciones
-  gym  Gym  @relation(fields: [gym_id], references: [id], onDelete: Cascade)
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  gym           Gym            @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+
+  @@index([gym_id])
+  @@index([gym_id, active])
+}
+
+model Subscription {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gym_id        String             @db.Uuid
+  user_id       String             @db.Uuid
+  status        SubscriptionStatus @default(ACTIVE)
+  expires_at    DateTime
+  frozen_days_left   Int?
+  allowed_start_time String?
+  allowed_end_time   String?
+  plan_barcode      String?
+  promotion_id      String?         @db.Uuid // Si aplica promo: badge en lista
+
+  gym        Gym         @relation(fields: [gym_id], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  promotion  Promotion?  @relation(fields: [promotion_id], references: [id], onDelete: SetNull)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@index([gym_id])
   @@index([user_id])
+  @@index([promotion_id])
 }
 
 model Visit {

@@ -21,6 +21,7 @@ import memberRouter from './routes/member.routes';
 import webhooksRouter from './routes/webhooks.routes';
 import integrationsRouter from './routes/integrations.routes';
 import gymRouter from './routes/gym.routes';
+import promotionRouter from './routes/promotion.routes';
 import { setupSwagger } from './swagger';
 import { logger } from './lib/logger';
 import { createRateLimiter } from './middlewares/rate-limit.middleware';
@@ -160,6 +161,7 @@ const biometricRateLimiter = createRateLimiter({
   app.use('/api/v1/webhooks', webhooksRouter);     // Billing / cron (POST /billing)
   app.use('/api/v1/integrations', integrationsRouter); // n8n / cumpleaños (GET /birthdays)
   app.use('/api/v1/gym', gymRouter);                  // Configuración del gym (premios por racha, etc.)
+  app.use('/api/v1/promotions', promotionRouter);     // Promociones (Admin CRUD; staff lista activas para POS)
   app.use('/biometric', biometricRateLimiter, biometricRouter);          // Sprint B9: IoT / Hardware endpoint (no JWT, x-api-key)
 
 // Global Error Handler

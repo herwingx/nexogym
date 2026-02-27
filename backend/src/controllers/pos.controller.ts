@@ -1,10 +1,13 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
-import { Role, ShiftStatus, TransactionType } from '@prisma/client';
+import { Role, ShiftStatus, TransactionType, SubscriptionStatus } from '@prisma/client';
 import { saleSchema, expenseSchema } from '../schemas/pos.schema';
+import { promoSaleSchema } from '../schemas/promotion.schema';
 import { handleControllerError } from '../utils/http';
 import { getNextSaleFolio } from '../utils/receipt-folio';
 import { sendSaleReceiptEmail } from '../services/n8n.service';
+import { PLAN_BARCODE_DAYS } from '../data/default-products';
+import { logAuditEvent } from '../utils/audit.logger';
 
 // GET /pos/products — mirrors inventory but from a POS-optimized view
 export const getProducts = async (req: Request, res: Response) => {
@@ -475,5 +478,189 @@ export const getShiftSales = async (req: Request, res: Response) => {
     });
   } catch (error) {
     handleControllerError(req, res, error, '[getShiftSales Error]', 'Failed to retrieve shift sales.');
+  }
+};
+
+/**
+ * POST /pos/sales/promotion
+ * Venta con promoción. Integra en Sale/SaleItem, turno, folio. Crea/actualiza Subscriptions para PLAN_*.
+ */
+export const createPromoSale = async (req: Request, res: Response) => {
+  try {
+    const gymId = req.gymId;
+    const actorId = req.user?.id;
+    if (!gymId || !actorId) {
+      res.status(401).json({ error: 'Unauthorized: Gym context missing' });
+      return;
+    }
+
+    const validation = promoSaleSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: validation.error.issues[0].message });
+      return;
+    }
+
+    const { promotion_id, participant_ids, seller_id } = validation.data;
+    const sellerIdForSale = seller_id || actorId;
+
+    const promotion = await prisma.promotion.findFirst({
+      where: { id: promotion_id, gym_id: gymId, active: true },
+    });
+    if (!promotion) {
+      res.status(400).json({ error: 'Promoción no encontrada o inactiva.' });
+      return;
+    }
+
+    const planTypes = ['PLAN_INDIVIDUAL', 'PLAN_PAREJA', 'PLAN_FAMILIAR'] as const;
+    const requiresParticipants = planTypes.includes(promotion.type as (typeof planTypes)[number]);
+    const n = participant_ids.length;
+
+    if (requiresParticipants) {
+      if (n < promotion.min_members || n > promotion.max_members) {
+        res.status(400).json({
+          error: `Esta promoción requiere entre ${promotion.min_members} y ${promotion.max_members} participantes.`,
+        });
+        return;
+      }
+    }
+
+    const openShift = await prisma.cashShift.findFirst({
+      where: { gym_id: gymId, user_id: actorId, status: ShiftStatus.OPEN },
+    });
+    if (!openShift) {
+      res.status(400).json({ error: 'No hay turno de caja abierto. Abre un turno antes de cobrar.' });
+      return;
+    }
+
+    const product = await prisma.product.findFirst({
+      where: { gym_id: gymId, barcode: promotion.base_product_barcode, deleted_at: null },
+    });
+    if (!product) {
+      res.status(400).json({
+        error: `Falta el producto "${promotion.base_product_barcode}" en Inventario. Asigna precio y asegúrate de que exista.`,
+      });
+      return;
+    }
+
+    let price: number;
+    if (promotion.pricing_mode === 'FIXED') {
+      price = Number(promotion.fixed_price ?? 0);
+    } else {
+      const basePrice = Number(product.price);
+      const discount = (promotion.discount_percent ?? 0) / 100;
+      const unitPrice = basePrice * (1 - discount);
+      const multiplier = requiresParticipants ? Math.max(n, 1) : 1;
+      price = Math.round(unitPrice * multiplier * 100) / 100;
+    }
+
+    if (price <= 0) {
+      res.status(400).json({
+        error: 'El precio calculado es 0. Configura fixed_price o el precio del producto base en Inventario.',
+      });
+      return;
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const receiptFolio = await getNextSaleFolio(gymId, tx as Pick<typeof prisma, '$queryRaw'>);
+
+      const sale = await tx.sale.create({
+        data: {
+          gym_id: gymId,
+          cash_shift_id: openShift.id,
+          seller_id: sellerIdForSale,
+          total: price,
+          receipt_folio: receiptFolio,
+          items: {
+            create: [
+              {
+                gym_id: gymId,
+                product_id: product.id,
+                quantity: 1,
+                price,
+              },
+            ],
+          },
+        },
+        include: { items: { include: { product: { select: { name: true } } } } },
+      });
+
+      const days = promotion.days ?? PLAN_BARCODE_DAYS[promotion.base_product_barcode] ?? 30;
+      const now = new Date();
+      const newExpiresAt = new Date(now);
+      newExpiresAt.setDate(newExpiresAt.getDate() + days);
+
+      if (requiresParticipants && participant_ids.length > 0) {
+        const participants = await tx.user.findMany({
+          where: {
+            id: { in: participant_ids },
+            gym_id: gymId,
+            role: 'MEMBER',
+            deleted_at: null,
+          },
+        });
+
+        if (participants.length !== participant_ids.length) {
+          throw new Error('Algunos participantes no fueron encontrados en este gym.');
+        }
+
+        for (const user of participants) {
+          const currentSub = await tx.subscription.findFirst({
+            where: { user_id: user.id, gym_id: gymId },
+            orderBy: { created_at: 'desc' },
+          });
+
+          const isStillActive =
+            currentSub?.status === SubscriptionStatus.ACTIVE && currentSub.expires_at > now;
+          const baseDate = isStillActive ? currentSub.expires_at : now;
+          const expiresAt = new Date(baseDate);
+          expiresAt.setDate(expiresAt.getDate() + days);
+
+          if (currentSub) {
+            await tx.subscription.update({
+              where: { id: currentSub.id },
+              data: {
+                status: SubscriptionStatus.ACTIVE,
+                expires_at: expiresAt,
+                plan_barcode: promotion.base_product_barcode,
+                promotion_id: promotion.id,
+                ...((currentSub.status === SubscriptionStatus.FROZEN || !isStillActive) && {
+                  frozen_days_left: null,
+                }),
+              },
+            });
+          } else {
+            await tx.subscription.create({
+              data: {
+                gym_id: gymId,
+                user_id: user.id,
+                status: SubscriptionStatus.ACTIVE,
+                expires_at: expiresAt,
+                plan_barcode: promotion.base_product_barcode,
+                promotion_id: promotion.id,
+              },
+            });
+          }
+        }
+      }
+
+      return sale;
+    });
+
+    await logAuditEvent(gymId, actorId, 'PROMO_SALE', {
+      promotion_id: promotion.id,
+      sale_id: result.id,
+      receipt_folio: result.receipt_folio,
+      amount: price,
+      participant_count: participant_ids.length,
+    });
+
+    res.status(201).json({
+      message: 'Venta con promoción registrada.',
+      sale: result,
+    });
+  } catch (error: unknown) {
+    const err = error as Error;
+    req.log?.error({ err }, '[createPromoSale Error]');
+    res.status(400).json({ error: err.message || 'Failed to complete promo sale.' });
   }
 };

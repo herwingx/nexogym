@@ -62,12 +62,36 @@ Soporte para validación visual, gamificación por día y n8n (cumpleaños).
 | `birth_date` | DateTime? @db.Date | Fecha de nacimiento (n8n felicitaciones) |
 
 ### `Subscription` (Actualizada)
-Añade restricciones horarias para planes específicos (ej. "Solo Mañanas").
+Añade restricciones horarias y promociones.
 
 | Campo | Tipo | Notas |
 |---|---|---|
 | `allowed_start_time` | String? | HH:mm (ej: "06:00") |
 | `allowed_end_time` | String? | HH:mm (ej: "12:00") |
+| `promotion_id` | UUID? FK | Si aplica promo: badge en lista de socios |
+
+---
+
+### `Promotion` (Nueva)
+Promociones creadas por admin (Inscripción, Pareja, Familiar, Descuento %). Ver **ESTRATEGIA_PROMOCIONES_E_INSCRIPCION.md**.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | UUID | PK |
+| `gym_id` | UUID FK | Multitenancy |
+| `name` | String | Ej: "Promo San Valentín" |
+| `badge` | String | Etiqueta en panel socios (ej: "San Valentín") |
+| `type` | String | INSCRIPTION \| PLAN_INDIVIDUAL \| PLAN_PAREJA \| PLAN_FAMILIAR \| PRODUCTO |
+| `pricing_mode` | String | FIXED \| DISCOUNT_PERCENT |
+| `base_product_barcode` | String | Producto para SaleItem (MEMBERSHIP, INSCRIPTION, etc.) |
+| `fixed_price` | Decimal? | Para FIXED: monto exacto |
+| `discount_percent` | Int? | Para DISCOUNT_PERCENT: 0-100 |
+| `days` | Int? | Días de membresía (null = inscripción) |
+| `min_members` | Int | Participantes mínimos (ej: 2 para pareja) |
+| `max_members` | Int | Participantes máximos |
+| `active` | Boolean | Si false: no aparece en POS |
+| `valid_from` | DateTime? | Vigencia opcional |
+| `valid_until` | DateTime? | Vigencia opcional |
 
 ---
 
@@ -164,6 +188,11 @@ Rastreo de comisiones y staff.
 
 ---
 
+### Productos para promociones
+Gyms nuevos reciben en Inventario: `INSCRIPTION`, `MEMBERSHIP_PAREJA`, `MEMBERSHIP_FAMILIAR` (además de MEMBERSHIP, VISIT_1, etc.). El admin asigna precios para cobros con promo.
+
+---
+
 ## Acciones Auditadas Adicionales
 
 | Action | Disparado en |
@@ -174,4 +203,5 @@ Rastreo de comisiones y staff.
 | `SHIFT_CLOSED` | Cierre de turno (incluye expected, actual, difference) |
 | `SHIFT_FORCE_CLOSED` | Cierre forzado de turno por Admin (force-close) |
 | `SUBSCRIPTION_CANCELED` | Cancelación de suscripción (reason, refund_amount si aplica) |
+| `PROMO_SALE` | Venta con promoción (promotion_id, sale_id, receipt_folio, amount, participant_count) |
 | `USER_SOFT_DELETED` | Dar de baja a usuario (Personal) |

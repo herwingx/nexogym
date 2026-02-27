@@ -22,6 +22,7 @@ export const ROUTES_CONFIG: Record<string, RouteEntry> = {
   '/admin/classes': { label: 'Clases', parent: '/admin' },
   '/admin/routines': { label: 'Rutinas', parent: '/admin' },
   '/admin/inventory': { label: 'Inventario', parent: '/admin' },
+  '/admin/promotions': { label: 'Promociones', parent: '/admin' },
   '/admin/shifts': { label: 'Cortes de caja', parent: '/admin' },
   '/admin/staff': { label: 'Personal', parent: '/admin' },
   '/admin/attendance': { label: 'Asistencia de personal', parent: '/admin' },

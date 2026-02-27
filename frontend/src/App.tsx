@@ -18,6 +18,7 @@ import { VisitsPage } from './pages/VisitsPage'
 import { AdminClasses } from './pages/AdminClasses'
 import { AdminRoutines } from './pages/AdminRoutines'
 import { AdminInventory } from './pages/AdminInventory'
+import { AdminPromotions } from './pages/AdminPromotions'
 import { AdminShifts } from './pages/AdminShifts'
 import { AdminRewards } from './pages/AdminRewards'
 import { AdminLeaderboard } from './pages/AdminLeaderboard'
@@ -144,6 +145,7 @@ function App() {
             <Route path="/admin/classes" element={<AdminClasses />} />
             <Route path="/admin/routines" element={<AdminRoutines />} />
             <Route path="/admin/inventory" element={<AdminInventory />} />
+            <Route path="/admin/promotions" element={<AdminPromotions />} />
             <Route path="/admin/shifts" element={<AdminShifts />} />
             <Route path="/admin/rewards" element={<AdminRewards />} />
             <Route path="/admin/leaderboard" element={<AdminLeaderboard />} />

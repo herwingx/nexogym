@@ -186,6 +186,22 @@ async function main() {
     prisma.product.create({ data: { gym_id: gymBasic.id, name: 'Guantes de Gym',        price: 299, stock: 20                           } }),
   ]);
   await prisma.product.create({ data: { gym_id: gymBasic.id, name: 'Membresía 30 días', price: 0, stock: 99999, barcode: 'MEMBERSHIP' } });
+  await prisma.product.createMany({
+    data: [
+      { gym_id: gymBasic.id, name: 'Inscripción', price: 0, stock: 99999, barcode: 'INSCRIPTION' },
+      { gym_id: gymBasic.id, name: 'Membresía Pareja', price: 0, stock: 99999, barcode: 'MEMBERSHIP_PAREJA' },
+      { gym_id: gymBasic.id, name: 'Membresía Familiar', price: 0, stock: 99999, barcode: 'MEMBERSHIP_FAMILIAR' },
+    ],
+    skipDuplicates: true,
+  });
+
+  await prisma.promotion.createMany({
+    data: [
+      { gym_id: gymBasic.id, name: 'Promo Inscripción', badge: 'Inscripción', type: 'INSCRIPTION', pricing_mode: 'FIXED', base_product_barcode: 'INSCRIPTION', fixed_price: 50, days: null, min_members: 1, max_members: 1, active: true },
+      { gym_id: gymBasic.id, name: 'Promo Pareja', badge: 'Pareja', type: 'PLAN_PAREJA', pricing_mode: 'FIXED', base_product_barcode: 'MEMBERSHIP_PAREJA', fixed_price: 600, days: 30, min_members: 2, max_members: 2, active: true },
+    ],
+    skipDuplicates: true,
+  });
 
   // Turno de caja cerrado + ventas (Básico)
   const shiftBasic = await prisma.cashShift.create({
@@ -340,6 +356,22 @@ async function main() {
     prisma.product.create({ data: { gym_id: gymPro.id, name: 'Cuerda para Saltar Pro',    price: 179, stock: 12 } }),
   ]);
   await prisma.product.create({ data: { gym_id: gymPro.id, name: 'Membresía 30 días', price: 0, stock: 99999, barcode: 'MEMBERSHIP' } });
+  await prisma.product.createMany({
+    data: [
+      { gym_id: gymPro.id, name: 'Inscripción', price: 0, stock: 99999, barcode: 'INSCRIPTION' },
+      { gym_id: gymPro.id, name: 'Membresía Pareja', price: 0, stock: 99999, barcode: 'MEMBERSHIP_PAREJA' },
+      { gym_id: gymPro.id, name: 'Membresía Familiar', price: 0, stock: 99999, barcode: 'MEMBERSHIP_FAMILIAR' },
+    ],
+    skipDuplicates: true,
+  });
+
+  await prisma.promotion.createMany({
+    data: [
+      { gym_id: gymPro.id, name: 'Promo Inscripción', badge: 'Inscripción', type: 'INSCRIPTION', pricing_mode: 'FIXED', base_product_barcode: 'INSCRIPTION', fixed_price: 79, days: null, min_members: 1, max_members: 1, active: true },
+      { gym_id: gymPro.id, name: 'Promo Pareja', badge: 'Pareja', type: 'PLAN_PAREJA', pricing_mode: 'FIXED', base_product_barcode: 'MEMBERSHIP_PAREJA', fixed_price: 700, days: 30, min_members: 2, max_members: 2, active: true },
+    ],
+    skipDuplicates: true,
+  });
 
   // Clases (módulo habilitado en PRO) — Instructor y Coach
   const [classSpin, classBox, classFunc] = await Promise.all([
@@ -545,6 +577,60 @@ async function main() {
     prisma.product.create({ data: { gym_id: gymPremium.id, name: 'Rodilleras Elásticas (par)',   price: 399,  stock: 15 } }),
   ]);
   await prisma.product.create({ data: { gym_id: gymPremium.id, name: 'Membresía 30 días', price: 0, stock: 99999, barcode: 'MEMBERSHIP' } });
+  await prisma.product.createMany({
+    data: [
+      { gym_id: gymPremium.id, name: 'Inscripción', price: 0, stock: 99999, barcode: 'INSCRIPTION' },
+      { gym_id: gymPremium.id, name: 'Membresía Pareja', price: 0, stock: 99999, barcode: 'MEMBERSHIP_PAREJA' },
+      { gym_id: gymPremium.id, name: 'Membresía Familiar', price: 0, stock: 99999, barcode: 'MEMBERSHIP_FAMILIAR' },
+    ],
+    skipDuplicates: true,
+  });
+
+  // Promociones de ejemplo (gymPremium)
+  await prisma.promotion.createMany({
+    data: [
+      {
+        gym_id: gymPremium.id,
+        name: 'Promo Inscripción',
+        badge: 'Inscripción',
+        type: 'INSCRIPTION',
+        pricing_mode: 'FIXED',
+        base_product_barcode: 'INSCRIPTION',
+        fixed_price: 99,
+        days: null,
+        min_members: 1,
+        max_members: 1,
+        active: true,
+      },
+      {
+        gym_id: gymPremium.id,
+        name: 'Promo Pareja 2x1',
+        badge: 'Pareja',
+        type: 'PLAN_PAREJA',
+        pricing_mode: 'FIXED',
+        base_product_barcode: 'MEMBERSHIP_PAREJA',
+        fixed_price: 800,
+        days: 30,
+        min_members: 2,
+        max_members: 2,
+        active: true,
+      },
+      {
+        gym_id: gymPremium.id,
+        name: 'Promo Familiar',
+        badge: 'Familiar',
+        type: 'PLAN_FAMILIAR',
+        pricing_mode: 'FIXED',
+        base_product_barcode: 'MEMBERSHIP_FAMILIAR',
+        fixed_price: 1200,
+        days: 30,
+        min_members: 2,
+        max_members: 4,
+        active: true,
+      },
+    ],
+    skipDuplicates: true,
+  });
 
   // Clases Premium
   const [classYoga, classCross, classPilates] = await Promise.all([

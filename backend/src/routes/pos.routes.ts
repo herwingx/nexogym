@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProducts, createSale, registerExpense, getSales, getCurrentShift, getShifts, getOpenShifts, getShiftSales } from '../controllers/pos.controller';
+import { getProducts, createSale, createPromoSale, registerExpense, getSales, getCurrentShift, getShifts, getOpenShifts, getShiftSales } from '../controllers/pos.controller';
 import { openShift, closeShift, forceCloseShift } from '../controllers/shift.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
 import { requireModuleEnabled } from '../middlewares/module-access.middleware';
@@ -63,6 +63,7 @@ router.get('/products', getProducts);           // Catálogo del POS
  *       201:
  *         description: Sale completed successfully
  */
+router.post('/sales/promotion', createPromoSale); // Venta con promoción (Sale + Subscriptions) — ruta más específica primero
 router.post('/sales', createSale);              // Crear venta (ACID)
 
 /**

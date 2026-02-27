@@ -447,6 +447,54 @@ Cierra el turno del usuario actual. Body: `{ "actual_balance": number }`. `404` 
 ### `POST /api/v1/pos/expenses`
 Registra un egreso en el turno abierto del usuario. Body: `{ "amount": number, "type": "SUPPLIER_PAYMENT" | "OPERATIONAL_EXPENSE" | "CASH_DROP", "description"?: string }`. Para `SUPPLIER_PAYMENT` y `OPERATIONAL_EXPENSE` la descripción es obligatoria (mín. 5 caracteres); para `CASH_DROP` es opcional. `400` si no hay turno abierto o validación falla.
 
+### `POST /api/v1/pos/sales/promotion`
+Venta con promoción. Integra en Sale/SaleItem, turno, folio V-YYYY-NNNNNN. Para PLAN_* crea/actualiza Subscriptions de los participantes. Requiere turno abierto.
+```json
+// Body
+{
+  "promotion_id": "uuid",
+  "participant_ids": ["uuid", "uuid"],
+  "seller_id": "uuid" // opcional
+}
+```
+- **INSCRIPTION**: `participant_ids` opcional; crea Sale + SaleItem.
+- **PLAN_PAREJA**: requiere 2 participantes; crea Sale + 2 Subscriptions.
+- **PLAN_FAMILIAR**: requiere 2-4 participantes.
+- **Respuesta 201:** `{ "message": "...", "sale": { id, receipt_folio, total, items, ... } }`
+
+---
+
+## Promociones (Admin CRUD)
+
+### `GET /api/v1/promotions`
+Lista promociones. **Admin:** todas. **Staff (can_use_pos):** solo `active: true`.
+```json
+{ "data": [{ "id": "uuid", "name": "Promo Parejas", "badge": "Pareja", "type": "PLAN_PAREJA", "pricing_mode": "FIXED", "fixed_price": 800, "active": true, ... }] }
+```
+
+### `POST /api/v1/promotions`
+**Solo Admin/SuperAdmin.** Crea promoción.
+```json
+{
+  "name": "Promo Parejas",
+  "badge": "Pareja",
+  "type": "PLAN_PAREJA",
+  "pricing_mode": "FIXED",
+  "base_product_barcode": "MEMBERSHIP_PAREJA",
+  "fixed_price": 800,
+  "days": 30,
+  "min_members": 2,
+  "max_members": 2,
+  "active": true
+}
+```
+
+### `PATCH /api/v1/promotions/:id`
+**Solo Admin/SuperAdmin.** Edita promoción (incl. activar/desactivar). Body parcial.
+
+### `GET /api/v1/promotions/:id`
+Detalle de una promoción.
+
 ---
 
 ## Qué falta y por qué (revisión posterior)
