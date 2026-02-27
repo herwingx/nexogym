@@ -18,6 +18,7 @@ import {
   Trophy,
   Medal,
   ScanQrCode,
+  UserCheck,
 } from 'lucide-react'
 import { useAuthStore, type ModulesConfig } from '../store/useAuthStore'
 import { ThemeToggle } from '../components/ui/ThemeToggle'
@@ -60,6 +61,7 @@ const navItems: NavItem[] = [
   { label: 'Inventario', to: '/admin/inventory', icon: Package, moduleKey: 'pos', staffPermission: 'pos' },
   { label: 'Cortes de caja', to: '/admin/shifts', icon: Wallet, moduleKey: 'pos', staffPermission: 'pos' },
   { label: 'Personal', to: '/admin/staff', icon: UserCog, moduleKey: null, staffPermission: 'staff' },
+  { label: 'Asistencia de personal', to: '/admin/attendance', icon: UserCheck, moduleKey: null, adminOnly: true },
   { label: 'Clases', to: '/admin/classes', icon: CalendarDays, moduleKey: 'classes', staffPermission: 'routines' },
   { label: 'Rutinas', to: '/admin/routines', icon: Dumbbell, moduleKey: 'classes', staffPermission: 'routines' },
   { label: 'Gamificación', to: '/admin/rewards', icon: Trophy, moduleKey: 'gamification', staffPermission: 'gamification' },
@@ -89,6 +91,7 @@ export const AdminLayout = () => {
   const perms = user.effective_staff_permissions
 
   const filteredNav = navItems.filter((item) => {
+    if (item.adminOnly && !isAdmin) return false
     if (item.moduleKey && !modules[item.moduleKey]) return false
     if (isAdmin || item.alwaysVisible) return true
     if (!item.staffPermission) return false

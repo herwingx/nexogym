@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.middleware';
 import {
-  requireCanViewDashboard,
+  requireCanViewOccupancy,
   requireCanUseFinance,
   requireCanViewFinanceData,
   requireCanViewAudit,
@@ -36,7 +36,7 @@ router.use(requireAuth);
  *       200:
  *         description: Current occupancy count
  */
-router.get('/occupancy', requireCanViewDashboard, getLiveOccupancy);
+router.get('/occupancy', requireCanViewOccupancy, getLiveOccupancy);
 
 /**
  * @swagger

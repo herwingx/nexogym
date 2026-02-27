@@ -20,7 +20,7 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 | **ARCHITECTURE_REVIEW_NEXOGYM.md** | Revisión de arquitectura del producto. |
 | **DOMINIO_Y_URL_PRODUCCION.md** | Dominio, URL y marca en producción: arquitectura recomendada, white-label, opciones futuras (subdominios, dominios propios). |
 | **PRD.md** | Product Requirements Document. |
-| **DATABASE_SCHEMA.md** | Modelo de datos Prisma: enums, tablas, acciones auditadas. Incluye **ExpenseType**, **Expense**, **CashShift** (expected_balance), **SHIFT_CLOSED** / **SHIFT_FORCE_CLOSED** / **USER_SOFT_DELETED**. |
+| **DATABASE_SCHEMA.md** | Modelo de datos Prisma: enums, tablas, acciones auditadas. Incluye **ExpenseType** (REFUND para reembolsos), **Expense**, **CashShift** (expected_balance), **SHIFT_CLOSED** / **SHIFT_FORCE_CLOSED** / **SUBSCRIPTION_CANCELED** / **USER_SOFT_DELETED**. |
 
 ---
 
@@ -38,7 +38,7 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 
 | Documento | Contenido |
 |-----------|-----------|
-| **CORTES_CAJA_Y_STOCK.md** | Flujo de turnos, stock al vender, **cierre ciego** (recepcionista no ve saldo esperado), **tipos de egreso** (SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP), **Forzar Cierre** y **Personal** (/admin/staff). Secciones 4–9: cierre ciego, tipos de egreso, controles admin, cerrar sesión, resumen, referencia técnica. |
+| **CORTES_CAJA_Y_STOCK.md** | Flujo de turnos, stock al vender, **cierre ciego** (recepcionista no ve saldo esperado), **tipos de egreso** (SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP, REFUND para reembolsos), **Forzar Cierre** y **Personal** (/admin/staff). Secciones 4–9: cierre ciego, tipos de egreso, controles admin, cerrar sesión, resumen, referencia técnica. |
 ---
 
 ## Auth y Supabase
@@ -89,6 +89,14 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 
 ---
 
+## Cambios y roadmap
+
+| Documento | Contenido |
+|-----------|-----------|
+| **CHANGELOG_AND_ROADMAP.md** | Cambios implementados (backend, frontend, docs), flujos documentados (cancelación con devolución, check-in y auditoría), roadmap futuro. |
+
+---
+
 ## Otros
 
 | Documento | Contenido |
@@ -124,3 +132,5 @@ Referencia rápida de los documentos en `.docs/` y cómo encajan entre sí.
 - **PWA manifest dinámico (white-label):** Al instalar la app, el usuario ve el **nombre del gym** (y theme_color) en lugar de "NexoGym". GET /api/v1/manifest devuelve el manifest personalizado usando la cookie `nexogym_gym_id` seteada en /users/me/context. Ver **PWA_MANIFEST_DINAMICO.md**.
 
 Para más detalle técnico: **CORTES_CAJA_Y_STOCK.md**, **API_SPEC.md**, **REVISION_ROLES_FRONTEND_BACKEND.md**, **REVISION_FRONTEND_POS_Y_STAFF.md**, **SUBSCRIPTION_EXPIRY_AND_RENEWAL.md**.
+
+- **Asistencia de personal:** Vista `/admin/attendance` (solo Admin/SuperAdmin). Checadas del staff con filtros por fecha y usuario. Ver **CHANGELOG_AND_ROADMAP.md**, **STAFF_QR_ACCESS_AND_ATTENDANCE.md**.

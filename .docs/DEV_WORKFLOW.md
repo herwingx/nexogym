@@ -464,11 +464,11 @@ Se usan como header: `X-Hardware-Key: <valor>`
 | `POST` | `/api/v1/routines/:id/exercises` | `{ "name": "Sentadilla", "sets": 4, "reps": 10, "weight": 80 }` |
 | `DELETE` | `/api/v1/routines/:id/exercises/:exerciseId` | Quitar ejercicio |
 
-#### 📊 Módulo Analytics (requiere JWT ADMIN)
+#### 📊 Módulo Analytics
 
 | Método | Endpoint | Qué probar |
 |---|---|---|
-| `GET` | `/api/v1/analytics/occupancy` | Ocupación en tiempo real (últimos 90 min). Usado solo cuando el gym tiene Check-in QR; en plan Basic el front no llama a este endpoint. |
+| `GET` | `/api/v1/analytics/occupancy` | Ocupación en tiempo real (últimos 90 min). Requiere Admin, SuperAdmin, rol RECEPTIONIST, o staff con `can_view_dashboard` / `can_use_reception`. Usado solo cuando el gym tiene Check-in QR. |
 | `GET` | `/api/v1/analytics/revenue/daily?date=2026-02-24` | Ingresos del día |
 | `GET` | `/api/v1/analytics/financial-report?month=2026-02` | Reporte mensual |
 | `GET` | `/api/v1/analytics/audit-logs` | Historial de auditoría |

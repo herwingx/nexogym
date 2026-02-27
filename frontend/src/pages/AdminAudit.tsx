@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
-import { fetchAuditLog, type AuditLogEntry } from '../lib/apiClient'
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { fetchAuditLog, fetchStaffUsers, type AuditLogEntry, type StaffUserRow } from '../lib/apiClient'
 import { notifyError } from '../lib/notifications'
 import { TableRowSkeleton } from '../components/ui/Skeleton'
+import { Button } from '../components/ui/Button'
 
 const CRITICAL_ACTIONS = new Set([
   'COURTESY_ACCESS_GRANTED',
@@ -62,9 +63,19 @@ export const AdminAudit = () => {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [actionFilter, setActionFilter] = useState('')
+  const [userIdFilter, setUserIdFilter] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [staff, setStaff] = useState<StaffUserRow[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const PAGE_SIZE = 20
+
+  useEffect(() => {
+    fetchStaffUsers(1, 200, 'all')
+      .then((r) => setStaff(r.data))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -72,6 +83,9 @@ export const AdminAudit = () => {
         setIsLoading(true)
         const data = await fetchAuditLog({
           action: actionFilter || undefined,
+          userId: userIdFilter || undefined,
+          from_date: fromDate || undefined,
+          to_date: toDate || undefined,
           page,
           pageSize: PAGE_SIZE,
         })
@@ -87,38 +101,90 @@ export const AdminAudit = () => {
       }
     }
     void load()
-  }, [actionFilter, page])
+  }, [actionFilter, userIdFilter, fromDate, toDate, page])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-4 py-6 space-y-5">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              Auditoría
-            </h1>
-            <p className="text-sm text-zinc-500">
-              Registro de acciones críticas del ERP. Filtrable por tipo de evento.
-            </p>
-          </div>
-          <select
-            className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-xs text-zinc-700 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
-            value={actionFilter}
-            onChange={(e) => {
-              setActionFilter(e.target.value)
-              setPage(1)
-            }}
-          >
-            <option value="">Todas las acciones</option>
-            {ALL_ACTIONS.map((a) => (
-              <option key={a} value={a}>
-                {ACTION_LABELS[a] ?? a}
-              </option>
-            ))}
-          </select>
+        <header>
+          <h1 className="text-xl font-semibold tracking-tight">Auditoría</h1>
+          <p className="text-sm text-zinc-500">
+            Registro de acciones críticas. Filtra por fecha, usuario y tipo.
+          </p>
         </header>
+
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+              Desde
+            </label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value)
+                setPage(1)
+              }}
+              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+              Hasta
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value)
+                setPage(1)
+              }}
+              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+              Usuario
+            </label>
+            <select
+              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm text-zinc-700 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              value={userIdFilter}
+              onChange={(e) => {
+                setUserIdFilter(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Todos</option>
+              {staff.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name ?? u.phone ?? u.id.slice(0, 8)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+              Acción
+            </label>
+            <select
+              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm text-zinc-700 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              value={actionFilter}
+              onChange={(e) => {
+                setActionFilter(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Todas las acciones</option>
+              {ALL_ACTIONS.map((a) => (
+                <option key={a} value={a}>
+                  {ACTION_LABELS[a] ?? a}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         <section className="rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-4 shadow-sm overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -197,32 +263,39 @@ export const AdminAudit = () => {
                 })}
             </tbody>
           </table>
-        </section>
-
-        {/* Paginación */}
-        {totalPages > 1 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400">
-            <button
-              type="button"
-              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 disabled:opacity-40 text-zinc-700 dark:text-zinc-300"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Anterior
-            </button>
+          {total > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
             <span>
-              Página {page} de {totalPages} · {total} registros
+              {entries.length} de {total} registros
             </span>
-            <button
-              type="button"
-              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 disabled:opacity-40 text-zinc-700 dark:text-zinc-300"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Siguiente
-            </button>
-          </div>
-        )}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || isLoading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span>
+                  Página {page} de {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages || isLoading}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   )

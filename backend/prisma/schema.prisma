@@ -66,6 +66,7 @@ enum ExpenseType {
   SUPPLIER_PAYMENT   // Pago a proveedores
   OPERATIONAL_EXPENSE // Gasto operativo del gym
   CASH_DROP          // Retiro de efectivo por el dueño
+  REFUND             // Devolución de membresía (cancelación con reembolso)
 }
 
 // -------------------------------------------------------------

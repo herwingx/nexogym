@@ -54,15 +54,27 @@ Todos vienen con precio 0 y stock alto (99.999). El **admin** solo debe entrar a
 ## 5. Cierre ciego (recepcionista)
 
 - **Objetivo:** Evitar que el recepcionista "apunte" al saldo esperado; debe contar el efectivo físico y reportar solo ese monto.
-- **Comportamiento:** El recepcionista solo envía `actual_balance` (efectivo contado). El backend calcula internamente `expected_balance` (fondo + ventas - egresos) y guarda la diferencia en auditoría, pero **no devuelve** esos datos en la respuesta si el rol es RECEPTIONIST: solo `200 OK` con `{ "message": "Turno cerrado exitosamente." }`.
-- **UI:** En recepción no se muestra el "Saldo esperado" ni en la tarjeta de turno ni en el modal de cierre; solo el input de efectivo contado y un checkbox de confirmación. Admin/SuperAdmin sí ven el saldo esperado y la reconciliación al cerrar.
+- **Antes de cerrar:** El recepcionista no ve el saldo esperado (frontend `showExpectedBalance = false`). Solo el input de efectivo contado y un checkbox de confirmación.
+- **Al cerrar:** El backend calcula `expected_balance` (fondo + ventas - egresos), guarda la diferencia en auditoría y **devuelve la reconciliación a todos** (incl. recepcionista).
+- **Después de cerrar:** El staff ve un **resumen del corte** en el mismo modal: fondo, ventas, egresos, esperado, efectivo contado, diferencia y estado (Cuadrado / Sobrante / Faltante). Botón "Listo" para cerrar. Así el staff sabe cómo quedó su corte sin ir a Cortes de caja.
 
 ---
 
 ## 6. Tipos de egreso de caja
 
-- **Categorías:** Cada egreso debe clasificarse en uno de: **SUPPLIER_PAYMENT** (pago a proveedores), **OPERATIONAL_EXPENSE** (gasto operativo del gym), **CASH_DROP** (retiro de efectivo por el dueño). Para los dos primeros la descripción es obligatoria (mín. 5 caracteres); para CASH_DROP es opcional.
+- **Categorías manuales (formulario de egresos):** **SUPPLIER_PAYMENT** (pago a proveedores), **OPERATIONAL_EXPENSE** (gasto operativo del gym), **CASH_DROP** (retiro de efectivo por el dueño). Para los dos primeros la descripción es obligatoria (mín. 5 caracteres); para CASH_DROP es opcional.
+- **REFUND (automático):** Se crea automáticamente al cancelar una suscripción con reembolso (`PATCH /users/:id/cancel-subscription` con `refund_amount > 0`). Requiere turno abierto; el egreso queda asociado al turno de **quien cancela** (quien entrega el dinero al cliente). Ver **SUBSCRIPTION_EXPIRY_AND_RENEWAL.md** (sección Cancelar).
 - **Validación:** Backend y frontend exigen descripción cuando el tipo es SUPPLIER_PAYMENT u OPERATIONAL_EXPENSE.
+
+### 6.1 Devolución desde otro turno (refund en turno distinto al cobro)
+
+Cuando el cliente pide devolución en un turno **distinto** al que cobró la suscripción:
+
+- **Quién registra:** Cualquier staff con turno abierto puede cancelar con reembolso. No importa quién cobró originalmente.
+- **Dónde se registra el egreso:** En el turno de **quien hace la devolución** (quien entrega el efectivo al cliente).
+- **Flujo:** Recepcionista A cobró la membresía ayer y cerró turno. Hoy, Recepcionista B abre su turno; el cliente llega pidiendo devolución. B cancela con `refund_amount` y entrega el dinero. El egreso REFUND queda en el turno de B.
+- **Saldo esperado:** El egreso reduce el `expected_balance` del turno: `saldo_esperado = fondo_inicial + ventas - egresos`. El REFUND es un egreso, por lo que se descuenta.
+- **No genera faltante:** El efectivo sale del cajón actual (fondo + ventas del turno). Todos los turnos comparten el flujo de caja del gym. Si se contó correctamente el efectivo al cerrar, el turno queda **cuadrado** (no faltante), porque el saldo esperado ya incluye el egreso.
 
 ---
 
@@ -101,12 +113,14 @@ Todos vienen con precio 0 y stock alto (99.999). El **admin** solo debe entrar a
 | ¿Recepcionista/coach con permiso de vender ve sus cortes? | Sí: solo sus propios cortes pasados y el detalle (transacciones) de cada uno. |
 | ¿No hacer corte afecta el stock? | No. El stock se actualiza al vender, no al cerrar turno. |
 | ¿Afecta al turno del otro recep? | No. Cada recep tiene su turno; el stock es común y ya queda actualizado con cada venta. |
+| ¿Devolución desde otro turno genera faltante? | No. El egreso REFUND va al turno de quien hace la devolución; reduce el saldo esperado y cuadra con el efectivo entregado. |
+| ¿El staff ve cómo quedó su corte al cerrar? | Sí. Tras cerrar, se muestra un resumen (esperado, efectivo, diferencia, estado Cuadrado/Sobrante/Faltante) antes de cerrar el modal. |
 | ¿Se puede cerrar sesión sin hacer corte? | No. Si tiene turno abierto, se bloquea el logout hasta que haga corte (modal + “Ir a cerrar turno”). |
 
 ---
 
 ## 10. Referencia técnica (archivos)
 
-- **Backend:** `shift.controller.ts` (open/close con `logAuditEvent` SHIFT_OPENED y SHIFT_CLOSED, **forceCloseShift**), `pos.controller.ts` (createSale con `receipt_folio`, **getShiftSales** para transacciones de un corte + movimientos de inventario, getCurrentShift, getShifts, getOpenShifts). `getShifts` filtra por `user_id` si el caller no es Admin/SuperAdmin; `getShiftSales` devuelve 403 si staff intenta ver un corte ajeno. Cierre ciego: en `closeShift` se comprueba `req.userRole === RECEPTIONIST` y se responde solo `{ message }` sin reconciliación.
+- **Backend:** `shift.controller.ts` (open/close con `logAuditEvent` SHIFT_OPENED y SHIFT_CLOSED, **forceCloseShift**), `pos.controller.ts` (createSale con `receipt_folio`, **getShiftSales** para transacciones de un corte + movimientos de inventario, getCurrentShift, getShifts, getOpenShifts). `getShifts` filtra por `user_id` si el caller no es Admin/SuperAdmin; `getShiftSales` devuelve 403 si staff intenta ver un corte ajeno. Cierre ciego: en `FormCloseShift` no se muestra saldo esperado si `showExpectedBalance = false`; tras cerrar, todos reciben `reconciliation` para mostrar el resumen del corte.
 - **Frontend:** `ReceptionLayout.tsx` (bloqueo de logout + modal), `ReceptionPos.tsx` / `ReceptionCheckIn.tsx` (abrir/cerrar turno; **FormCloseShift** con `showExpectedBalance` según rol), **FormExpense** con select de tipo y validación de descripción, `AdminShifts.tsx` (historial + turnos abiertos + **Forzar Cierre** + **Transacciones** por corte: ventas agrupadas por folio con desglose por producto; estados Cuadrado/Sobrante/Faltante), `AdminStaffView.tsx` (personal, dar de baja).
 - **Schema:** Enum `ExpenseType` (SUPPLIER_PAYMENT, OPERATIONAL_EXPENSE, CASH_DROP); modelo `Expense` con `type` y `description` opcional. Ver **DATABASE_SCHEMA.md** y **API_SPEC.md**.

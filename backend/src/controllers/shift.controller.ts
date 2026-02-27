@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../db';
-import { Role, ShiftStatus } from '@prisma/client';
+import { ShiftStatus } from '@prisma/client';
 import { sendShiftSummary } from '../services/n8n.service';
 import { logAuditEvent } from '../utils/audit.logger';
 import { handleControllerError } from '../utils/http';
@@ -161,15 +161,10 @@ export const closeShift = async (req: Request, res: Response) => {
       });
     }
 
-    // Cierre ciego: RECEPTIONIST no recibe detalles de reconciliación (evitar trampas)
-    const userRole = req.userRole as Role | undefined;
-    if (userRole === Role.RECEPTIONIST) {
-      res.status(200).json({ message: 'Turno cerrado exitosamente.' });
-      return;
-    }
-
+    // Devolver reconciliación a todos para que el staff vea cómo quedó su corte al cerrar.
+    // Cierre ciego: el saldo esperado NO se muestra antes de cerrar (showExpectedBalance en frontend).
     res.status(200).json({
-      message: 'Shift closed successfully.',
+      message: 'Turno cerrado exitosamente.',
       shift: updatedShift,
       reconciliation: {
         opening_balance: Number(currentShift.opening_balance),

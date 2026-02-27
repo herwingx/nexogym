@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '../db';
 import { Prisma } from '@prisma/client';
-import { SubscriptionStatus, Role, SubscriptionTier, ShiftStatus } from '@prisma/client';
+import { SubscriptionStatus, Role, SubscriptionTier, ShiftStatus, ExpenseType } from '@prisma/client';
 import { sendWelcomeMessage, sendQrResend, sendStaffWelcomeMessage, sendStaffPasswordResetToAdmin, sendMemberWelcomeEmail, sendMemberReceiptEmail } from '../services/n8n.service';
 import { env } from '../config/env';
 import { logAuditEvent } from '../utils/audit.logger';
@@ -13,7 +13,7 @@ import { resolveModulesConfig } from '../utils/modules-config';
 import { getEffectiveStaffPermissions } from '../utils/staff-permissions';
 import { MEMBERSHIP_BARCODE, PLAN_BARCODE_DAYS, PLAN_BARCODE_LABELS } from '../data/default-products';
 import { getStreakFreezeDays } from '../utils/rewards-config';
-import { getNextRenewalFolio } from '../utils/receipt-folio';
+import { getNextRenewalFolio, getNextSaleFolio } from '../utils/receipt-folio';
 import { MANIFEST_COOKIE_OPTIONS } from './manifest.controller';
 
 const STAFF_ROLES = [Role.RECEPTIONIST, Role.COACH, Role.INSTRUCTOR, Role.CLEANER] as const;
@@ -251,9 +251,9 @@ export const getUsers = async (req: Request, res: Response) => {
             gym_id: gymId,
             role: Role.MEMBER,
             deleted_at: null,
-            NOT: {
-              subscriptions: {
-                some: { status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.FROZEN] } },
+            subscriptions: {
+              some: {
+                status: { in: [SubscriptionStatus.EXPIRED, SubscriptionStatus.CANCELED] },
               },
             },
           },
@@ -805,12 +805,14 @@ export const renewSubscription = async (req: Request, res: Response) => {
         return;
       }
 
+      const saleFolio = await getNextSaleFolio(gymId);
       await prisma.sale.create({
         data: {
           gym_id: gymId,
           cash_shift_id: openShift.id,
           seller_id: actorId,
           total: price,
+          receipt_folio: saleFolio,
           items: {
             create: [
               {
@@ -1551,16 +1553,39 @@ export const syncExpiredSubscriptions = async (req: Request, res: Response) => {
 };
 
 // PATCH /users/:id/cancel-subscription
+// Body: { reason: string (required), refund_amount?: number }. Si refund_amount > 0, requiere turno abierto y registra egreso tipo REFUND.
 export const cancelSubscription = async (req: Request, res: Response) => {
   try {
     const gymId = req.gymId;
-    if (!gymId) {
+    const actorId = req.user?.id;
+    if (!gymId || !actorId) {
       res.status(401).json({ error: 'Unauthorized: Gym context missing' });
       return;
     }
 
     const id = req.params.id as string;
-    const { reason } = req.body;
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    if (!reason || reason.length < 3) {
+      res.status(400).json({
+        error: 'El motivo de cancelación es obligatorio (mín. 3 caracteres). Ej: Devolución, cambio de domicilio.',
+      });
+      return;
+    }
+
+    const refundAmount = typeof req.body?.refund_amount === 'number' ? req.body.refund_amount : 0;
+    if (refundAmount < 0) {
+      res.status(400).json({ error: 'El monto de devolución no puede ser negativo.' });
+      return;
+    }
+
+    const member = await prisma.user.findFirst({
+      where: { id, gym_id: gymId, deleted_at: null, role: Role.MEMBER },
+      select: { id: true, name: true },
+    });
+    if (!member) {
+      res.status(404).json({ error: 'Usuario no encontrado.' });
+      return;
+    }
 
     const activeOrFrozen = await prisma.subscription.findFirst({
       where: {
@@ -1572,8 +1597,30 @@ export const cancelSubscription = async (req: Request, res: Response) => {
     });
 
     if (!activeOrFrozen) {
-      res.status(404).json({ error: 'Active or frozen subscription not found for this user.' });
+      res.status(404).json({ error: 'No hay suscripción activa o congelada para cancelar.' });
       return;
+    }
+
+    if (refundAmount > 0) {
+      const openShift = await prisma.cashShift.findFirst({
+        where: { gym_id: gymId, user_id: actorId, status: ShiftStatus.OPEN },
+      });
+      if (!openShift) {
+        res.status(400).json({
+          error: 'Para registrar una devolución debes tener un turno de caja abierto. Abre turno antes de cancelar con reembolso.',
+        });
+        return;
+      }
+      const description = `Devolución membresía - ${reason} - Socio: ${member.name ?? id}`;
+      await prisma.expense.create({
+        data: {
+          gym_id: gymId,
+          cash_shift_id: openShift.id,
+          type: ExpenseType.REFUND,
+          amount: refundAmount,
+          description,
+        },
+      });
     }
 
     const cancelled = await prisma.subscription.update({
@@ -1585,15 +1632,17 @@ export const cancelSubscription = async (req: Request, res: Response) => {
       },
     });
 
-    await logAuditEvent(gymId, req.user?.id ?? id, 'SUBSCRIPTION_CANCELED', {
+    await logAuditEvent(gymId, actorId, 'SUBSCRIPTION_CANCELED', {
       target_user_id: id,
-      reason: reason ?? 'No reason provided',
+      reason,
       subscription_id: cancelled.id,
+      ...(refundAmount > 0 && { refund_amount: refundAmount }),
     });
 
     res.status(200).json({
-      message: 'Subscription cancelled successfully.',
+      message: 'Suscripción cancelada correctamente.',
       subscription: cancelled,
+      ...(refundAmount > 0 && { refund_registered: refundAmount }),
     });
   } catch (error) {
     handleControllerError(req, res, error, '[cancelSubscription Error]', 'Failed to cancel subscription.');

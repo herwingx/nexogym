@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'sileo'
 import 'sileo/styles.css'
+import './toast-override.css'
 import { useAuthStore } from './store/useAuthStore'
 import { useTheme } from './contexts/ThemeContext'
 import { deriveThemeFromHex } from './utils/colorMath'
@@ -12,6 +13,7 @@ import { AdminDashboard } from './pages/AdminDashboard'
 import { AdminMembers } from './pages/AdminMembers'
 import { AdminFinance } from './pages/AdminFinance'
 import { AdminAudit } from './pages/AdminAudit'
+import { AdminStaffAttendance } from './pages/AdminStaffAttendance'
 import { AdminClasses } from './pages/AdminClasses'
 import { AdminRoutines } from './pages/AdminRoutines'
 import { AdminInventory } from './pages/AdminInventory'
@@ -146,6 +148,7 @@ function App() {
             <Route path="/admin/leaderboard" element={<AdminLeaderboard />} />
             <Route path="/admin/staff" element={<AdminStaffView />} />
             <Route path="/admin/audit" element={<AdminAudit />} />
+            <Route path="/admin/attendance" element={<AdminStaffAttendance />} />
             <Route path="/admin/profile" element={<ProfileSettings />} />
           </Route>
         </Route>
@@ -157,6 +160,8 @@ function App() {
             <Route path="/reception/members" element={<ReceptionMembersPage />} />
             <Route path="/reception/members/new" element={<ReceptionMemberNewPage />} />
             <Route path="/reception/leaderboard" element={<AdminLeaderboard />} />
+            <Route path="/reception/classes" element={<AdminClasses />} />
+            <Route path="/reception/routines" element={<AdminRoutines />} />
             <Route path="/reception/profile" element={<ProfileSettings />} />
           </Route>
         </Route>

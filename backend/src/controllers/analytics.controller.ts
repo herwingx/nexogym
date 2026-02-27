@@ -181,16 +181,28 @@ export const getAuditLogs = async (req: Request, res: Response) => {
       return;
     }
 
-    const { action, userId: filterUserId, limit = '50', page = '1' } = req.query;
+    const { action, userId: filterUserId, from_date, to_date, limit = '50', page = '1' } = req.query;
 
     const take = Math.min(Number(limit) || 50, 200); // Cap at 200 per page
     const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
+
+    const fromDate = typeof from_date === 'string' && from_date ? new Date(from_date + 'T00:00:00.000Z') : null;
+    const toDate = typeof to_date === 'string' && to_date ? new Date(to_date + 'T23:59:59.999Z') : null;
+    const dateFilter =
+      fromDate && toDate
+        ? { created_at: { gte: fromDate, lte: toDate } }
+        : fromDate
+          ? { created_at: { gte: fromDate } }
+          : toDate
+            ? { created_at: { lte: toDate } }
+            : {};
 
     const logs = await prisma.auditLog.findMany({
       where: {
         gym_id: gymId,
         ...(action ? { action: String(action) } : {}),
         ...(filterUserId ? { user_id: String(filterUserId) } : {}),
+        ...dateFilter,
       },
       include: {
         user: { select: { id: true, name: true, role: true } },
@@ -205,6 +217,7 @@ export const getAuditLogs = async (req: Request, res: Response) => {
         gym_id: gymId,
         ...(action ? { action: String(action) } : {}),
         ...(filterUserId ? { user_id: String(filterUserId) } : {}),
+        ...dateFilter,
       },
     });
 

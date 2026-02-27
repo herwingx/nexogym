@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const expenseTypeEnum = z.enum(['SUPPLIER_PAYMENT', 'OPERATIONAL_EXPENSE', 'CASH_DROP']);
+export const expenseTypeEnum = z.enum(['SUPPLIER_PAYMENT', 'OPERATIONAL_EXPENSE', 'CASH_DROP', 'REFUND']);
 
 export const saleSchema = z.object({
   items: z.array(z.object({

@@ -101,11 +101,15 @@ En ambos casos el **sistema** hace lo mismo: recibe un código QR, valida que se
 
 **Conclusión:** La lógica es la misma; solo cambia quién escanea: recepcionista (A) o el propio staff en el lector (B).
 
-### 4.3 Auditoría — ¿se ve la checada del staff?
+### 4.3 Vista de asistencia — ¿dónde ve el Admin las checadas del staff?
 
-Sí. Las visitas se guardan en `Visit` con `user_id`. Como el staff es un `User` del gym, sus checadas aparecen igual que las de socios.
+Las visitas se guardan en `Visit` con `user_id`. Como el staff es un `User` del gym, sus checadas aparecen igual que las de socios.
 
-En la pantalla de **Auditoría** se pueden filtrar acciones por tipo. Si se añade un filtro «Visitas» o «Check-ins», se verán tanto socios como staff. Para distinguirlos: el `User.role` indica si es MEMBER (socio) o staff (RECEPTIONIST, COACH, INSTRUCTOR).
+**Vista Asistencia de personal** (`/admin/attendance`): Solo Admin/SuperAdmin. Muestra todas las checadas del personal (staff) con filtros por fecha y usuario. Ideal para control de puntualidad. Columnas: fecha/hora, usuario, rol, método de acceso, tipo de acceso. Paginación visible.
+
+**API:** `GET /checkin/visits?staff_only=true` con query `from_date`, `to_date`, `user_id`, `page`, `limit`.
+
+En la pantalla de **Auditoría** (`/admin/audit`) se registran acciones críticas (incluido `CHECKIN_SUCCESS`). Para ver el historial de checadas del staff de forma estructurada, usar la vista **Asistencia de personal**.
 
 ---
 

@@ -1,0 +1,4 @@
+/* Toasts (Sileo) deben quedar por encima de modales (z-50/z-100) para no verse borrosos por backdrop-blur */
+[data-sileo-viewport] {
+  z-index: 9999;
+}

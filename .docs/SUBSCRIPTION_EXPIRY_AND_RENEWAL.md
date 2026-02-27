@@ -75,7 +75,20 @@ Cuando el socio vuelve a entrenar sin pagar de nuevo, se usa **Descongelar**. Cu
 
 ---
 
-## 5. Sincronizar vencidas (`POST /users/sync-expired-subscriptions`)
+## 5. Cancelar (`PATCH /users/:id/cancel-subscription`)
+
+- Solo suscripciones **ACTIVE** o **FROZEN**.
+- **Motivo obligatorio:** `reason` (string).
+- **Reembolso opcional:** `refund_amount` (number ≥ 0). Si > 0:
+  - Requiere **turno de caja abierto** en el usuario que cancela (quien entrega el dinero al cliente).
+  - Se registra un egreso tipo **REFUND** en el turno de quien cancela.
+  - Puede ser otro turno distinto al que cobró la membresía: el egreso va al turno actual (quien hace la devolución). No genera faltante: el egreso reduce el saldo esperado y el efectivo sale del cajón actual. Ver **CORTES_CAJA_Y_STOCK.md** (sección 6.1).
+- **Auditoría:** `SUBSCRIPTION_CANCELED` con `reason` y `refund_amount` (si aplica) en `details`.
+- **Permisos:** Admin, SuperAdmin o staff con `can_view_members_admin` o `can_use_reception`.
+
+---
+
+## 6. Sincronizar vencidas (`POST /users/sync-expired-subscriptions`)
 
 Para que en listados y reportes se vea “Expirado” cuando ya pasó la fecha:
 
@@ -140,7 +153,7 @@ Así, si el socio renueva uno o dos días después de vencer y vuelve a entrar, 
 
 ---
 
-## 6. Flujo resumido
+## 8. Flujo resumido
 
 | Situación | Acción | Resultado |
 |-----------|--------|-----------|
@@ -148,4 +161,5 @@ Así, si el socio renueva uno o dos días después de vencer y vuelve a entrar, 
 | Estaba congelado, vuelve a pagar | **Renovar** | ACTIVE, vence **hoy + 30**; se limpia congelado. |
 | Estaba congelado, vuelve a entrenar sin pagar | **Descongelar** | ACTIVE, vence **hoy + días guardados**. |
 | Sigue activo, paga otro mes | **Renovar** | ACTIVE, vence **expires_at actual + 30**. |
+| Baja voluntaria (activo o congelado) | **Cancelar** | CANCELED; opcional reembolso (egreso REFUND, requiere turno). |
 | Listados/BD con fechas vencidas | **Sync vencidas** | ACTIVE con `expires_at` pasada → EXPIRED. |

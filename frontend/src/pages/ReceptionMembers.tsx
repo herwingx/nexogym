@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Search, User, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, User, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { EditMemberForm } from '../components/members/EditMemberForm'
@@ -10,6 +11,7 @@ import {
   renewSubscription,
   freezeSubscription,
   unfreezeSubscription,
+  cancelSubscription,
   PLAN_BARCODE_LABELS,
   type MemberSummary,
   type MemberUserRow,
@@ -18,6 +20,7 @@ import { notifyError, notifySuccess } from '../lib/notifications'
 import { useAuthStore } from '../store/useAuthStore'
 import { cn } from '../lib/utils'
 import { TableRowSkeleton, ListSkeleton } from '../components/ui/Skeleton'
+import { Input } from '../components/ui/Input'
 import { STATUS_BADGE as PALETTE } from '../lib/statusColors'
 
 const PAGE_SIZE = 20
@@ -50,6 +53,7 @@ function getMemberStatus(row: MemberUserRow): string {
 }
 
 export const ReceptionMembersPage = () => {
+  const navigate = useNavigate()
   const userRole = useAuthStore((s) => s.user?.role)
   const hasQrAccess = useAuthStore((s) => s.modulesConfig?.qr_access)
   const [query, setQuery] = useState('')
@@ -60,8 +64,10 @@ export const ReceptionMembersPage = () => {
   const [loading, setLoading] = useState(true)
   const [detailMember, setDetailMember] = useState<MemberDetailData | null>(null)
   const [editMember, setEditMember] = useState<MemberSummary | null>(null)
-  const [actionTarget, setActionTarget] = useState<{ user: MemberUserRow; action: 'renew' | 'freeze' | 'unfreeze' } | null>(null)
+  const [actionTarget, setActionTarget] = useState<{ user: MemberUserRow; action: 'renew' | 'freeze' | 'unfreeze' | 'cancel' } | null>(null)
   const [renewPlanBarcode, setRenewPlanBarcode] = useState<string>('MEMBERSHIP')
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelRefundAmount, setCancelRefundAmount] = useState<string>('')
   const [actionSubmitting, setActionSubmitting] = useState(false)
   const canRegenerateQr = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
 
@@ -150,8 +156,23 @@ export const ReceptionMembersPage = () => {
       } else if (action === 'unfreeze') {
         await unfreezeSubscription(user.id)
         notifySuccess({ title: 'Descongelado', description: 'Suscripción descongelada.' })
+      } else if (action === 'cancel') {
+        const res = await cancelSubscription(user.id, {
+          reason: cancelReason,
+          refund_amount: cancelRefundAmount ? Number(cancelRefundAmount) : undefined,
+        })
+        if (res.refund_registered && res.refund_registered > 0) {
+          notifySuccess({
+            title: 'Cancelado',
+            description: `Suscripción cancelada. $${res.refund_registered.toFixed(2)} registrado como devolución en caja.`,
+          })
+        } else {
+          notifySuccess({ title: 'Cancelado', description: 'Suscripción cancelada.' })
+        }
       }
       setActionTarget(null)
+      setCancelReason('')
+      setCancelRefundAmount('')
       void loadList(meta.page)
       if (editMember?.id === user.id) setEditMember(null)
       if (detailMember?.id === user.id) setDetailMember(null)
@@ -165,13 +186,19 @@ export const ReceptionMembersPage = () => {
   return (
     <div className="min-h-[calc(100vh-6rem)] bg-background text-foreground px-4 py-6">
       <div className="mx-auto max-w-4xl space-y-4">
-        <div>
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            Socios
-          </h1>
-          <p className="text-sm text-zinc-500">
-            Buscar o listar socios. Editar nombre, teléfono o foto.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              Socios
+            </h1>
+            <p className="text-sm text-zinc-500">
+              Buscar o listar socios. Editar nombre, teléfono o foto.
+            </p>
+          </div>
+          <Button size="sm" onClick={() => navigate('/reception/members/new')}>
+            <UserPlus className="h-4 w-4 mr-1" />
+            Nuevo socio
+          </Button>
         </div>
 
         {/* Resumen: próximos a vencer y vencidos */}
@@ -242,13 +269,13 @@ export const ReceptionMembersPage = () => {
                     </button>
                     {full && status && (
                       <div className="flex flex-wrap gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                        {(status === 'EXPIRED' || status === 'CANCELED' || status === 'ACTIVE') && (
+                        {(status === 'PENDING_PAYMENT' || status === 'EXPIRED' || status === 'CANCELED' || status === 'ACTIVE') && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => setActionTarget({ user: full, action: 'renew' })}
                           >
-                            Renovar
+                            {status === 'PENDING_PAYMENT' ? 'Pagar' : 'Renovar'}
                           </Button>
                         )}
                         {status === 'ACTIVE' && (
@@ -277,6 +304,15 @@ export const ReceptionMembersPage = () => {
                               Descongelar
                             </Button>
                           </>
+                        )}
+                        {(status === 'ACTIVE' || status === 'FROZEN') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setActionTarget({ user: full, action: 'cancel' })}
+                          >
+                            Cancelar
+                          </Button>
                         )}
                       </div>
                     )}
@@ -366,13 +402,13 @@ export const ReceptionMembersPage = () => {
                         </td>
                         <td className="py-2.5 px-4">
                           <div className="flex flex-wrap justify-end gap-1">
-                            {(status === 'EXPIRED' || status === 'CANCELED' || status === 'ACTIVE') && (
+                            {(status === 'PENDING_PAYMENT' || status === 'EXPIRED' || status === 'CANCELED' || status === 'ACTIVE') && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => setActionTarget({ user: m, action: 'renew' })}
                               >
-                                {status === 'ACTIVE' ? 'Renovar' : 'Renovar'}
+                                {status === 'PENDING_PAYMENT' ? 'Pagar' : 'Renovar'}
                               </Button>
                             )}
                             {status === 'ACTIVE' && (
@@ -401,6 +437,15 @@ export const ReceptionMembersPage = () => {
                                   Descongelar
                                 </Button>
                               </>
+                            )}
+                            {(status === 'ACTIVE' || status === 'FROZEN') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setActionTarget({ user: m, action: 'cancel' })}
+                              >
+                                Cancelar
+                              </Button>
                             )}
                           </div>
                         </td>
@@ -448,6 +493,8 @@ export const ReceptionMembersPage = () => {
             if (!actionSubmitting) {
               setActionTarget(null)
               setRenewPlanBarcode('MEMBERSHIP')
+              setCancelReason('')
+              setCancelRefundAmount('')
             }
           }}
           title={
@@ -455,7 +502,9 @@ export const ReceptionMembersPage = () => {
               ? 'Renovar suscripción'
               : actionTarget.action === 'freeze'
                 ? 'Congelar suscripción'
-                : 'Descongelar suscripción'
+                : actionTarget.action === 'unfreeze'
+                  ? 'Descongelar suscripción'
+                  : 'Cancelar suscripción'
           }
         >
           {actionTarget.action === 'renew' ? (
@@ -489,6 +538,45 @@ export const ReceptionMembersPage = () => {
                 </Button>
               </div>
             </div>
+          ) : actionTarget.action === 'cancel' ? (
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Cancelar la membresía de {actionTarget.user.name ?? actionTarget.user.phone ?? 'este socio'}. Indica el motivo y opcionalmente el monto a devolver (requiere turno abierto).
+              </p>
+              <Input
+                label="Motivo (obligatorio)"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Ej: Devolución, cambio de domicilio, arrepentimiento"
+                minLength={3}
+              />
+              <Input
+                label="Monto a devolver (opcional)"
+                type="number"
+                min={0}
+                step="0.01"
+                value={cancelRefundAmount}
+                onChange={(e) => setCancelRefundAmount(e.target.value)}
+                placeholder="Ej: 500"
+                helperText="Si indicas monto, se registrará como egreso en caja. Requiere turno abierto."
+              />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => { setActionTarget(null); setCancelReason(''); setCancelRefundAmount('') }}
+                  disabled={actionSubmitting}
+                >
+                  Cerrar
+                </Button>
+                <Button
+                  onClick={handleAction}
+                  disabled={actionSubmitting || !cancelReason.trim() || cancelReason.trim().length < 3}
+                >
+                  {actionSubmitting ? 'Procesando...' : 'Cancelar membresía'}
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -503,7 +591,7 @@ export const ReceptionMembersPage = () => {
                   onClick={() => setActionTarget(null)}
                   disabled={actionSubmitting}
                 >
-                  Cancelar
+                  Cerrar
                 </Button>
                 <Button onClick={handleAction} disabled={actionSubmitting}>
                   {actionSubmitting ? 'Procesando...' : actionTarget.action === 'freeze' ? 'Congelar' : 'Descongelar'}

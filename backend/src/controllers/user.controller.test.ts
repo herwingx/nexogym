@@ -125,6 +125,11 @@ describe('user.controller', () => {
       body: { reason: 'Solicitud del cliente' },
     };
 
+    (prisma.user.findFirst as any).mockResolvedValue({
+      id: req.params.id,
+      gym_id: req.gymId,
+      name: 'Test Member',
+    });
     (prisma.subscription.findFirst as any).mockResolvedValue({
       id: 'sub-1',
       status: 'ACTIVE',

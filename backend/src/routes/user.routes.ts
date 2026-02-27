@@ -556,7 +556,7 @@ router.patch('/:id/unfreeze', requireCanViewMembers, unfreezeSubscription);
  *       404:
  *         description: Active or frozen subscription not found
  */
-router.patch('/:id/cancel-subscription', requireAdminOrSuperAdmin, cancelSubscription);
+router.patch('/:id/cancel-subscription', requireCanViewMembers, cancelSubscription);
 
 /**
  * @swagger

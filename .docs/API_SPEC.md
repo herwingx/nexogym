@@ -348,11 +348,16 @@ Lista usuarios COACH e INSTRUCTOR activos del gym (sin paginación). Requiere `c
 **Solo Admin/SuperAdmin.** Soft delete del usuario (`deleted_at = now()`). Usado en **Personal** para "Dar de baja". No borra registros; el usuario queda inactivo y sin acciones en la UI.
 
 ### `PATCH /api/v1/users/:id/cancel-subscription`
-Cancela inmediatamente una suscripción `ACTIVE` o `FROZEN`.
+Cancela inmediatamente una suscripción `ACTIVE` o `FROZEN`. **RBAC:** `requireCanViewMembers` (Admin, SuperAdmin o staff con permiso `can_view_members_admin` o `can_use_reception`).
+
+**Body:**
 ```json
-{ "reason": "Solicitud del cliente" }
+{ "reason": "string (obligatorio)", "refund_amount": number (opcional, ≥ 0) }
 ```
 
+Si `refund_amount > 0`: requiere turno de caja abierto; se registra un egreso tipo `REFUND` en el turno del usuario. Auditoría: `SUBSCRIPTION_CANCELED` con `reason` y `refund_amount` en `details`.
+
+**Respuesta:**
 ```json
 { "message": "Subscription cancelled successfully.", "subscription": { "id": "uuid", "status": "CANCELED" } }
 ```
@@ -406,7 +411,7 @@ Devuelve el turno abierto del usuario actual con totales (ventas, egresos, saldo
 Abre turno del usuario actual. Body: `{ "opening_balance": number }`. `400` si ya tiene un turno abierto.
 
 ### `POST /api/v1/pos/shifts/close`
-Cierra el turno del usuario actual. Body: `{ "actual_balance": number }`. `404` si no hay turno abierto. **Cierre ciego:** si el rol es RECEPTIONIST, la respuesta es solo `200` con `{ "message": "Turno cerrado exitosamente." }` (no se devuelve reconciliación ni diferencia). Para ADMIN/SUPERADMIN se devuelve `shift` y `reconciliation` (expected, actual, difference, status).
+Cierra el turno del usuario actual. Body: `{ "actual_balance": number }`. `404` si no hay turno abierto. **Respuesta:** `200` con `message`, `shift` y `reconciliation` (opening_balance, total_sales, total_expenses, expected, actual, difference, status: BALANCED/SURPLUS/SHORTAGE) para que el staff vea cómo quedó su corte al cerrar. **Cierre ciego:** antes de cerrar, el recepcionista no ve el saldo esperado (frontend); tras cerrar, todos reciben el resumen del corte.
 
 ### `PATCH /api/v1/pos/shifts/:id/force-close`
 **Solo Admin/SuperAdmin.** Cierra forzosamente un turno (ej. empleado salió sin corte). Body opcional: `{ "actual_balance": number }` (default 0). Se registra en auditoría como `SHIFT_FORCE_CLOSED`.

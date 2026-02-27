@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
-import { openShift, closeShift, registerExpense, type ExpenseType } from '../../lib/apiClient'
+import { openShift, closeShift, registerExpense, type ExpenseType, type CloseShiftResponse } from '../../lib/apiClient'
 import { notifyError, notifySuccess } from '../../lib/notifications'
-import { sileo } from 'sileo'
 
 const fmt = (n: number) =>
   n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -74,6 +73,12 @@ export function FormOpenShift({
   )
 }
 
+const RECONCILIATION_STATUS: Record<string, { label: string; className: string }> = {
+  BALANCED: { label: 'Cuadrado', className: 'text-emerald-600 dark:text-emerald-400' },
+  SURPLUS: { label: 'Sobrante', className: 'text-amber-600 dark:text-amber-400' },
+  SHORTAGE: { label: 'Faltante', className: 'text-rose-600 dark:text-rose-400' },
+}
+
 export function FormCloseShift({
   expected,
   showExpectedBalance = true,
@@ -89,6 +94,7 @@ export function FormCloseShift({
   const [actual, setActual] = useState('')
   const [confirmed, setConfirmed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [result, setResult] = useState<CloseShiftResponse['reconciliation'] | null>(null)
 
   const handleActualChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let raw = e.target.value.replace(/,/g, '.').replace(/[^\d.]/g, '')
@@ -104,16 +110,75 @@ export function FormCloseShift({
     if (Number.isNaN(n) || n < 0) return
     setSubmitting(true)
     try {
-      await closeShift(n)
-      sileo.success({
-        title: 'Turno cerrado exitosamente. Diferencia registrada en auditoría.',
-      })
-      onSuccess()
+      const res = await closeShift(n)
+      if (res.reconciliation) {
+        setResult(res.reconciliation)
+      } else {
+        notifySuccess({ title: 'Turno cerrado exitosamente.' })
+        onSuccess()
+      }
     } catch (e) {
       notifyError({ title: 'Error', description: (e as Error)?.message ?? '' })
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // Mostrar resumen del corte tras cerrar
+  if (result) {
+    const statusInfo = RECONCILIATION_STATUS[result.status] ?? {
+      label: result.status,
+      className: 'text-zinc-600 dark:text-zinc-400',
+    }
+    return (
+      <div className="space-y-4">
+        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          Turno cerrado. Tu corte quedó así:
+        </p>
+        <div className="rounded-lg border border-zinc-200 dark:border-white/10 bg-zinc-50 dark:bg-zinc-900/50 p-4 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-zinc-600 dark:text-zinc-400">Fondo inicial</span>
+            <span className="font-medium">${fmt(result.opening_balance)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-zinc-600 dark:text-zinc-400">Ventas</span>
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">
+              +${fmt(result.total_sales)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-zinc-600 dark:text-zinc-400">Egresos</span>
+            <span className="font-medium text-rose-600 dark:text-rose-400">
+              -${fmt(result.total_expenses)}
+            </span>
+          </div>
+          <div className="flex justify-between border-t border-zinc-200 dark:border-white/10 pt-2">
+            <span className="text-zinc-600 dark:text-zinc-400">Esperado</span>
+            <span className="font-medium">${fmt(result.expected)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-zinc-600 dark:text-zinc-400">Efectivo contado</span>
+            <span className="font-medium">${fmt(result.actual)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-zinc-600 dark:text-zinc-400">Diferencia</span>
+            <span className={`font-semibold ${result.difference === 0 ? 'text-emerald-600 dark:text-emerald-400' : result.difference > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              {result.difference >= 0 ? '+' : ''}{fmt(result.difference)}
+            </span>
+          </div>
+          <div className="flex justify-between pt-1">
+            <span className="text-zinc-600 dark:text-zinc-400">Estado</span>
+            <span className={`font-semibold ${statusInfo.className}`}>{statusInfo.label}</span>
+          </div>
+        </div>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          El corte quedó registrado en Cortes de caja.
+        </p>
+        <div className="flex justify-end">
+          <Button onClick={onSuccess}>Listo</Button>
+        </div>
+      </div>
+    )
   }
 
   return (

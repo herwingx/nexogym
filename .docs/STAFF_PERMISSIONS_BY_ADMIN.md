@@ -23,23 +23,27 @@ Al crear staff desde **Personal → Agregar personal**, cada rol tiene sus opcio
 
 1. Ir a **Admin → Personal**.
 2. En la fila del usuario (Recepción, Coach, Instructor o Limpieza), clic en **Permisos**.
-3. Marcar o desmarcar:
+3. Marcar o desmarcar en el modal (secciones **Módulos principales** y **Permisos adicionales**):
 
-   **Básicos**
-   - **Recepción** — Check-in, socios y alta. Flujo en mostrador sin ventas.
-   - **Inventario y cortes** — POS (ventas), inventario y cortes de caja. Incluye ver sus propios cortes pasados (no los de otros).
-   - **Clases y rutinas** — Acceso a Clases y Rutinas en el menú y en la API.
+   **Módulos principales**
+   - **Recepción** — Check-in, socios, alta de socios y POS. Todo el flujo de mostrador.
+   - **Inventario y cortes** — Gestión de productos, stock y cortes de caja en el panel admin.
+   - **Clases y rutinas** — Crear y gestionar clases grupales y rutinas de entrenamiento.
 
-   **Adicionales (personal de confianza)**
-   - **Dashboard** — Ver métricas y ocupación.
-   - **Socios (panel admin)** — Ver y editar socios en el panel admin (recepción ya incluye socios en su flujo).
-   - **Finanzas** — Ver reportes, ingresos y comisiones.
-   - **Personal** — Ver personal, crear staff, editar permisos. Dar de baja y reactivar: solo Admin.
-   - **Auditoría** — Ver logs (solo lectura).
-   - **Gamificación** — Configurar premios y racha.
-   - **Ver leaderboard** — Ver ranking de rachas (para verificar ganadores y premios). La opción aparece en el menú de **Admin** (`/admin/leaderboard`) y en **Recepción** (`/reception/leaderboard`). Si no tiene el permiso, la opción no se muestra.
+   **Permisos adicionales**
+   - **Dashboard** — Métricas, ocupación y resumen. Necesario para ver el aforo en Check-in (también lo obtiene quien tenga Recepción).
+   - **Socios (admin)** — Ver y editar socios en el panel admin (recepción ya incluye socios en su flujo).
+   - **Finanzas** — Reportes, ingresos y comisiones.
+   - **Personal** — Ver, crear y editar permisos. Dar de baja solo Admin.
+   - **Auditoría** — Registro de acciones (solo lectura).
+   - **Gamificación** — Configurar premios por racha.
+   - **Leaderboard** — Ver ranking de rachas. Aparece en Admin y en Recepción (`/reception/leaderboard`).
 
 4. **Guardar**. Los cambios aplican en el próximo inicio de sesión (o al recargar).
+
+### Clases y Rutinas en recepción
+
+Si el staff tiene **Clases y rutinas** activado y el gym tiene el módulo `classes`, verá las opciones **Clases** y **Rutinas** en el menú de recepción (`/reception/classes`, `/reception/routines`), sin pasar por el panel admin.
 
 **Importante:** El staff con permisos puede ver y editar según lo asignado. Las acciones destructivas (eliminar, dar de baja, cancelar suscripción, anonimizar, regenerar QR) están reservadas al Admin. Todo queda registrado en auditoría.
 

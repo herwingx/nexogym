@@ -321,13 +321,26 @@ export const getShifts = async (req: Request, res: Response) => {
     }
 
     const isAdmin = userRole === Role.ADMIN || userRole === Role.SUPERADMIN;
+    const { page = '1', limit = '20', from_date, to_date, user_id: filterUserId } = req.query;
+
+    const fromDate = typeof from_date === 'string' && from_date ? new Date(from_date + 'T00:00:00.000Z') : null;
+    const toDate = typeof to_date === 'string' && to_date ? new Date(to_date + 'T23:59:59.999Z') : null;
+    const dateFilter =
+      fromDate && toDate
+        ? { closed_at: { gte: fromDate, lte: toDate } }
+        : fromDate
+          ? { closed_at: { gte: fromDate } }
+          : toDate
+            ? { closed_at: { lte: toDate } }
+            : {};
+
     const where = {
       gym_id: gymId,
       status: ShiftStatus.CLOSED,
       ...(!isAdmin && userId ? { user_id: userId } : {}),
+      ...(isAdmin && filterUserId ? { user_id: String(filterUserId) } : {}),
+      ...dateFilter,
     };
-
-    const { page = '1', limit = '20' } = req.query;
     const take = Math.min(Number(limit) || 20, 100);
     const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
 

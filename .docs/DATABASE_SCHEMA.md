@@ -22,7 +22,7 @@ enum Role            { SUPERADMIN  ADMIN  RECEPTIONIST  INSTRUCTOR  COACH  CLEAN
 enum SubscriptionStatus { ACTIVE  EXPIRED  CANCELED  FROZEN }
 enum SubscriptionTier   { BASIC  PRO_QR  PREMIUM_BIO }
 enum ShiftStatus     { OPEN  CLOSED }
-enum ExpenseType     { SUPPLIER_PAYMENT  OPERATIONAL_EXPENSE  CASH_DROP }
+enum ExpenseType     { SUPPLIER_PAYMENT  OPERATIONAL_EXPENSE  CASH_DROP  REFUND }
 enum AccessMethod    { MANUAL  QR  BIOMETRIC }
 enum AccessType      { REGULAR  COURTESY }
 enum TransactionType { RESTOCK  LOSS  SALE }
@@ -150,7 +150,7 @@ Cada egreso se asocia al turno abierto del usuario que lo registra. Clasificaci�
 |---|---|---|
 | `gym_id` | UUID FK | Multitenancy |
 | `cash_shift_id` | UUID FK | Turno en el que se registró |
-| `type` | ExpenseType | SUPPLIER_PAYMENT / OPERATIONAL_EXPENSE / CASH_DROP |
+| `type` | ExpenseType | SUPPLIER_PAYMENT / OPERATIONAL_EXPENSE / CASH_DROP / REFUND |
 | `amount` | Decimal | Monto |
 | `description` | String? | Obligatorio en UI para SUPPLIER_PAYMENT y OPERATIONAL_EXPENSE; opcional para CASH_DROP |
 
@@ -173,4 +173,5 @@ Rastreo de comisiones y staff.
 | `ROUTINE_ASSIGNED` | Nueva rutina creada para un socio |
 | `SHIFT_CLOSED` | Cierre de turno (incluye expected, actual, difference) |
 | `SHIFT_FORCE_CLOSED` | Cierre forzado de turno por Admin (force-close) |
+| `SUBSCRIPTION_CANCELED` | Cancelación de suscripción (reason, refund_amount si aplica) |
 | `USER_SOFT_DELETED` | Dar de baja a usuario (Personal) |

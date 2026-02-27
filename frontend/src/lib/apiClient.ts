@@ -411,11 +411,17 @@ type BackendAuditResponse = {
 
 export const fetchAuditLog = async (params?: {
   action?: string
+  userId?: string
+  from_date?: string
+  to_date?: string
   page?: number
   pageSize?: number
 }): Promise<AuditLogResponse> => {
   const qs = new URLSearchParams()
   if (params?.action) qs.set('action', params.action)
+  if (params?.userId) qs.set('userId', params.userId)
+  if (params?.from_date) qs.set('from_date', params.from_date)
+  if (params?.to_date) qs.set('to_date', params.to_date)
   if (params?.page) qs.set('page', String(params.page))
   if (params?.pageSize) qs.set('limit', String(params.pageSize))
   const query = qs.toString() ? `?${qs.toString()}` : ''
@@ -870,9 +876,43 @@ export type CheckinSuccessResponse = {
 /** Payload when backend returns 403 NO_ACTIVE_SUBSCRIPTION (debtor). */
 export type CheckinForbiddenPayload = {
   error: string
+  message?: string
   code?: string
   user_id?: string
   user?: { name: string | null; profile_picture_url: string | null }
+}
+
+export type VisitRow = {
+  id: string
+  user_id: string
+  user_name: string | null
+  user_phone: string | null
+  user_role?: string
+  check_in_time: string
+  access_method: string
+  access_type: string
+}
+
+export const fetchVisits = async (params?: {
+  page?: number
+  limit?: number
+  staff_only?: boolean
+  from_date?: string
+  to_date?: string
+  user_id?: string
+}): Promise<{ data: VisitRow[]; meta: { total: number; page: number; limit: number; total_pages: number } }> => {
+  const qs = new URLSearchParams()
+  if (params?.page) qs.set('page', String(params.page))
+  if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.staff_only) qs.set('staff_only', 'true')
+  if (params?.from_date) qs.set('from_date', params.from_date)
+  if (params?.to_date) qs.set('to_date', params.to_date)
+  if (params?.user_id) qs.set('user_id', params.user_id)
+  const query = qs.toString() ? `?${qs.toString()}` : ''
+  const res = await fetchWithAuth(`/checkin/visits${query}`)
+  if (!res.ok) throw new Error(`Failed to load visits (${res.status})`)
+  const json = await res.json()
+  return { data: json.data, meta: json.meta }
 }
 
 export const submitCheckin = async (
@@ -987,7 +1027,21 @@ export const openShift = async (opening_balance: number) => {
   return res.json()
 }
 
-export const closeShift = async (actual_balance: number) => {
+export type CloseShiftResponse = {
+  message: string
+  shift?: { id: string; closed_at: string }
+  reconciliation?: {
+    opening_balance: number
+    total_sales: number
+    total_expenses: number
+    expected: number
+    actual: number
+    difference: number
+    status: 'BALANCED' | 'SURPLUS' | 'SHORTAGE'
+  }
+}
+
+export const closeShift = async (actual_balance: number): Promise<CloseShiftResponse> => {
   const res = await fetchWithAuth('/pos/shifts/close', {
     method: 'POST',
     body: JSON.stringify({ actual_balance }),
@@ -996,7 +1050,7 @@ export const closeShift = async (actual_balance: number) => {
     const err = await res.json().catch(() => null)
     throw new Error((err?.error ?? err?.message) ?? `Close shift failed (${res.status})`)
   }
-  return res.json()
+  return res.json() as Promise<CloseShiftResponse>
 }
 
 export type ShiftRow = {
@@ -1019,8 +1073,16 @@ export type OpenShiftRow = {
   user: { id: string; name: string | null }
 }
 
-export const fetchShifts = async (page = 1, limit = 20): Promise<ShiftsResponse> => {
-  const res = await fetchWithAuth(`/pos/shifts?page=${page}&limit=${limit}`)
+export const fetchShifts = async (
+  page = 1,
+  limit = 20,
+  params?: { from_date?: string; to_date?: string; user_id?: string },
+): Promise<ShiftsResponse> => {
+  const qs = new URLSearchParams({ page: String(page), limit: String(limit) })
+  if (params?.from_date) qs.set('from_date', params.from_date)
+  if (params?.to_date) qs.set('to_date', params.to_date)
+  if (params?.user_id) qs.set('user_id', params.user_id)
+  const res = await fetchWithAuth(`/pos/shifts?${qs.toString()}`)
   const raw = (await res.json().catch(() => ({}))) as ShiftsResponse & Record<string, unknown>
   if (!res.ok) throw getErrorFromResponse(res, raw as Record<string, unknown>)
   return raw as ShiftsResponse
@@ -1488,10 +1550,17 @@ export const unfreezeSubscription = async (userId: string): Promise<{ message: s
   return res.json()
 }
 
-export const cancelSubscription = async (userId: string, reason?: string): Promise<{ message: string }> => {
+export const cancelSubscription = async (
+  userId: string,
+  opts?: { reason: string; refund_amount?: number },
+): Promise<{ message: string; refund_registered?: number }> => {
+  const body = opts?.reason ? { reason: opts.reason.trim(), refund_amount: opts.refund_amount } : undefined
+  if (!body?.reason || body.reason.length < 3) {
+    throw new Error('El motivo de cancelación es obligatorio (mín. 3 caracteres).')
+  }
   const res = await fetchWithAuth(`/users/${userId}/cancel-subscription`, {
     method: 'PATCH',
-    body: JSON.stringify(reason ? { reason } : {}),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => null)

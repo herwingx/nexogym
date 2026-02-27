@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
-import { Search, User, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, User, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react'
 import {
   searchMembers,
   fetchMemberUsers,
@@ -15,6 +16,7 @@ import {
 import { notifyError, notifyPromise } from '../lib/notifications'
 import { cn } from '../lib/utils'
 import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 import { TableRowSkeleton, ListSkeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
 import { EditMemberForm } from '../components/members/EditMemberForm'
@@ -53,7 +55,13 @@ function getMemberStatus(row: MemberUserRow): MemberStatus {
 const PAGE_SIZE = 20
 
 export const AdminMembers = () => {
+  const navigate = useNavigate()
   const isAdmin = useAuthStore((s) => s.user?.role === 'ADMIN' || s.user?.role === 'SUPERADMIN')
+  const canCancel = useAuthStore((s) => {
+    if (s.user?.role === 'ADMIN' || s.user?.role === 'SUPERADMIN') return true
+    const p = s.user?.effective_staff_permissions
+    return !!(p?.can_view_members_admin || p?.can_use_reception)
+  })
   const hasQrAccess = useAuthStore((s) => s.modulesConfig?.qr_access)
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<MemberSummary[]>([])
@@ -65,6 +73,8 @@ export const AdminMembers = () => {
   const [editMember, setEditMember] = useState<MemberSummary | null>(null)
   const [actionTarget, setActionTarget] = useState<{ user: MemberUserRow; action: 'renew' | 'freeze' | 'unfreeze' | 'cancel' } | null>(null)
   const [renewPlanBarcode, setRenewPlanBarcode] = useState<string>('MEMBERSHIP')
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelRefundAmount, setCancelRefundAmount] = useState<string>('')
 
   useEffect(() => {
     if (actionTarget?.action === 'renew' && actionTarget.user?.subscriptions?.[0]?.plan_barcode && actionTarget.user.subscriptions[0].plan_barcode in PLAN_BARCODE_LABELS) {
@@ -140,7 +150,12 @@ export const AdminMembers = () => {
           if (action === 'renew') await renewSubscription(user.id, { barcode: planToUse })
           else if (action === 'freeze') await freezeSubscription(user.id)
           else if (action === 'unfreeze') await unfreezeSubscription(user.id)
-          else if (action === 'cancel') await cancelSubscription(user.id)
+          else if (action === 'cancel') {
+            await cancelSubscription(user.id, {
+              reason: cancelReason,
+              refund_amount: cancelRefundAmount ? Number(cancelRefundAmount) : undefined,
+            })
+          }
         })(),
         {
           loading: { title: 'Procesando...' },
@@ -169,11 +184,17 @@ export const AdminMembers = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-4 py-6 space-y-4">
-        <header>
-          <h1 className="text-xl font-semibold tracking-tight">Socios</h1>
-          <p className="text-sm text-zinc-500">
-            Directorio de socios del gimnasio. Buscar, editar datos o gestionar suscripciones.
-          </p>
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Socios</h1>
+            <p className="text-sm text-zinc-500">
+              Directorio de socios del gimnasio. Buscar, editar datos o gestionar suscripciones.
+            </p>
+          </div>
+          <Button size="sm" onClick={() => navigate('/reception/members/new')}>
+            <UserPlus className="h-4 w-4 mr-1" />
+            Nuevo socio
+          </Button>
         </header>
 
         {/* Resumen: próximos a vencer y vencidos */}
@@ -377,13 +398,13 @@ export const AdminMembers = () => {
                         </td>
                         <td className="py-2.5 px-4 align-middle">
                           <div className="flex flex-wrap justify-end gap-1">
-                            {(status === 'EXPIRED' || status === 'CANCELED' || status === 'ACTIVE') && (
+                            {(status === 'PENDING_PAYMENT' || status === 'EXPIRED' || status === 'CANCELED' || status === 'ACTIVE') && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => setActionTarget({ user: member, action: 'renew' })}
                               >
-                                {status === 'ACTIVE' ? 'Renovar' : 'Renovar'}
+                                {status === 'PENDING_PAYMENT' ? 'Pagar' : 'Renovar'}
                               </Button>
                             )}
                             {status === 'ACTIVE' && (
@@ -413,7 +434,7 @@ export const AdminMembers = () => {
                                 </Button>
                               </>
                             )}
-                            {isAdmin && (status === 'ACTIVE' || status === 'FROZEN') && (
+                            {canCancel && (status === 'ACTIVE' || status === 'FROZEN') && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -467,6 +488,8 @@ export const AdminMembers = () => {
           onClose={() => {
             setActionTarget(null)
             setRenewPlanBarcode('MEMBERSHIP')
+            setCancelReason('')
+            setCancelRefundAmount('')
           }}
           title={
             actionTarget.action === 'renew' ? 'Renovar suscripción' :
@@ -483,8 +506,29 @@ export const AdminMembers = () => {
             {actionTarget.action === 'unfreeze' &&
               `¿Descongelar la membresía de ${actionTarget.user.name ?? 'este socio'}?`}
             {actionTarget.action === 'cancel' &&
-              `¿Cancelar la membresía de ${actionTarget.user.name ?? 'este socio'}? Esta acción es irreversible.`}
+              `Cancelar la membresía de ${actionTarget.user.name ?? 'este socio'}. Indica el motivo y opcionalmente el monto a devolver (requiere turno abierto).`}
           </p>
+          {actionTarget.action === 'cancel' && (
+            <div className="mb-4 space-y-3">
+              <Input
+                label="Motivo (obligatorio)"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Ej: Devolución, cambio de domicilio, arrepentimiento"
+                minLength={3}
+              />
+              <Input
+                label="Monto a devolver (opcional)"
+                type="number"
+                min={0}
+                step="0.01"
+                value={cancelRefundAmount}
+                onChange={(e) => setCancelRefundAmount(e.target.value)}
+                placeholder="Ej: 500"
+                helperText="Si indicas monto, se registrará como egreso en caja. Requiere turno abierto."
+              />
+            </div>
+          )}
           {actionTarget.action === 'renew' && (
             <div className="mb-4">
               <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5">Plan</label>
@@ -500,10 +544,15 @@ export const AdminMembers = () => {
             </div>
           )}
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setActionTarget(null); setRenewPlanBarcode('MEMBERSHIP') }}>
+            <Button variant="outline" onClick={() => { setActionTarget(null); setRenewPlanBarcode('MEMBERSHIP'); setCancelReason(''); setCancelRefundAmount('') }}>
               Cancelar
             </Button>
-            <Button onClick={handleAction}>Confirmar</Button>
+            <Button
+              onClick={handleAction}
+              disabled={actionTarget.action === 'cancel' && (!cancelReason.trim() || cancelReason.trim().length < 3)}
+            >
+              Confirmar
+            </Button>
           </div>
         </Modal>
       )}

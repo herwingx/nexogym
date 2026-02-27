@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Wallet, TrendingUp, TrendingDown, Minus, AlertCircle, FileText } from 'lucide-react'
-import { fetchShifts, fetchOpenShifts, forceCloseShift, fetchShiftSales, type ShiftRow, type OpenShiftRow, type ShiftSalesResponse } from '../lib/apiClient'
+import { Wallet, TrendingUp, TrendingDown, Minus, AlertCircle, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import { fetchShifts, fetchOpenShifts, forceCloseShift, fetchShiftSales, fetchStaffUsers, type ShiftRow, type OpenShiftRow, type ShiftSalesResponse, type StaffUserRow } from '../lib/apiClient'
 import { notifyError, notifySuccess } from '../lib/notifications'
 import { TableRowSkeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
@@ -66,6 +66,10 @@ export const AdminShifts = () => {
   const [detailShiftId, setDetailShiftId] = useState<string | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [accessDeniedByPlan, setAccessDeniedByPlan] = useState(false)
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [userIdFilter, setUserIdFilter] = useState('')
+  const [staff, setStaff] = useState<StaffUserRow[]>([])
 
   if (!modules.pos) return <Navigate to="/admin" replace />
   if (accessDeniedByPlan) return <PlanRestrictionCard backTo="/admin" backLabel="Volver al inicio" />
@@ -74,7 +78,11 @@ export const AdminShifts = () => {
     try {
       setLoading(true)
       setAccessDeniedByPlan(false)
-      const res = await fetchShifts(page, 20)
+      const res = await fetchShifts(page, 20, {
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        user_id: userIdFilter || undefined,
+      })
       setShifts(res.data)
       setMeta(res.meta)
     } catch (e) {
@@ -104,9 +112,15 @@ export const AdminShifts = () => {
   }
 
   useEffect(() => {
+    fetchStaffUsers(1, 200, 'all')
+      .then((r) => setStaff(r.data))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     void load()
     void loadOpen()
-  }, [])
+  }, [fromDate, toDate, userIdFilter])
 
   const handleForceCloseConfirm = async () => {
     if (!forceCloseTarget) return
@@ -152,16 +166,54 @@ export const AdminShifts = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-4 py-6 space-y-5">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              Cortes de caja
-            </h1>
-            <p className="text-sm text-zinc-500">
-              Historial de turnos cerrados. Estados: Cuadrado, Sobrante, Faltante.
-            </p>
-          </div>
+        <header>
+          <h1 className="text-xl font-semibold tracking-tight">Cortes de caja</h1>
+          <p className="text-sm text-zinc-500">
+            Historial de turnos cerrados. Filtra por fecha y cajero.
+          </p>
         </header>
+
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+              Desde
+            </label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+              Hasta
+            </label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1">
+              Cajero
+            </label>
+            <select
+              className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1.5 text-sm text-zinc-700 dark:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              value={userIdFilter}
+              onChange={(e) => setUserIdFilter(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {staff.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name ?? u.phone ?? u.id.slice(0, 8)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {loadingOpen ? null : openShifts.length > 0 ? (
           <section className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 p-4 shadow-sm">
@@ -458,31 +510,39 @@ export const AdminShifts = () => {
               )}
             </tbody>
           </table>
-        </section>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2">
-            <button
-              type="button"
-              className="rounded-md border border-zinc-200 dark:border-white/10 px-3 py-1.5 text-xs disabled:opacity-50"
-              disabled={meta.page <= 1}
-              onClick={() => void load(meta.page - 1)}
-            >
-              Anterior
-            </button>
-            <span className="text-xs text-zinc-500">
-              Página {meta.page} de {totalPages}
+          {meta.total > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
+            <span>
+              {shifts.length} de {meta.total} turnos
             </span>
-            <button
-              type="button"
-              className="rounded-md border border-zinc-200 dark:border-white/10 px-3 py-1.5 text-xs disabled:opacity-50"
-              disabled={meta.page >= totalPages}
-              onClick={() => void load(meta.page + 1)}
-            >
-              Siguiente
-            </button>
-          </div>
-        )}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void load(meta.page - 1)}
+                  disabled={meta.page <= 1 || loading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span>
+                  Página {meta.page} de {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void load(meta.page + 1)}
+                  disabled={meta.page >= totalPages || loading}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   )

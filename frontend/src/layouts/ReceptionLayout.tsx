@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
-import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet, User, LayoutDashboard, Medal } from 'lucide-react'
+import { CreditCard, ScanQrCode, UserPlus, Users, LogOut, Wallet, User, LayoutDashboard, Medal, CalendarDays, Dumbbell } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { ThemeToggle } from '../components/ui/ThemeToggle'
 import { cn } from '../lib/utils'
@@ -10,11 +10,13 @@ import { fetchCurrentShift } from '../lib/apiClient'
 import { Modal } from '../components/ui/Modal'
 import { Button } from '../components/ui/Button'
 
-const navItems: { label: string; to: string; icon: typeof ScanQrCode; moduleKey?: 'pos' | 'gamification'; staffPermission?: 'leaderboard' }[] = [
+const navItems: { label: string; to: string; icon: typeof ScanQrCode; moduleKey?: 'pos' | 'gamification' | 'classes'; staffPermission?: 'leaderboard' | 'routines' }[] = [
   { label: 'Check-in', to: '/reception', icon: ScanQrCode },
   { label: 'POS', to: '/reception/pos', icon: CreditCard, moduleKey: 'pos' },
   { label: 'Socios', to: '/reception/members', icon: Users },
   { label: 'Alta', to: '/reception/members/new', icon: UserPlus },
+  { label: 'Clases', to: '/reception/classes', icon: CalendarDays, moduleKey: 'classes', staffPermission: 'routines' },
+  { label: 'Rutinas', to: '/reception/routines', icon: Dumbbell, moduleKey: 'classes', staffPermission: 'routines' },
   { label: 'Leaderboard', to: '/reception/leaderboard', icon: Medal, moduleKey: 'gamification', staffPermission: 'leaderboard' },
 ]
 
@@ -57,6 +59,10 @@ export const ReceptionLayout = () => {
       if (isAdminOrSuperAdmin) return true
       return perms?.can_view_leaderboard === true
     }
+    if (item.staffPermission === 'routines') {
+      if (isAdminOrSuperAdmin) return true
+      return perms?.can_use_routines === true
+    }
     return true
   })
 
@@ -66,7 +72,7 @@ export const ReceptionLayout = () => {
         {/* Topbar */}
         <header className="border-b border-zinc-200 dark:border-white/10 bg-white/90 dark:bg-zinc-950/90 px-4 py-3 backdrop-blur-md flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            {isAdminOrSuperAdmin && (
+            {(isAdminOrSuperAdmin || perms?.can_view_dashboard) && (
               <NavLink
                 to="/admin"
                 className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors shrink-0"

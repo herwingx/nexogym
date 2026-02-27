@@ -335,7 +335,8 @@ export const processCheckin = async (req: Request, res: Response) => {
 
 /**
  * GET /checkin/visits
- * Historial de visitas del gym (Staff). Paginado con índice compuesto (gym_id, check_in_time).
+ * Historial de visitas del gym. Paginado.
+ * Query: page, limit, staff_only (true = solo staff, excluye socios), from_date, to_date, user_id
  */
 export const listVisits = async (req: Request, res: Response) => {
   try {
@@ -348,10 +349,36 @@ export const listVisits = async (req: Request, res: Response) => {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
     const skip = (page - 1) * limit;
+    const staffOnly = req.query.staff_only === 'true';
+    const userId = typeof req.query.user_id === 'string' ? req.query.user_id : undefined;
+    const fromDate = typeof req.query.from_date === 'string' && req.query.from_date
+      ? new Date(req.query.from_date + 'T00:00:00.000Z')
+      : null;
+    const toDate = typeof req.query.to_date === 'string' && req.query.to_date
+      ? new Date(req.query.to_date + 'T23:59:59.999Z')
+      : null;
+
+    const dateFilter =
+      fromDate && toDate
+        ? { check_in_time: { gte: fromDate, lte: toDate } }
+        : fromDate
+          ? { check_in_time: { gte: fromDate } }
+          : toDate
+            ? { check_in_time: { lte: toDate } }
+            : {};
+
+    const where = {
+      gym_id: gymId,
+      ...(userId ? { user_id: userId } : {}),
+      ...dateFilter,
+      ...(staffOnly
+        ? { user: { role: { not: Role.MEMBER } } }
+        : {}),
+    };
 
     const [visits, total] = await Promise.all([
       prisma.visit.findMany({
-        where: { gym_id: gymId },
+        where,
         orderBy: { check_in_time: 'desc' },
         skip,
         take: limit,
@@ -361,18 +388,19 @@ export const listVisits = async (req: Request, res: Response) => {
           check_in_time: true,
           access_method: true,
           access_type: true,
-          user: { select: { name: true, phone: true } },
+          user: { select: { name: true, phone: true, role: true } },
         },
       }),
-      prisma.visit.count({ where: { gym_id: gymId } }),
+      prisma.visit.count({ where }),
     ]);
 
     res.status(200).json({
       data: visits.map((v) => ({
         id: v.id,
         user_id: v.user_id,
-        user_name: v.user.name,
-        user_phone: v.user.phone,
+        user_name: v.user?.name,
+        user_phone: v.user?.phone,
+        user_role: v.user?.role,
         check_in_time: v.check_in_time.toISOString(),
         access_method: v.access_method,
         access_type: v.access_type,

@@ -21,6 +21,7 @@ import { searchMembers } from '../lib/apiClient'
 import { notifyError, notifyPromise } from '../lib/notifications'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { cn } from '../lib/utils'
 import { ListSkeleton, Skeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
 
@@ -78,8 +79,8 @@ function MemberSelector({
   }, [])
 
   return (
-    <div ref={ref} className="relative">
-      <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+    <div ref={ref} className="relative space-y-1.5">
+      <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
         Socio (opcional – vacío = plantilla base)
       </label>
       {value ? (
@@ -156,7 +157,10 @@ function ExerciseNameInput({
   const [suggestions, setSuggestions] = useState<ExerciseCatalogItem[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const ref = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   const fetchSuggestions = useCallback(async (q: string) => {
     if (q.trim().length < 1) {
@@ -184,12 +188,47 @@ function ExerciseNameInput({
   }, [value, fetchSuggestions])
 
   useEffect(() => {
+    setHighlightedIndex(-1)
+  }, [suggestions])
+
+  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  const selectSuggestion = (ex: ExerciseCatalogItem) => {
+    onChange(ex.name)
+    setOpen(false)
+    setHighlightedIndex(-1)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || suggestions.length === 0) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlightedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : -1))
+    } else if (e.key === 'Enter' && highlightedIndex >= 0 && suggestions[highlightedIndex]) {
+      e.preventDefault()
+      selectSuggestion(suggestions[highlightedIndex])
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setOpen(false)
+      setHighlightedIndex(-1)
+    }
+  }
+
+  useEffect(() => {
+    if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+      itemRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [highlightedIndex])
 
   return (
     <div ref={ref} className="relative">
@@ -201,10 +240,15 @@ function ExerciseNameInput({
         }}
         onFocus={() => value.length >= 1 && setOpen(true)}
         onBlur={onBlur}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder ?? 'Nombre del ejercicio'}
       />
       {open && value.trim().length >= 1 && (
-        <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg">
+        <ul
+          ref={listRef}
+          className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg"
+          role="listbox"
+        >
           {loading ? (
             <li className="px-3 py-2">
               <Skeleton className="h-4 w-40" />
@@ -214,15 +258,20 @@ function ExerciseNameInput({
               Escribe el nombre (también puedes usar uno libre)
             </li>
           ) : (
-            suggestions.map((ex) => (
-              <li key={ex.id}>
+            suggestions.map((ex, idx) => (
+              <li key={ex.id} role="option" aria-selected={idx === highlightedIndex}>
                 <button
+                  ref={(el) => { itemRefs.current[idx] = el }}
                   type="button"
-                  className="w-full px-3 py-1.5 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  onClick={() => {
-                    onChange(ex.name)
-                    setOpen(false)
-                  }}
+                  role="option"
+                  className={cn(
+                    'w-full px-3 py-1.5 text-left text-sm',
+                    idx === highlightedIndex
+                      ? 'bg-zinc-100 dark:bg-zinc-800'
+                      : 'hover:bg-zinc-100 dark:hover:bg-zinc-800',
+                  )}
+                  onMouseEnter={() => setHighlightedIndex(idx)}
+                  onClick={() => selectSuggestion(ex)}
                 >
                   {ex.name}
                   {ex.category && (
@@ -608,7 +657,7 @@ export const AdminRoutines = () => {
                 </select>
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
               <MemberSelector value={selectedMember} onChange={setSelectedMember} />
               <Input
                 label="Nombre de la rutina"
@@ -639,9 +688,12 @@ export const AdminRoutines = () => {
               {exercises.map((ex, idx) => (
                 <div
                   key={idx}
-                  className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-end rounded-lg border border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/60 p-3"
+                  className="grid grid-cols-[1fr_80px_80px_90px_40px] sm:grid-cols-[1fr_80px_80px_90px_40px] gap-3 items-end rounded-lg border border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/60 p-4"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 space-y-1.5">
+                    <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                      Ejercicio
+                    </label>
                     <ExerciseNameInput
                       value={ex.name}
                       onChange={(name) => updateExercise(idx, 'name', name)}
@@ -652,7 +704,7 @@ export const AdminRoutines = () => {
                     label="Series"
                     type="number"
                     min={1}
-                    className="w-16"
+                    className="w-full"
                     value={ex.sets}
                     onChange={(e) => updateExercise(idx, 'sets', Number(e.target.value))}
                   />
@@ -660,7 +712,7 @@ export const AdminRoutines = () => {
                     label="Reps"
                     type="number"
                     min={1}
-                    className="w-16"
+                    className="w-full"
                     value={ex.reps}
                     onChange={(e) => updateExercise(idx, 'reps', Number(e.target.value))}
                   />
@@ -668,7 +720,7 @@ export const AdminRoutines = () => {
                     label="Peso (kg)"
                     type="number"
                     min={0}
-                    className="w-20"
+                    className="w-full"
                     value={ex.weight ?? ''}
                     onChange={(e) =>
                       updateExercise(idx, 'weight', e.target.value === '' ? null : Number(e.target.value))
@@ -678,7 +730,7 @@ export const AdminRoutines = () => {
                   <button
                     type="button"
                     onClick={() => removeCreateExerciseRow(idx)}
-                    className="rounded p-1.5 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 mb-0.5"
+                    className="rounded p-2 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 self-end shrink-0"
                     aria-label="Quitar ejercicio"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -839,35 +891,38 @@ export const AdminRoutines = () => {
                           {editExercises.map((ex, idx) => (
                             <div
                               key={'id' in ex ? ex.id : idx}
-                              className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-end"
+                              className="grid grid-cols-[1fr_72px_72px_80px_40px] gap-3 items-end rounded-lg border border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/60 p-3"
                             >
-                              <div className="min-w-0">
+                              <div className="min-w-0 space-y-1.5">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                                  Ejercicio
+                                </label>
                                 <ExerciseNameInput
                                   value={ex.name}
                                   onChange={(name) => updateEditExercise(idx, 'name', name)}
                                 />
                               </div>
                               <Input
-                                label="S"
+                                label="Series"
                                 type="number"
                                 min={1}
-                                className="w-14"
+                                className="w-full"
                                 value={ex.sets}
                                 onChange={(e) => updateEditExercise(idx, 'sets', Number(e.target.value))}
                               />
                               <Input
-                                label="R"
+                                label="Reps"
                                 type="number"
                                 min={1}
-                                className="w-14"
+                                className="w-full"
                                 value={ex.reps}
                                 onChange={(e) => updateEditExercise(idx, 'reps', Number(e.target.value))}
                               />
                               <Input
-                                label="Kg"
+                                label="Peso (kg)"
                                 type="number"
                                 min={0}
-                                className="w-16"
+                                className="w-full"
                                 value={ex.weight ?? ''}
                                 onChange={(e) =>
                                   updateEditExercise(
@@ -876,11 +931,12 @@ export const AdminRoutines = () => {
                                     e.target.value === '' ? null : Number(e.target.value),
                                   )
                                 }
+                                placeholder="—"
                               />
                               <button
                                 type="button"
                                 onClick={() => removeEditExercise(idx)}
-                                className="rounded p-1.5 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 mb-0.5"
+                                className="rounded p-2 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 self-end shrink-0"
                                 aria-label="Quitar"
                               >
                                 <Trash2 className="h-4 w-4" />

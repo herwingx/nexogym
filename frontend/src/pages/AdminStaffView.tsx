@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { User } from 'lucide-react'
-import { fetchStaffUsers, deleteUser, restoreUser, resetStaffPassword, fetchStaffLogin, createStaff, updateStaffPermissions, type StaffUserRow, type CreateStaffResponse, type StaffStatus } from '../lib/apiClient'
+import { fetchStaffUsers, deleteUser, restoreUser, fetchStaffLogin, createStaff, updateStaffPermissions, type StaffUserRow, type CreateStaffResponse, type StaffStatus } from '../lib/apiClient'
 import { useAuthStore } from '../store/useAuthStore'
 import { notifyError, notifySuccess } from '../lib/notifications'
 import { TableRowSkeleton, Skeleton } from '../components/ui/Skeleton'
@@ -59,7 +59,6 @@ export const AdminStaffView = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<StaffUserRow | null>(null)
-  const [resettingId, setResettingId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createPhone, setCreatePhone] = useState('')
@@ -106,25 +105,6 @@ export const AdminStaffView = () => {
   useEffect(() => {
     void load()
   }, [statusTab])
-
-  const handleResetPassword = async (u: StaffUserRow) => {
-    if (!u.auth_user_id) return
-    setResettingId(u.id)
-    try {
-      await resetStaffPassword(u.id)
-      notifySuccess({
-        title: 'Contraseña reseteada',
-        description: 'La nueva contraseña se envió a tu correo. Entrégasela al personal en persona.',
-      })
-    } catch (e) {
-      notifyError({
-        title: 'Error al resetear',
-        description: (e as Error)?.message ?? '',
-      })
-    } finally {
-      setResettingId(null)
-    }
-  }
 
   const handleCreateStaff = async (e: FormEvent) => {
     e.preventDefault()
@@ -401,27 +381,6 @@ export const AdminStaffView = () => {
                               Permisos
                             </Button>
                           )}
-                          {u.auth_user_id && (
-                            <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => void openCredentialsModal(u)}
-                              >
-                                Ver credenciales
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleResetPassword(u)}
-                                disabled={resettingId === u.id}
-                              >
-                                {resettingId === u.id ? '...' : 'Resetear contraseña'}
-                              </Button>
-                            </>
-                          )}
                           {isAdmin && u.role !== 'ADMIN' && u.role !== 'SUPERADMIN' && (
                             <Button
                               type="button"
@@ -474,75 +433,155 @@ export const AdminStaffView = () => {
           <Modal
             isOpen
             title="Permisos del personal"
-            description={`Activa o desactiva módulos para ${permissionsTarget.name ?? permissionsTarget.phone ?? 'este usuario'}. Para que pueda vender en mostrador, marca Recepción (incluye POS, socios y check-in). Para inventario y cortes en el panel admin, marca Inventario y cortes.`}
+            description={`Controla qué puede ver y hacer ${permissionsTarget.name ?? permissionsTarget.phone ?? 'este usuario'} en el sistema.`}
             onClose={() => !permissionsSaving && setPermissionsTarget(null)}
           >
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={permCanUseReception}
-                    onChange={(e) => setPermCanUseReception(e.target.checked)}
-                    className="rounded border-zinc-300 dark:border-zinc-600"
-                  />
-                  <span className="text-sm">
-                    <strong>Recepción</strong> — Check-in, POS (ventas), socios y alta. Incluye todo el flujo de venta en mostrador.
-                  </span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={permCanUsePos}
-                    onChange={(e) => setPermCanUsePos(e.target.checked)}
-                    className="rounded border-zinc-300 dark:border-zinc-600"
-                  />
-                  <span className="text-sm">
-                    <strong>Inventario y cortes</strong> — Gestión de inventario y cortes de caja en el panel admin.
-                  </span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={permCanUseRoutines}
-                    onChange={(e) => setPermCanUseRoutines(e.target.checked)}
-                    className="rounded border-zinc-300 dark:border-zinc-600"
-                  />
-                  <span className="text-sm">Puede gestionar clases y rutinas</span>
-                </label>
-                <div className="pt-2 mt-2 border-t border-zinc-200 dark:border-zinc-700 space-y-3">
-                  <p className="text-xs text-zinc-500 font-medium">Permisos adicionales (personal de confianza)</p>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permCanViewDashboard} onChange={(e) => setPermCanViewDashboard(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-600" />
-                    <span className="text-sm">Dashboard</span>
+            <div className="space-y-6">
+              {/* Permisos principales */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Módulos principales
+                </h3>
+                <div className="space-y-3">
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanUseReception}
+                      onChange={(e) => setPermCanUseReception(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Recepción</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        Check-in, socios, alta de socios y POS. Todo el flujo de mostrador.
+                      </p>
+                    </div>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permCanViewMembersAdmin} onChange={(e) => setPermCanViewMembersAdmin(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-600" />
-                    <span className="text-sm">Socios (panel admin, ver/editar)</span>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanUsePos}
+                      onChange={(e) => setPermCanUsePos(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Inventario y cortes</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        Gestión de productos, stock y cortes de caja en el panel admin.
+                      </p>
+                    </div>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permCanUseFinance} onChange={(e) => setPermCanUseFinance(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-600" />
-                    <span className="text-sm">Finanzas</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permCanManageStaff} onChange={(e) => setPermCanManageStaff(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-600" />
-                    <span className="text-sm">Personal (ver, crear, editar permisos; eliminar solo Admin)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permCanViewAudit} onChange={(e) => setPermCanViewAudit(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-600" />
-                    <span className="text-sm">Auditoría (solo lectura)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permCanUseGamification} onChange={(e) => setPermCanUseGamification(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-600" />
-                    <span className="text-sm">Gamificación</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permCanViewLeaderboard} onChange={(e) => setPermCanViewLeaderboard(e.target.checked)} className="rounded border-zinc-300 dark:border-zinc-600" />
-                    <span className="text-sm">Ver leaderboard (rachas)</span>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanUseRoutines}
+                      onChange={(e) => setPermCanUseRoutines(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Clases y rutinas</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        Crear y gestionar clases grupales y rutinas de entrenamiento.
+                      </p>
+                    </div>
                   </label>
                 </div>
               </div>
-              <div className="flex gap-2 justify-end pt-2">
+
+              {/* Permisos adicionales */}
+              <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Permisos adicionales
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanViewDashboard}
+                      onChange={(e) => setPermCanViewDashboard(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Dashboard</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Métricas, ocupación y resumen.</p>
+                    </div>
+                  </label>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanViewMembersAdmin}
+                      onChange={(e) => setPermCanViewMembersAdmin(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Socios (admin)</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Ver y editar socios en panel admin.</p>
+                    </div>
+                  </label>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanUseFinance}
+                      onChange={(e) => setPermCanUseFinance(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Finanzas</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Reportes, ingresos y comisiones.</p>
+                    </div>
+                  </label>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanManageStaff}
+                      onChange={(e) => setPermCanManageStaff(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Personal</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Ver, crear y editar permisos. Dar de baja solo Admin.</p>
+                    </div>
+                  </label>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanViewAudit}
+                      onChange={(e) => setPermCanViewAudit(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Auditoría</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Registro de acciones (solo lectura).</p>
+                    </div>
+                  </label>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanUseGamification}
+                      onChange={(e) => setPermCanUseGamification(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Gamificación</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Configurar premios por racha.</p>
+                    </div>
+                  </label>
+                  <label className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={permCanViewLeaderboard}
+                      onChange={(e) => setPermCanViewLeaderboard(e.target.checked)}
+                      className="mt-0.5 rounded border-zinc-300 dark:border-zinc-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Leaderboard</span>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">Ver ranking de rachas.</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2 border-t border-zinc-200 dark:border-zinc-700">
                 <Button
                   type="button"
                   variant="outline"

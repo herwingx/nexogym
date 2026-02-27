@@ -15,6 +15,7 @@ const MODULES_TRIGGER_SQL = /* sql */ `
 CREATE OR REPLACE FUNCTION public.enforce_gym_modules_config_by_tier()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = public
 AS $$
 BEGIN
   -- Solo recalcular modules_config cuando cambia el tier (o en INSERT).

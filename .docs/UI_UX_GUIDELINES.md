@@ -118,10 +118,12 @@ Las vistas se ocultan o muestran dinámicamente evaluando el store global `gym.m
 
 | Pantalla | Descripción | Ruta sugerida |
 |---|---|---|
-| **Dashboard / Check-in** | Flujo Hardware-First para registrar entrada de socios | `/reception` |
+| **Dashboard / Check-in** | Flujo Hardware-First para registrar entrada de socios. Aforo actual visible si el gym tiene Check-in QR (ocupación accesible para recepcionistas). | `/reception` |
 | **POS** | Catálogo de productos (grid táctil), carrito y botón "Confirmar Venta" | `/reception/pos` |
-| **Socios** | Búsqueda, listado y alta de socios | `/reception/members`, `/reception/members/new` |
-| **Leaderboard** | Ranking de rachas con búsqueda por nombre y paginación (como Socios). Solo visible si el staff tiene permiso `can_view_leaderboard` (Admin → Personal → Permisos). Queda dentro de Recepción (`/reception/leaderboard`), no redirige al panel admin. | `/reception/leaderboard` |
+| **Socios** | Búsqueda, listado y alta. Botón **Nuevo socio** en cabecera. Tabla y resultados: Renovar, Congelar, Descongelar, **Cancelar** (ACTIVE/FROZEN). | `/reception/members`, `/reception/members/new` |
+| **Clases** | Misma vista que en Admin. Solo visible si el staff tiene `can_use_routines` y el gym tiene módulo `classes`. | `/reception/classes` |
+| **Rutinas** | Misma vista que en Admin. Solo visible si el staff tiene `can_use_routines` y el gym tiene módulo `classes`. | `/reception/routines` |
+| **Leaderboard** | Ranking de rachas con búsqueda por nombre y paginación. Solo visible si el staff tiene permiso `can_view_leaderboard`. Queda dentro de Recepción, no redirige al panel admin. | `/reception/leaderboard` |
 
 ### Panel de Administración (Rol: ADMIN)
 
@@ -130,10 +132,11 @@ Las vistas se ocultan o muestran dinámicamente evaluando el store global `gym.m
 | **Dashboard principal** | Ventas del mes + ganancia neta; **semáforo de ocupación** solo si el gym tiene Check-in QR (`qr_access`). En plan Basic no se muestra ocupación. | `/admin` |
 | **Check-in** | Enlace en el sidebar que lleva a la vista de recepción (`/reception`) para hacer check-in (el admin tiene los mismos permisos que recepcionista en backend). | Sidebar → Check-in → `/reception` |
 | **Reporte financiero** | Selector de mes + desglose de ventas, egresos y ganancia neta | `/admin/finance` |
-| **Socios** | Búsqueda por nombre/teléfono (skeleton al buscar), listado paginado con foto junto al nombre. Clic en nombre o foto abre vista detalle compacta con: miembro desde, fecha nacimiento, total visitas, historial de visitas, racha, Editar, Enviar QR, Regenerar QR. Layout compartido `UserDetailLayout` (también usado en detalle del staff). Tabla y resultados: Renovar, Congelar, Descongelar, Cancelar (Admin). Editar solo dentro del modal. Misma UX en Admin y Recepción. | `/admin/members` |
+| **Socios** | Búsqueda por nombre/teléfono (skeleton al buscar), listado paginado con foto junto al nombre. Botón **Nuevo socio** en cabecera. Clic en nombre o foto abre vista detalle compacta con: miembro desde, fecha nacimiento, total visitas, historial de visitas, racha, Editar, Enviar QR, Regenerar QR. Layout compartido `UserDetailLayout` (también usado en detalle del staff). Tabla y resultados: Renovar, Congelar, Descongelar, **Cancelar** (Admin o staff con acceso a socios). Editar solo dentro del modal. Misma UX en Admin y Recepción. | `/admin/members` |
 | **Inventario** | Tabla de productos con stock actual + botones Restock y Merma | `/admin/inventory` |
-| **Auditoría** | Registro de acciones críticas (etiquetas en español): turno cerrado, personal dado de alta, suscripción renovada, etc. Filtrable por tipo. | `/admin/audit` |
-| **Cortes de caja** | Historial de turnos con estado Cuadrado / Sobrante / Faltante; por turno, Transacciones (ventas por folio con desglose por producto) | `/admin/shifts` |
+| **Auditoría** | Registro de acciones críticas (etiquetas en español): turno cerrado, personal dado de alta, suscripción renovada, **suscripción cancelada** (motivo y reembolso si aplica), etc. Filtrable por tipo. | `/admin/audit` |
+| **Cortes de caja** | Historial de turnos con estado Cuadrado / Sobrante / Faltante; por turno, Transacciones (ventas por folio con desglose por producto). Paginación visible y filtros por fecha y cajero. | `/admin/shifts` |
+| **Asistencia de personal** | Checadas de entrada del staff (solo Admin/SuperAdmin). Filtros por fecha y usuario para puntualidad. Tabla: fecha/hora, usuario, rol, método y tipo de acceso. | `/admin/attendance` |
 | **Clases** | Crear, editar y eliminar clases grupales. Día, hora, instructor, cupo, costo opcional. Socios ven clases en su portal y pueden reservar/cancelar. Ver **CLASES_GRUPALES.md**. | `/admin/classes` |
 | **Gamificación** | Configuración de premios por racha: hitos (días) y texto del premio. Solo visible si el plan tiene módulo gamificación. | `/admin/rewards` |
 | **Leaderboard** | Ranking de rachas (socios ordenados por racha actual). Búsqueda por nombre y paginación para manejar muchos socios con racha. También accesible desde Recepción (`/reception/leaderboard`) si el staff tiene permiso `can_view_leaderboard`. | `/admin/leaderboard` |

@@ -150,6 +150,25 @@ export const requireCanViewMembers = (req: Request, res: Response, next: NextFun
   });
 };
 
+/** Puede ver ocupación/aforo (dashboard O recepción). Usado en Check-in y Dashboard. */
+export const requireCanViewOccupancy = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    res.status(403).json({ error: 'Forbidden: Authentication required.' });
+    return;
+  }
+  if (req.userRole === Role.ADMIN || req.userRole === Role.SUPERADMIN || req.userRole === Role.RECEPTIONIST) {
+    next();
+    return;
+  }
+  if (req.effectiveStaffPermissions?.can_view_dashboard || req.effectiveStaffPermissions?.can_use_reception) {
+    next();
+    return;
+  }
+  res.status(403).json({
+    error: 'Forbidden: No tienes permiso para ver el aforo. El admin puede activar recepción o dashboard en Personal.',
+  });
+};
+
 /** Permiso efectivo: puede ver dashboard. */
 export const requireCanViewDashboard = (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {
